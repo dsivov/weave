@@ -156,7 +156,7 @@ class WeaveEngine:
     # ---
 
     workspace: str = field(default_factory=lambda: os.getenv("WEAVE_WORKSPACE", ""))
-    """Workspace for data isolation. Defaults to empty string if WORKSPACE environment variable is not set."""
+    """Workspace for data isolation. Defaults to empty string if WEAVE_WORKSPACE environment variable is not set."""
 
     # ---
     # TODO: Deprecated, use setup_logger in utils.py instead

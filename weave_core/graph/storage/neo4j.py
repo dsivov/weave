@@ -99,7 +99,7 @@ class Neo4JStorage(BaseGraphStorage):
         # Log after super().__init__() to ensure self.workspace is initialized
         if neo4j_workspace and neo4j_workspace.strip():
             logger.info(
-                f"Using NEO4J_WORKSPACE environment variable: '{neo4j_workspace}' (overriding '{original_workspace}/{namespace}')"
+                f"Using WEAVE_NEO4J_WORKSPACE environment variable: '{neo4j_workspace}' (overriding '{original_workspace}/{namespace}')"
             )
 
         self._driver = None

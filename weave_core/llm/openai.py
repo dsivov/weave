@@ -247,7 +247,7 @@ async def openai_complete_if_cache(
         use_azure: Whether to use Azure OpenAI service instead of standard OpenAI.
             When True, creates an AsyncAzureOpenAI client. Default is False.
         azure_deployment: Azure OpenAI deployment name. Only used when use_azure=True.
-            If not specified, falls back to AZURE_OPENAI_DEPLOYMENT environment variable.
+            If not specified, falls back to WEAVE_AZURE_OPENAI_DEPLOYMENT environment variable.
         api_version: Azure OpenAI API version (e.g., "2024-02-15-preview"). Only used
             when use_azure=True. If not specified, falls back to AZURE_OPENAI_API_VERSION
             environment variable.
@@ -739,7 +739,7 @@ async def openai_embed(
         base_url: Optional base URL for the API. For standard OpenAI, uses default OpenAI endpoint.
             For Azure, this should be the Azure OpenAI endpoint (e.g., https://your-resource.openai.azure.com/).
         api_key: Optional API key. For standard OpenAI, uses OPENAI_API_KEY environment variable if None.
-            For Azure, uses AZURE_EMBEDDING_API_KEY environment variable if None.
+            For Azure, uses WEAVE_AZURE_EMBEDDING_API_KEY environment variable if None.
         embedding_dim: Optional embedding dimension for dynamic dimension reduction.
             **IMPORTANT**: This parameter is automatically injected by the EmbeddingFunc wrapper.
             Do NOT manually pass this parameter when calling the function directly.
@@ -759,9 +759,9 @@ async def openai_embed(
         use_azure: Whether to use Azure OpenAI service instead of standard OpenAI.
             When True, creates an AsyncAzureOpenAI client. Default is False.
         azure_deployment: Azure OpenAI deployment name. Only used when use_azure=True.
-            If not specified, falls back to AZURE_EMBEDDING_DEPLOYMENT environment variable.
+            If not specified, falls back to WEAVE_AZURE_EMBEDDING_DEPLOYMENT environment variable.
         api_version: Azure OpenAI API version (e.g., "2024-02-15-preview"). Only used
-            when use_azure=True. If not specified, falls back to AZURE_EMBEDDING_API_VERSION
+            when use_azure=True. If not specified, falls back to WEAVE_AZURE_EMBEDDING_API_VERSION
             environment variable.
 
     Returns:

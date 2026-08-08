@@ -1899,7 +1899,7 @@ class PGKVStorage(BaseKVStorage):
             if self.db.workspace:
                 # Use PostgreSQLDB's workspace (highest priority)
                 logger.info(
-                    f"Using PG_WORKSPACE environment variable: '{self.db.workspace}' (overriding '{self.workspace}/{self.namespace}')"
+                    f"Using WEAVE_POSTGRES_WORKSPACE environment variable: '{self.db.workspace}' (overriding '{self.workspace}/{self.namespace}')"
                 )
                 self.workspace = self.db.workspace
             elif hasattr(self, "workspace") and self.workspace:
@@ -2833,7 +2833,7 @@ class PGVectorStorage(BaseVectorStorage):
             if self.db.workspace:
                 # Use PostgreSQLDB's workspace (highest priority)
                 logger.info(
-                    f"Using PG_WORKSPACE environment variable: '{self.db.workspace}' (overriding '{self.workspace}/{self.namespace}')"
+                    f"Using WEAVE_POSTGRES_WORKSPACE environment variable: '{self.db.workspace}' (overriding '{self.workspace}/{self.namespace}')"
                 )
                 self.workspace = self.db.workspace
             elif hasattr(self, "workspace") and self.workspace:
@@ -2845,7 +2845,7 @@ class PGVectorStorage(BaseVectorStorage):
 
             if not self.db.enable_vector:
                 raise ValueError(
-                    "Cannot use PGVectorStorage when POSTGRES_ENABLE_VECTOR=false. Configure an alternative vector backend."
+                    "Cannot use PGVectorStorage when WEAVE_POSTGRES_ENABLE_VECTOR=false. Configure an alternative vector backend."
                 )
 
             # Setup table (create if not exists and handle migration)
@@ -3254,7 +3254,7 @@ class PGDocStatusStorage(DocStatusStorage):
             if self.db.workspace:
                 # Use PostgreSQLDB's workspace (highest priority)
                 logger.info(
-                    f"Using PG_WORKSPACE environment variable: '{self.db.workspace}' (overriding '{self.workspace}/{self.namespace}')"
+                    f"Using WEAVE_POSTGRES_WORKSPACE environment variable: '{self.db.workspace}' (overriding '{self.workspace}/{self.namespace}')"
                 )
                 self.workspace = self.db.workspace
             elif hasattr(self, "workspace") and self.workspace:
@@ -3938,7 +3938,7 @@ class PGGraphStorage(BaseGraphStorage):
             if self.db.workspace:
                 # Use PostgreSQLDB's workspace (highest priority)
                 logger.info(
-                    f"Using PG_WORKSPACE environment variable: '{self.db.workspace}' (overriding '{self.workspace}/{self.namespace}')"
+                    f"Using WEAVE_POSTGRES_WORKSPACE environment variable: '{self.db.workspace}' (overriding '{self.workspace}/{self.namespace}')"
                 )
                 self.workspace = self.db.workspace
             elif hasattr(self, "workspace") and self.workspace:

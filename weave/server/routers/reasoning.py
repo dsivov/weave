@@ -1227,7 +1227,7 @@ def create_reasoning_routes(
         if not getattr(rag, "dedup_enabled", True):
             raise HTTPException(
                 status_code=403,
-                detail="Deduplication is disabled (DEDUP_ENABLED=false).",
+                detail="Deduplication is disabled (WEAVE_DEDUP_ENABLED=false).",
             )
 
     @router.post(

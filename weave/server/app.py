@@ -295,7 +295,7 @@ def check_frontend_build():
 async def _dedup_sweep_loop(workspace_pool, args) -> None:
     """Periodic background dedup sweep (Graph-Quality v-next).
 
-    Every ``DEDUP_SWEEP_INTERVAL`` seconds, drains each workspace's gray-zone review
+    Every ``WEAVE_DEDUP_SWEEP_INTERVAL`` seconds, drains each workspace's gray-zone review
     queue: reads the per-workspace dedup stores under ``working_dir/dedup``, and for
     any with pending pairs runs the LLM sweep (which applies confirmed merges,
     reversibly). Opt-in and fully logged.
@@ -558,10 +558,10 @@ def create_app(args):
 
                 if getattr(args, "token_secret", "") == "weave_core-jwt-default-secret":
                     logger.warning(
-                        "Using default JWT secret — set TOKEN_SECRET env var for production"
+                        "Using default JWT secret — set WEAVE_TOKEN_SECRET env var for production"
                     )
 
-                # Periodic entity-dedup sweep (opt-in via DEDUP_SWEEP_INTERVAL > 0).
+                # Periodic entity-dedup sweep (opt-in via WEAVE_DEDUP_SWEEP_INTERVAL > 0).
                 # Drains each workspace's gray-zone review queue with the LLM and
                 # applies confirmed merges. Off by default; every run is logged.
                 if (getattr(args, "use_quadruple", False)
@@ -877,10 +877,10 @@ def create_app(args):
         4. Returns a properly configured EmbeddingFunc instance
 
         Configuration Rules:
-        - When EMBEDDING_MODEL is not set: Uses provider's default model and dimension
+        - When WEAVE_EMBEDDING_MODEL is not set: Uses provider's default model and dimension
           (e.g., jina-embeddings-v4 with 2048 dims, text-embedding-3-small with 1536 dims)
-        - When EMBEDDING_MODEL is set to a custom model: User MUST also set EMBEDDING_DIM
-          to match the custom model's dimension (e.g., for jina-embeddings-v3, set EMBEDDING_DIM=1024)
+        - When WEAVE_EMBEDDING_MODEL is set to a custom model: User MUST also set WEAVE_EMBEDDING_DIM
+          to match the custom model's dimension (e.g., for jina-embeddings-v3, set WEAVE_EMBEDDING_DIM=1024)
 
         Note: The embedding_dim parameter is automatically injected by EmbeddingFunc wrapper
         when send_dimensions=True (enabled for Jina and Gemini bindings). This wrapper calls
@@ -1154,13 +1154,13 @@ def create_app(args):
 
     # Determine send_dimensions value based on binding type
     # Jina and Gemini REQUIRE dimension parameter (forced to True)
-    # OpenAI and others: controlled by EMBEDDING_SEND_DIM environment variable
+    # OpenAI and others: controlled by WEAVE_EMBEDDING_SEND_DIM environment variable
     if args.embedding_binding in ["jina", "gemini"]:
         # Jina and Gemini APIs require dimension parameter - always send it
         send_dimensions = has_embedding_dim_param
         dimension_control = f"forced by {args.embedding_binding.title()} API"
     else:
-        # For OpenAI and other bindings, respect EMBEDDING_SEND_DIM setting
+        # For OpenAI and other bindings, respect WEAVE_EMBEDDING_SEND_DIM setting
         send_dimensions = embedding_send_dim and has_embedding_dim_param
         if send_dimensions or not embedding_send_dim:
             dimension_control = "by env var"
@@ -1884,7 +1884,7 @@ def create_app(args):
         app.mount("", mcp_app)  # MCP endpoint at POST /mcp
         logger.info("MCP server mounted at /mcp (Streamable HTTP, stateless)")
     else:
-        logger.info("MCP server disabled (ENABLE_MCP=false)")
+        logger.info("MCP server disabled (WEAVE_ENABLE_MCP=false)")
 
     return app
 
