@@ -32,3 +32,4 @@ temp/
 *.swp
 .claude/settings.local.json
 weave/server/webui/
+.claude/worktrees/

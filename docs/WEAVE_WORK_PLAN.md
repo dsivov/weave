@@ -163,7 +163,7 @@ flowchart LR
 **Gate (M0):**
 1. The copied suite passes, and **every copied module's suite came with it**. Absent suites are only those whose modules were deliberately dropped, **named explicitly** — at `608401b8` that is the six `test_webingest_*` files (D-008). *(Corrected 2026-08-08: the original wording said "same test count", which a deliberate drop makes false — the gate would have had to be fudged to pass honestly.)*
 2. `scripts/nameguard.sh` returns **0** hits outside the marked exemption, filenames included.
-3. The parent tree's `git status` and working-tree checksum match the P0.1 baseline **byte for byte**.
+3. The **pinned commit** still resolves in the source and its tree hash matches the recorded value (`608401b8` → tree `30a44324`); the fork is extracted from `git archive` at that commit, so this is what was actually copied and git guarantees its integrity. *(Corrected 2026-08-08: the original wording compared the source's **working tree** to a baseline, which conflates "we never wrote to it" — what A2/D-003 require — with "nobody wrote to it", which is impossible: the source is a live repository with its own developer. As written the assertion would fail permanently for reasons unrelated to our compliance, and it did.)*
 4. The server boots and serves **the API** on the file-based path. The **UI build** (`bun`) is a separate assertion: met at M0 if `bun` is available, otherwise recorded as a named exception with a P1 task — never silently skipped, since A1 requires the server to serve the built UI and P6's clean-machine gate depends on it.
 5. `PROVENANCE.md` names the pinned sha and the module selection.
 6. A seeded name violation fails CI.

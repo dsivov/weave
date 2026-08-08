@@ -426,3 +426,5 @@ Status: `accepted` · `superseded by D-NN` · `reversed`.
   seven paths as an enumerated, reported list — it prints what it skipped on every run, so the
   carve-out is as visible as the lineage exemption (R3a). Adding an eighth is another amendment.
   The M0 gate's "0 hits" is now met on the scope A3 actually defines.
+
+- **Approval confirmed:** 2026-08-08, dsivov confirmed to the management session that the amendment stands as logged. Recorded because the change reached management second-hand; a peer reporting a human's approval is not itself approval, and a contract amendment cannot rest on one.
