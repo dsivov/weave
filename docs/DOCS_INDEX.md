@@ -60,6 +60,8 @@ multi-role support.
   added constraint A7.
 
 ## Plan & progress
+- [WEAVE_CODE_REVIEW.md](WEAVE_CODE_REVIEW.md) — **M0**, 2026-08-08. 0 Critical · 1 High · 3 Medium ·
+  1 Security; full contract walk with a verdict per constraint. Gate verified independently.
 - [WEAVE_WORK_PLAN.md](WEAVE_WORK_PLAN.md) — 7 phases P0–P6 → M0–M6, **139 checkbox tasks**, each
   milestone with an explicit test gate and each phase opening with a contract check naming the `A#`
   IDs it touches. **55 tasks name a source → destination path** with line counts, so the copy of the
