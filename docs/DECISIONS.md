@@ -428,3 +428,26 @@ Status: `accepted` · `superseded by D-NN` · `reversed`.
   The M0 gate's "0 hits" is now met on the scope A3 actually defines.
 
 - **Approval confirmed:** 2026-08-08, dsivov confirmed to the management session that the amendment stands as logged. Recorded because the change reached management second-hand; a peer reporting a human's approval is not itself approval, and a contract amendment cannot rest on one.
+
+## D-028 · `ProjectLayout` is workspace-scoped; the locator resolver never crosses a tenant
+- **Date:** 2026-08-08  ·  **Status:** accepted  ·  **Raised by:** dsivov ("how do we separate projects?")
+- **Context:** The tenant boundary is the **workspace**, carried unchanged from the source:
+  `weave/server/workspace_pool.py` gives each workspace its own engine instance with isolated Neo4j
+  labels, KV namespaces and vector collections, selected by the `WEAVE-WORKSPACE` header, and the
+  persistence port takes `workspace` as its first argument in every method. The source had workspaces
+  but no users, so isolation existed at the data layer with nothing above it; P1 adds
+  `WorkspaceMembership` (R14, A14) to enforce it per person.
+  `ProjectLayout` (P2, R22) was specified with **no workspace scoping** — `POST /projects`,
+  `GET /projects`, `GET /projects/resolve` took no workspace argument while every other store did.
+- **Options:** a global repository registry / workspace-scoped registrations
+- **Decision:** Workspace-scoped, persisted through the `RecordStore` port so the workspace argument is
+  required **by signature** rather than by convention. A locator naming a repository not registered in
+  the caller's workspace returns 404 — never content, and never an error that reveals the repository
+  exists elsewhere (R22a). A repository genuinely shared across workspaces is registered in each (R22b).
+- **Why:** `resolve()` returns **file content**. A global registry would let one tenant read another
+  tenant's source, and would place the resolver outside the membership scoping that A14 exists to
+  provide — so the graph would be scoped while the thing the graph points at was not.
+- **Consequences:** Caught before P2 wrote any code; the fix is a requirement, not an endpoint change
+  after the fact. M2 gains a gate assertion driven with two workspaces and one repo registered in only
+  one of them. The DRP also now states plainly that **workspace**, **`ProjectLayout`** and
+  `weave/team/project.py` are three different things that all say "project".

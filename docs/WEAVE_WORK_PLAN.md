@@ -202,14 +202,15 @@ returns 0 outside the migration path; no endpoint returns a password hash; the s
 
 ## P2 · Data model & the answer surface → **M2**
 
-- [ ] **Contract check (R11)** — touches **A5** (artifact nodes reference, never embed), **A6**, **A9** (one handler for REST and MCP).
+- [ ] **Contract check (R11)** — touches **A5** (artifact nodes reference, never embed), **A6**, **A9** (one handler for REST and MCP), **A14** (per-workspace membership — the locator resolver must not sit outside it).
 - [ ] `weave/team/preset/ontology.json` — add object types `Feature`, `Review`, `Insight`, `Question` and link types `implemented_by`, `specified_by`, `depicted_by`, `answered_by` (R19)
 - [ ] `weave/model/locator.py` `[new]` — `Locator{repo, path, rev, anchor}`; `sha` added to `Commit` (R21)
-- [ ] `weave/model/project_layout.py` `[new]` — `ProjectLayout` registry + `resolve()` → URL for a human, file content for an agent (R22); resolves against the recorded `rev`, never `HEAD` (R23)
+- [ ] `weave/model/project_layout.py` `[new]` — `ProjectLayout` registry + `resolve()` → URL for a human, file content for an agent (R22); resolves against the recorded `rev`, never `HEAD` (R23). **Workspace-scoped, stored through `weave_core/store/record.py`** so the workspace argument is required by signature, not by convention (R22a/R22b)
+- [ ] `tests/test_project_layout_tenancy.py` `[new]` — two workspaces, one repo registered in one of them: the other gets **404** from `/projects/resolve`, not content and not a distinguishable error (R22a)
 - [ ] `weave/model/answers.py` `[new]` — the four canonical traversals; **one service function each**
 - [ ] `weave/server/routers/ask.py` `[new]` — `/ask/{changes,why,features,learnings}` as thin adapters
 - [ ] `weave/server/mcp.py` — the four MCP tools call **the same functions** as the routers (A9, R26)
-- [ ] `weave/server/routers/projects.py` `[new]` — `POST/GET /projects`, `GET /projects/resolve`
+- [ ] `weave/server/routers/projects.py` `[new]` — `POST/GET /projects`, `GET /projects/resolve` — all three scoped to the caller's workspace
 - [ ] `weave/model/migrate_reviews.py` `[new]` — lift task `reviews` / `learnings` into `Review` / `Insight` nodes; idempotent. **Must cover entries written by `release()`** if that work is in the pinned sha (D-022)
 - [ ] `scripts/check_locators.py` `[new]` — report every artifact node whose locator does not resolve (R24)
 - [ ] `tests/test_answers.py` `[new]` — each of the four questions is one traversal returning nodes

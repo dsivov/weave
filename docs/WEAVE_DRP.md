@@ -144,7 +144,9 @@ of 14 node types; any `weave` command (`scripts/` is empty, all four console ent
 | R19 | `Feature`, `Review`, `Insight` and `Question` exist as object types with link types `implemented_by`, `specified_by`, `depicted_by`, `answered_by`. | must | D-011. Functionality has no node today; reviews and learnings are list fields on a task record and cannot be traversed or cited. |
 | R20 | Each of the four question classes — *what changed · why · what does it do · what did we learn* — is answerable by a single graph traversal returning nodes, not a text blob. | must | The team's primary source of truth has to answer in citable objects. |
 | R21 | Every artifact node carries `locator = {repo, path, rev, anchor?}`; `Commit` additionally carries `sha`. | must | D-012. Today only `Module.path`, `PullRequest.url` and `Environment.url` exist; `Commit` has only a subject line. |
-| R22 | A `ProjectLayout` registry maps a repo name to a clone URL, a server-side path and a default revision, and resolves a locator to both a URL (for a human) and file content (for an agent). | must | An index whose entries do not lead back to the document is trivia. |
+| R22 | A `ProjectLayout` registry maps a repo name to a clone URL, a server-side path and a default revision, and resolves a locator to both a URL (for a human) and file content (for an agent). **Registrations are workspace-scoped and persist through the `RecordStore` port**, so the workspace argument is required by signature rather than by convention. | must | An index whose entries do not lead back to the document is trivia — but a *global* registry would let one tenant resolve another's repository, and `resolve()` returns file content. |
+| R22a | A locator naming a repository **not registered in the caller's workspace** does not resolve: the endpoint returns 404, never another workspace's content, and never leaks whether that repo exists elsewhere. | must | Otherwise membership (R14) scopes what a user sees in the graph while the resolver sits outside that scoping — inverting the guarantee A14 exists to give. |
+| R22b | A repository genuinely shared by several workspaces is **registered in each**. There is no cross-workspace registration. | should | Duplicating a four-field record is cheaper than a hole in the tenant boundary, and it keeps the store's workspace-first signature honest. |
 | R23 | A locator resolves against its recorded `rev`, not a moving `HEAD`. | must | Otherwise every reorganisation silently invalidates history. |
 | R24 | A resolver check reports every artifact node whose locator does not resolve; it gates M2 at zero and runs periodically thereafter. | must | Rot must be detectable, not discovered by a frustrated reader. |
 | R25 | Existing task `reviews` and `learnings` are migrated into `Review` and `Insight` nodes once, idempotently, asserted by count and content; the source fields are removed only after M2 is signed off. | must | No silent data loss, and no permanent dual write. |
@@ -297,6 +299,7 @@ Accepted when **all** hold. These become the milestone test gates in the work pl
 - [ ] The same question asked via MCP and via the UI returns the same node set.
 - [ ] The migration moves 100% of existing task `reviews`/`learnings` into nodes — asserted by count and content — and is idempotent on a second run.
 - [ ] `reviewed_in` terminates on a `Review` node; no declared link type points at nothing.
+- [ ] **Tenant boundary:** a locator naming a repository registered in *another* workspace returns **404** from `/projects/resolve` — not content, and not a different error that reveals the repo exists. Asserted with two workspaces and one repo registered in only one of them.
 - [ ] `Commit` nodes carry a `sha` that resolves in the registered project layout.
 
 **M3 · Live multi-user surface**
@@ -426,6 +429,18 @@ classDiagram
   User --> WorkspaceMembership : granted
 ```
 
+> **Three things in this design say "project" — they are not the same thing.**
+>
+> - **workspace** — the *tenant* boundary. One per project or client; isolated graph, KV namespace and
+>   vector collection; selected by the `WEAVE-WORKSPACE` header and required as the first argument of
+>   every store call. This is what separates customers.
+> - **`ProjectLayout`** — a registered *code repository* (name → clone URL, local path, default rev) used
+>   to resolve a locator back to a real file. It lives **inside** a workspace (R22); it is not a tenant.
+> - **`weave/team/project.py`** — carried from the source; the team's unit of planned work.
+>
+> A workspace may register many repositories. A repository shared across workspaces is registered in each
+> (R22b). Nothing crosses a workspace boundary.
+
 **Interfaces / endpoints** — all under `/api`, all requiring an authenticated principal.
 
 | Method · path | Purpose | Returns |
@@ -435,8 +450,8 @@ classDiagram
 | `GET/PATCH/DELETE /users/{id}` | read · edit · disable | user record |
 | `POST /users/{id}/password` | set or reset | 204 |
 | `GET/PUT /users/{id}/workspaces` | read · replace membership grants | membership list |
-| `POST /projects` · `GET /projects` | register · list a `ProjectLayout` | layout records |
-| `GET /projects/resolve?repo=&path=&rev=` | resolve a locator | `{url, exists, content?}` |
+| `POST /projects` · `GET /projects` | register · list a `ProjectLayout` **in the caller's workspace** | layout records for that workspace only |
+| `GET /projects/resolve?repo=&path=&rev=` | resolve a locator **within the caller's workspace**; unregistered repo → 404 | `{url, exists, content?}` |
 | `GET /ask/changes?feature=` | what changed | ChangeRequest → Task → Commit → PullRequest → IntegrationRun |
 | `GET /ask/why?node=` | why | ADR + decision context + `justified_by` chain |
 | `GET /ask/features` | what it does | Feature → Module · PRD/RFC · Diagram |
