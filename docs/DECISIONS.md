@@ -391,3 +391,38 @@ Status: `accepted` · `superseded by D-NN` · `reversed`.
 - **Consequences:** Off the machine that holds the source, `parent_checksum.sh` cannot run; it says
   so and exits rather than passing vacuously. CI therefore does not run it — the assertion is made
   where the source lives, and its result is recorded at each milestone review.
+
+---
+
+## D-027 · A3 is scoped to product documents; the seven pipeline artifacts are named out
+- **Date:** 2026-08-08  ·  **Status:** accepted  ·  **Approved by:** dsivov  ·  **Contract:** v2 → **v3**
+- **Context:** With the P0 rebrand complete, `scripts/nameguard.sh` reported **0** occurrences in
+  code, configuration, filenames, environment variables, UI strings and the built UI bundle — and
+  **136** across seven documents: `CONSTRAINTS.md`, `DECISIONS.md`, `DOCS_INDEX.md`, `START.md`,
+  `WEAVE_DRP.md`, `WEAVE_RFC.html`, `WEAVE_WORK_PLAN.md`. A3 as written banned the tokens "in any
+  … document", which made it **self-falsifying**: A3's own text quotes them to state the rule,
+  D-004 and R2 restate it, and the work plan's 55 source → destination rows are built from them.
+- **Options:** (a) scope A3 to shipped artifacts + *product* documentation, enumerating the seven
+  pipeline artifacts as out of scope · (b) extend the `<!-- nameguard:allow lineage -->` marker to
+  those seven · (c) rewrite all seven to name the source generically
+- **Decision:** **(a).** A3 now covers filenames, module paths, environment variables, headers,
+  storage identifiers, log strings, UI strings and **product documents**, and the seven pipeline
+  artifacts are named out of scope. A3 is simultaneously **widened**: it now reaches *generated*
+  public contracts, not only written files.
+- **Why:** The rule A3 exists to enforce is *"nobody learns the old vocabulary from Weave"*, and the
+  people that protects are the ones reading product documentation and code. The seven excluded
+  artifacts are read by exactly the people who already know the history — they *are* the history.
+  Option (c) was rejected because the work plan's mapping rows are the fork's traceability: made
+  generic, "what did we actually copy" stops having an answer, which is the failure D-022 was
+  written to prevent. Option (b) was rejected because D-014 capped the exemption count at one on
+  purpose, and marker-based escape hatches spread; an enumerated list of seven files cannot widen
+  by argument, only by another amendment.
+- **The widening matters more than the carve-out.** Two FastAPI routes derived an `operationId`
+  whose join produced the source product's name by accident — a banned token in a public contract,
+  present in **no source file**, which the static guard structurally could not see. Every generated
+  client takes its method name from that string. A3 now says so, and
+  `tests/test_public_contract_names.py` checks the generated OpenAPI document itself.
+- **Consequences:** Contract bumped to **v3** with an amendment row. `nameguard.sh` carries the
+  seven paths as an enumerated, reported list — it prints what it skipped on every run, so the
+  carve-out is as visible as the lineage exemption (R3a). Adding an eighth is another amendment.
+  The M0 gate's "0 hits" is now met on the scope A3 actually defines.

@@ -54,6 +54,33 @@ list_files() {
     | grep -vE '\.(png|jpg|jpeg|gif|ico|woff2?|ttf|eot|pdf|zip|gz)$'
 }
 
+# ── out of scope (A3, contract v3 / D-027) ───────────────────────────────────
+# The seven pipeline artifacts that STATE this rule and TRACE the fork. A3 bans
+# the tokens in product documentation; these are not product documentation, and
+# they cannot say what is banned without naming it — A3's own text quotes both
+# tokens, and the work plan's source→destination rows are made of them.
+#
+# ENUMERATED, never a pattern. "docs/*.md" would quietly swallow every guide
+# written from here on, which is precisely the documentation A3 exists to
+# protect. An eighth file is a contract amendment, not a commit.
+PIPELINE_ARTIFACTS=(
+  "docs/CONSTRAINTS.md"
+  "docs/DECISIONS.md"
+  "docs/WEAVE_RFC.html"
+  "docs/WEAVE_DRP.md"
+  "docs/WEAVE_WORK_PLAN.md"
+  "docs/DOCS_INDEX.md"
+  "docs/START.md"
+)
+
+is_pipeline_artifact() {
+  local f="$1" a
+  for a in "${PIPELINE_ARTIFACTS[@]}"; do
+    [[ "$f" == "$a" ]] && return 0
+  done
+  return 1
+}
+
 # ── exemptions ───────────────────────────────────────────────────────────────
 is_exempt() {
   local f="$1"
@@ -63,12 +90,18 @@ is_exempt() {
   return 1
 }
 
+skipped=()
 honoured=()
 violations=0
 files_with_hits=0
 
 while IFS= read -r f; do
   [[ -f "$f" ]] || continue
+
+  if is_pipeline_artifact "$f"; then
+    skipped+=("$f")
+    continue
+  fi
 
   if is_exempt "$f"; then
     honoured+=("$f")
@@ -94,12 +127,20 @@ while IFS= read -r f; do
 done < <(list_files)
 
 # ── report ───────────────────────────────────────────────────────────────────
+# Everything skipped is announced, every run. An exemption nobody sees is an
+# exemption that spreads (R3a) — and the same goes for a scope carve-out.
 echo
+if [[ ${#skipped[@]} -gt 0 ]]; then
+  echo "nameguard: ${#skipped[@]} pipeline artifact(s) out of scope (A3 v3, D-027) —"
+  echo "           these state the rule and trace the fork; they are not product docs:"
+  for f in "${skipped[@]}"; do echo "  · $f"; done
+fi
+
 if [[ ${#honoured[@]} -gt 0 ]]; then
-  echo "nameguard: honoured ${#honoured[@]} lineage exemption(s) — the only kind there is:"
+  echo "nameguard: honoured ${#honoured[@]} lineage exemption(s) — the only content exemption there is:"
   for f in "${honoured[@]}"; do echo "  · $f"; done
 else
-  echo "nameguard: no exemptions honoured."
+  echo "nameguard: no lineage exemptions honoured."
 fi
 
 if [[ "${1:-}" == "--list" ]]; then

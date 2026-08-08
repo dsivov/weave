@@ -85,6 +85,53 @@ def test_the_lineage_exemption_is_honoured_and_reported(tmp_path):
 
 
 @pytest.mark.offline
+def test_the_pipeline_carve_out_is_exactly_seven_named_files():
+    """A3 v3 (D-027) puts seven artifacts out of scope, by name.
+
+    They are enumerated rather than matched by pattern on purpose: `docs/*.md`
+    would quietly swallow every guide written from here on, which is precisely
+    the product documentation A3 exists to protect. An eighth is an amendment.
+    """
+    guard = GUARD.read_text(encoding="utf-8")
+    block = guard.split("PIPELINE_ARTIFACTS=(")[1].split(")")[0]
+    listed = sorted(line.strip().strip('"') for line in block.splitlines() if line.strip())
+    assert listed == sorted([
+        "docs/CONSTRAINTS.md",
+        "docs/DECISIONS.md",
+        "docs/DOCS_INDEX.md",
+        "docs/START.md",
+        "docs/WEAVE_DRP.md",
+        "docs/WEAVE_RFC.html",
+        "docs/WEAVE_WORK_PLAN.md",
+    ]), f"the A3 carve-out changed without an amendment: {listed}"
+    assert "docs/*" not in block and "*.md" not in block, (
+        "the carve-out has become a pattern; it must stay an enumerated list"
+    )
+
+
+@pytest.mark.offline
+def test_the_carve_out_is_announced_on_every_run():
+    """Same rule as the lineage exemption: what is skipped is reported (R3a)."""
+    out = _run().stdout
+    assert "out of scope" in out
+    assert "docs/CONSTRAINTS.md" in out
+
+
+@pytest.mark.offline
+def test_a_new_product_document_is_still_scanned():
+    """The carve-out covers seven named files, not the docs directory."""
+    seeded = REPO / "docs" / "GUIDE_probe.md"
+    seeded.write_text(f"Install the {TOKEN_A} server.\n", encoding="utf-8")
+    try:
+        assert _run().returncode != 0, (
+            "a new document in docs/ was not scanned — the carve-out has widened "
+            "from seven files to a directory"
+        )
+    finally:
+        seeded.unlink(missing_ok=True)
+
+
+@pytest.mark.offline
 def test_the_exemption_does_not_extend_beyond_the_blog():
     """The marker is not a general-purpose escape hatch: it is honoured for
     ``docs/BLOG_*.html`` and nowhere else. Widening it is a contract amendment."""
