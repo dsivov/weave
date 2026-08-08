@@ -1,0 +1,92 @@
+# Weave — Python environment (A11: Python 3.12 + conda; D-006)
+#
+# One manifest, one manager. Versions are pinned to the ranges the copied code was
+# written against (DRP §7); anything not listed here is not a dependency, and adding
+# one requires a D-NN in docs/DECISIONS.md.
+#
+#   conda env create -f environment.yml
+#   conda activate weave
+#   pip install -e .            # installs the `weave` console entry point
+#
+# THIRTEEN LIBRARIES ARE DELIBERATELY ABSENT and their absence is tested
+# (tests/test_no_sdk.py, tests/test_dependency_set.py):
+#   anthropic          — A13: no Anthropic SDK anywhere near a Claude Code seat
+#   python-jose        — dead duplicate of PyJWT; two JWT libraries for one job (R10)
+#   lxml, playwright   — left with the dropped web-ingestion pipeline (D-008)
+#   redis, pymongo, pymilvus, qdrant-client — dropped storage backends (D-007, A4)
+#   docling, llama-index, llama-index-llms-openai, zhipuai, aioboto3, voyageai
+#                      — left with the unwired connector modules
+name: weave
+
+channels:
+  - conda-forge
+
+dependencies:
+  - python=3.12
+  - pip
+
+  # Native / binary-heavy — resolved by conda rather than pip
+  - numpy>=1.24,<3
+  - pandas>=2.0,<2.4
+  - networkx
+  - psutil
+  - pip:
+      # ---- HTTP surface (weave/server only — A2 keeps it out of weave_core) ----
+      - fastapi
+      - uvicorn
+      - gunicorn
+      - python-multipart
+      - aiofiles
+      - httpx>=0.28.1
+      - httpcore
+      - aiohttp
+
+      # ---- schemas, auth, config ----
+      - pydantic
+      - PyJWT>=2.8.0,<3.0.0
+      - bcrypt>=4.0.0
+      - python-dotenv
+      - configparser
+      - pytz
+
+      # ---- the agent + human seat tool surface (A10) ----
+      - mcp>=1.26.0,<2.0
+
+      # ---- graph engine + retrieval ----
+      - nano-vectordb
+      - tiktoken
+      - tenacity
+      - json_repair
+      - pypinyin
+      - xlsxwriter>=3.1.0
+      - ascii_colors
+      - distro
+      - jiter
+      - pipmaster
+      - setuptools
+
+      # ---- the three storage paths, and only those (A4) ----
+      - asyncpg>=0.31.0,<1.0.0
+      - pgvector>=0.4.2,<1.0.0
+      - neo4j>=5.0.0,<7.0.0
+
+      # ---- server-side model connectors: the only place a credential exists (A13) ----
+      - openai>=2.0.0,<3.0.0
+      - google-genai>=1.0.0,<2.0.0
+      - google-api-core>=2.0.0,<3.0.0
+
+      # ---- the rules engine's fuzzy field matching ----
+      - model2vec>=0.3.0
+      - business_rule_engine>=1.0.0
+
+      # ---- document extraction for curated backfill ----
+      - pypdf>=6.1.0
+      - python-docx>=0.8.11,<2.0.0
+      - python-pptx>=0.6.21,<2.0.0
+      - openpyxl>=3.0.0,<4.0.0
+      - pycryptodome>=3.0.0,<4.0.0
+
+      # ---- test runner: one per language (A11) ----
+      - pytest>=8.4.2
+      - pytest-asyncio>=1.2.0
+      - ruff

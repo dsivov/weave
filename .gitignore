@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+build/
+dist/
+
+# Environments
+.venv/
+venv/
+.env
+.env.*
+!.env.example
+
+# Node / bun
+node_modules/
+weave-ui/dist/
+bun.lockb
+
+# Runtime state
+weave_storage/
+*.log
+temp/
+
+# Editors / OS
+.DS_Store
+*.swp
+.claude/settings.local.json
+weave/server/webui/

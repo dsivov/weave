@@ -1,0 +1,40 @@
+/* Vendored from mermaid-visual-editor's app/globals.css (MIT — see LICENSE).
+ *
+ * Two changes were required to host it inside CG:
+ *
+ *  - Upstream is a standalone app, so it re-imported Tailwind and styled `body`
+ *    directly. Both are dropped: CG owns the document, and a `body` background
+ *    here would repaint every other tab.
+ *  - The neumorphic palette was a fixed light grey. It is now derived from CG's
+ *    theme tokens and scoped to `.cg-diagram-editor`, so the canvas follows the
+ *    app into dark mode instead of staying a bright slab. The shadow geometry
+ *    is upstream's, unchanged — only the colours are rebound.
+ */
+
+.cg-diagram-editor {
+  --neu-bg: var(--surface2);
+  --neu-light: rgba(255, 255, 255, 0.8);
+  --neu-dark: rgba(163, 177, 198, 0.6);
+
+  --neu-shadow-raised: 6px 6px 14px var(--neu-dark), -6px -6px 14px var(--neu-light);
+  --neu-shadow-inset: inset 4px 4px 10px var(--neu-dark), inset -4px -4px 10px var(--neu-light);
+  --neu-shadow-concave: inset 6px 6px 12px var(--neu-dark), inset -6px -6px 12px var(--neu-light);
+  --neu-shadow-soft: 4px 4px 10px var(--neu-dark), -4px -4px 10px var(--neu-light);
+
+  height: 100%;
+  width: 100%;
+  color: var(--text);
+  font-family: var(--sans);
+}
+
+/* In dark mode the "light" side of a neumorphic bevel must not be white, or
+ * every control glows. Both sides go dark; the highlight is a faint lift. */
+.dark .cg-diagram-editor {
+  --neu-light: rgba(255, 255, 255, 0.04);
+  --neu-dark: rgba(0, 0, 0, 0.55);
+}
+
+.cg-diagram-editor .neu-raised { box-shadow: var(--neu-shadow-raised); }
+.cg-diagram-editor .neu-inset { box-shadow: var(--neu-shadow-inset); }
+.cg-diagram-editor .neu-concave { box-shadow: var(--neu-shadow-concave); }
+.cg-diagram-editor .neu-soft { box-shadow: var(--neu-shadow-soft); }

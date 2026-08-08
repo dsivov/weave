@@ -1,0 +1,28 @@
+{
+  "_comment": "Weave preset - methodology gate. Advisory (FLAG/NOTIFY): hard invariants live in lifecycle, access in RBAC. These are the soft nudges Weave's process depends on: confirm reuse before a new module, require rationale on an ADR, and route risky task types to human approval (the opt-in per-task gate). Concepts are verb/noun-focused so they don't collide under static embeddings.",
+  "enabled": true,
+  "concepts": {
+    "MODULE_CREATION": [
+      "propose a new module",
+      "create a new component",
+      "add a new package",
+      "build a new service",
+      "introduce a new subsystem"
+    ],
+    "ARCHITECTURE": [
+      "architecture decision",
+      "design decision",
+      "system design",
+      "technology choice",
+      "adopt a framework"
+    ],
+    "RISKY_CHANGE": [
+      "database schema migration",
+      "infrastructure change",
+      "security or authentication change",
+      "breaking API change",
+      "production configuration"
+    ]
+  },
+  "dsl": "rule \"new module - confirm reuse\" priority 20\nwhen\n    sim(relation_type, \"MODULE_CREATION\") > 0.4\nthen\n    flag(\"New module proposed - query Weave first to confirm no existing module already covers it (check owns / depends_on), then proceed.\")\nend\n\nrule \"risky change needs human sign-off\" priority 18\nwhen\n    sim(decision_trace, \"RISKY_CHANGE\") > 0.42\nthen\n    flag(\"Risky change (schema / infra / security / breaking) - route to a human for approval before merge.\")\nend\n\nrule \"architecture decision needs rationale\" priority 15\nwhen\n    sim(relation_type, \"ARCHITECTURE\") > 0.4\n    and evidence_count < 1\nthen\n    notify(\"Architecture decision recorded without supporting evidence - add the rationale (the WHY, and any rejected option).\")\nend\n\nrule \"low-confidence capture needs confirmation\" priority 10\nwhen\n    confidence < 0.5\nthen\n    flag(\"Low-confidence auto-captured decision - a role should confirm it.\")\nend"
+}

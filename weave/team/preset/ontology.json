@@ -1,0 +1,158 @@
+{
+  "_comment": "Weave preset - ontology. The governed vocabulary for a distributed AI dev team (Manager, Architect, Developer, Integrator). Extends the base methodology objects with the planning + code artifacts Weave produces (PRD, RFC, Diagram, PullRequest). Open-world: an unseen keyword is a warning, not an error.",
+  "name": "weave",
+  "version": 1,
+  "object_types": [
+    {
+      "name": "Role",
+      "description": "A team role / principal: manager, architect, developer, integrator. Preset data, not core code.",
+      "properties": [
+        {"name": "description", "kind": "text"},
+        {"name": "active", "kind": "boolean"}
+      ]
+    },
+    {
+      "name": "ChangeRequest",
+      "description": "A unit of requested change (CR-NNN). Opened by the Manager, designed by the Architect, delivered through Tasks.",
+      "properties": [
+        {"name": "title", "kind": "string", "required": true},
+        {"name": "status", "kind": "string"},
+        {"name": "priority", "kind": "string"},
+        {"name": "scope", "kind": "string"},
+        {"name": "project", "kind": "string"}
+      ]
+    },
+    {
+      "name": "Task",
+      "description": "A technical task (TASK-NNN) that delivers part of a Change Request. Claimed by one Developer; moves through the coordination state machine.",
+      "properties": [
+        {"name": "title", "kind": "string", "required": true},
+        {"name": "status", "kind": "string"},
+        {"name": "priority", "kind": "string"},
+        {"name": "assignee", "kind": "string"},
+        {"name": "risk", "kind": "string"}
+      ]
+    },
+    {
+      "name": "ArchitectureDecisionRecord",
+      "description": "An architecture/design decision (ADR) - the WHY behind a choice, including rejected options. Owned by the Architect.",
+      "properties": [
+        {"name": "title", "kind": "string", "required": true},
+        {"name": "rationale", "kind": "text"},
+        {"name": "status", "kind": "string"}
+      ]
+    },
+    {
+      "name": "Module",
+      "description": "A source module / component of a project (a directory or package in the repo).",
+      "properties": [
+        {"name": "path", "kind": "string"},
+        {"name": "maturity", "kind": "string"}
+      ]
+    },
+    {
+      "name": "Commit",
+      "description": "A git commit recorded against the project, linked to the modules it touched.",
+      "properties": [
+        {"name": "subject", "kind": "text"}
+      ]
+    },
+    {
+      "name": "PRD",
+      "description": "A Product Requirements Document authored by the Manager - the WHAT and WHY of a feature or change.",
+      "properties": [
+        {"name": "title", "kind": "string", "required": true},
+        {"name": "status", "kind": "string"},
+        {"name": "summary", "kind": "text"}
+      ]
+    },
+    {
+      "name": "RFC",
+      "description": "An architecture / technical design document authored by the Architect - the HOW.",
+      "properties": [
+        {"name": "title", "kind": "string", "required": true},
+        {"name": "status", "kind": "string"},
+        {"name": "summary", "kind": "text"}
+      ]
+    },
+    {
+      "name": "Diagram",
+      "description": "A mermaid diagram artifact for the project - authored visually or from text, versioned in the Studio ledger.",
+      "properties": [
+        {"name": "title", "kind": "string", "required": true},
+        {"name": "kind", "kind": "string"}
+      ]
+    },
+    {
+      "name": "PullRequest",
+      "description": "A pull request opened by a Developer for a completed Task - the code-in hand-back, reviewed before merge.",
+      "properties": [
+        {"name": "title", "kind": "string", "required": true},
+        {"name": "status", "kind": "string"},
+        {"name": "url", "kind": "string"},
+        {"name": "branch", "kind": "string"}
+      ]
+    },
+    {
+      "name": "Worker",
+      "description": "A registered dev worker in the live fleet - a headless Claude Code container loop or an interactive developer. Carries presence (heartbeat) and a control-state (run/pause/stop).",
+      "properties": [
+        {"name": "role", "kind": "string"},
+        {"name": "host", "kind": "string"},
+        {"name": "status", "kind": "string"},
+        {"name": "control", "kind": "string"},
+        {"name": "goal", "kind": "text"}
+      ]
+    },
+    {
+      "name": "DevHost",
+      "description": "A machine that carries autonomous developer containers. Registers itself and heartbeats outbound only - Weave never dials it - and reads back its control-state and the number of developers the team wants running there. Holds one shared Claude subscription seat, provisioned by an interactive login on the box.",
+      "properties": [
+        {"name": "machine", "kind": "string"},
+        {"name": "status", "kind": "string"},
+        {"name": "control", "kind": "string"},
+        {"name": "seat", "kind": "string"},
+        {"name": "desired_workers", "kind": "integer"}
+      ]
+    },
+    {
+      "name": "Environment",
+      "description": "The one long-lived shared integration environment where the assembled system runs. Owned by the Integrator; holds the declared config (ports, services, DB) and the live URL humans click.",
+      "properties": [
+        {"name": "name", "kind": "string", "required": true},
+        {"name": "url", "kind": "string"},
+        {"name": "status", "kind": "string"},
+        {"name": "config", "kind": "text"}
+      ]
+    },
+    {
+      "name": "IntegrationRun",
+      "description": "A run of integration / e2e tests against the shared environment - the MERGE gate (distinct from a dev container's unit tests, which gate the PR). Green promotes a task to done; red blocks it.",
+      "properties": [
+        {"name": "kind", "kind": "string"},
+        {"name": "status", "kind": "string"},
+        {"name": "summary", "kind": "text"}
+      ]
+    }
+  ],
+  "link_types": [
+    {"name": "assigned_to", "source_types": ["Task"], "target_types": ["Role"], "cardinality": "N:1", "description": "A task is assigned to a role."},
+    {"name": "implements", "source_types": ["Task"], "target_types": ["ChangeRequest"], "cardinality": "N:1", "description": "A task implements part of a change request."},
+    {"name": "justified_by", "source_types": ["ChangeRequest", "Task"], "target_types": ["ArchitectureDecisionRecord"], "cardinality": "N:1", "description": "A change request / task is justified by an architecture decision."},
+    {"name": "owns", "source_types": ["Role"], "target_types": ["Module"], "cardinality": "1:N", "description": "A role owns / maintains a module."},
+    {"name": "depends_on", "source_types": ["Module"], "target_types": ["Module"], "cardinality": "N:M", "description": "A module depends on another module."},
+    {"name": "touches", "source_types": ["Commit", "Task"], "target_types": ["Module"], "cardinality": "N:M", "description": "A commit or task touches one or more modules (used to serialise conflicting claims)."},
+    {"name": "decided", "source_types": ["Role"], "target_types": ["ArchitectureDecisionRecord"], "cardinality": "1:N", "description": "A role recorded a decision."},
+    {"name": "specifies", "source_types": ["PRD"], "target_types": ["ChangeRequest"], "cardinality": "N:1", "description": "A PRD specifies a change request."},
+    {"name": "designs", "source_types": ["RFC"], "target_types": ["ChangeRequest"], "cardinality": "N:1", "description": "An RFC designs a change request."},
+    {"name": "depicts", "source_types": ["Diagram"], "target_types": ["ChangeRequest", "Module"], "cardinality": "N:M", "description": "A diagram depicts a change request or module."},
+    {"name": "submitted_as", "source_types": ["Task"], "target_types": ["PullRequest"], "cardinality": "N:1", "description": "A task is submitted as a pull request."},
+    {"name": "reviewed_in", "source_types": ["PullRequest"], "target_types": ["ArchitectureDecisionRecord"], "cardinality": "N:1", "description": "A pull request is reviewed, its outcome recorded as a decision."},
+    {"name": "implemented_by", "source_types": ["Task"], "target_types": ["Commit"], "cardinality": "1:N", "description": "A task is implemented by one or more commits."},
+    {"name": "registers", "source_types": ["Role"], "target_types": ["Worker"], "cardinality": "1:N", "description": "A role identity registers a worker into the fleet."},
+    {"name": "registers_host", "source_types": ["Role"], "target_types": ["DevHost"], "cardinality": "1:N", "description": "A role identity registers a machine into the dev-host fleet."},
+    {"name": "supervises", "source_types": ["DevHost"], "target_types": ["Worker"], "cardinality": "1:N", "description": "A dev host supervises the developer containers running on it."},
+    {"name": "deployed_to", "source_types": ["Task"], "target_types": ["Environment"], "cardinality": "N:1", "description": "A task's work is deployed to the shared environment."},
+    {"name": "verifies", "source_types": ["IntegrationRun"], "target_types": ["Task", "Environment"], "cardinality": "N:M", "description": "An integration run verifies a task in an environment (the merge gate)."}
+  ]
+}

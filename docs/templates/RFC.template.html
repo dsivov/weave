@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- TEMPLATE: RFC — the proposal & phased build plan. Stage 2. Slide-style sections.
+     An RFC answers: what we ASSEMBLE (reuse), BUILD (new), AVOID (out of scope);
+     the DECISIONS it rests on; the phased ROADMAP with test gates; and the RISKS.
+     Cite the BLOG that motivated it. Every section carries a colorful SVG diagram. -->
+<title>{{NAME}} — RFC &amp; build plan</title>
+<link rel="stylesheet" href="../assets/house.css">
+</head>
+<body>
+
+<header class="hero">
+  <div class="hero-inner">
+    <div class="eyebrow">{{PROJECT}} · RFC · {{DATE}} · status: {{draft|review|accepted}}</div>
+    <h1>{{NAME}} — RFC &amp; build plan</h1>
+    <p class="lede">{{One-paragraph summary of the proposal.}}</p>
+    <div class="byline">Motivated by <a href="BLOG_{{TOPIC}}.html">BLOG_{{TOPIC}}.html</a> · authors: {{AUTHORS}} · reviewers: {{REVIEWERS}}</div>
+  </div>
+</header>
+
+<!-- SUMMARY -->
+<section class="slide" id="summary">
+  <div class="kicker k-a">Summary</div>
+  <h2>{{THE_PROPOSAL_IN_ONE_LINE}}</h2>
+  <div class="grid g3" style="margin-top:16px">
+    <div class="card rail ra"><h3 style="margin-top:0">What we assemble</h3>
+      <p class="small">{{Existing pieces we reuse — don't rebuild these.}}</p></div>
+    <div class="card rail rb"><h3 style="margin-top:0">What we build</h3>
+      <p class="small">{{The genuinely new pieces.}}</p></div>
+    <div class="card rail rc"><h3 style="margin-top:0">What we avoid</h3>
+      <p class="small">{{Explicit non-goals / scope boundaries.}}</p></div>
+  </div>
+</section>
+
+<!-- DECISIONS -->
+<section class="slide" id="decisions">
+  <div class="kicker k-b">Decisions</div>
+  <h2>The choices this plan is built on</h2>
+  <div class="deck">
+    <div class="row"><div class="k">Decision 1</div><div>{{choice}} — <b class="hl">because</b> {{rationale}}. (Alternatives rejected: {{…}})</div></div>
+    <div class="row"><div class="k">Decision 2</div><div>{{choice}} — {{rationale}}</div></div>
+    <div class="row"><div class="k">Decision 3</div><div>{{choice}} — {{rationale}}</div></div>
+  </div>
+  <p class="small">These are logged in <span class="mono-chip">DECISIONS.md</span> and not re-opened without a new decision entry.</p>
+</section>
+
+<!-- ARCHITECTURE / REUSE MAP -->
+<section class="slide" id="arch">
+  <div class="kicker k-ctrl">Architecture</div>
+  <h2>{{HOW_THE_PIECES_FIT}}</h2>
+  <figure><div class="fig svgwrap">
+    <svg viewBox="0 0 760 240" role="img" aria-label="{{ARCH_DIAGRAM_LABEL}}">
+      <defs><marker id="ra2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#8a93a8"/></marker></defs>
+      <style>.bx{rx:10;stroke-width:1.7}.t{fill:#fff;font:700 12px "Segoe UI",sans-serif;text-anchor:middle}.s{fill:#e7ebf3;font:9px var(--mono),monospace;text-anchor:middle}.h{font:800 11px "Segoe UI",sans-serif;text-anchor:middle}</style>
+      <text class="h" x="150" y="22" fill="#7fe3cf">assemble (reuse)</text>
+      <rect class="bx" x="30" y="34" width="240" height="70" fill="rgba(25,184,154,.12)" stroke="var(--b)"/><text class="t" x="150" y="62">{{REUSED_COMPONENT}}</text><text class="s" x="150" y="82">{{what it already gives us}}</text>
+      <text class="h" x="560" y="22" fill="#cdb1f7">build (new)</text>
+      <rect class="bx" x="470" y="34" width="260" height="70" fill="rgba(169,116,240,.16)" stroke="var(--ctrl)"/><text class="t" x="600" y="62">{{NEW_COMPONENT}}</text><text class="s" x="600" y="82">{{what we add}}</text>
+      <line x1="270" y1="69" x2="469" y2="69" stroke="#8a93a8" stroke-width="1.8" marker-end="url(#ra2)"/><text class="s" x="370" y="58" fill="#aab3c5">{{interface}}</text>
+      <rect class="bx" x="30" y="140" width="700" height="64" fill="#161922" stroke="var(--line)"/>
+      <text class="h" x="380" y="162" fill="#c9d3e6">the boundary</text>
+      <text class="s" x="380" y="184" fill="#aab3c5">{{who owns what · where the two systems meet}}</text>
+    </svg>
+    <figcaption><b>{{Caption.}}</b> {{one line}}</figcaption>
+  </div></figure>
+  <h3 style="font-size:16px;margin:16px 0 6px">Reuse map</h3>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Capability</th><th>Reuse from</th><th>Build new</th></tr></thead>
+    <tbody>
+      <tr><td>{{cap}}</td><td>{{existing}}</td><td>{{—}}</td></tr>
+      <tr><td>{{cap}}</td><td>{{—}}</td><td>{{new}}</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- CODE LAYOUT & DEPENDENCIES — mandatory (methodology R10). Not an appendix. -->
+<section class="slide" id="layout">
+  <div class="kicker k-b">Code layout &amp; dependencies</div>
+  <h2>Where the code lives, and what it stands on</h2>
+  <figure><div class="fig svgwrap">
+    <svg viewBox="0 0 760 190" role="img" aria-label="repository layout and dependency stack">
+      <style>.bx2{rx:9;stroke-width:1.6}.t2{fill:#fff;font:700 12px "Segoe UI",sans-serif}.s2{fill:#aab3c5;font:10px var(--mono),monospace}.h2l{font:800 11px "Segoe UI",sans-serif}</style>
+      <text class="h2l" x="30" y="20" fill="#9dbcff">layout</text>
+      <rect class="bx2" x="24" y="30" width="330" height="34" fill="rgba(240,167,60,.12)" stroke="var(--c)"/>
+      <text class="t2" x="38" y="52">{{project}}/ {{src_or_pkg}}/ tests/ scripts/</text>
+      <rect class="bx2" x="24" y="74" width="330" height="34" fill="rgba(91,141,239,.14)" stroke="var(--a)"/>
+      <text class="t2" x="38" y="90">{{module_a}}/</text><text class="s2" x="38" y="102">{{what it owns}}</text>
+      <rect class="bx2" x="24" y="118" width="330" height="34" fill="rgba(25,184,154,.12)" stroke="var(--b)"/>
+      <text class="t2" x="38" y="134">{{manifest}}</text><text class="s2" x="38" y="146">{{pinned deps}}</text>
+      <text class="h2l" x="410" y="20" fill="#7fe3cf">dependencies</text>
+      <rect class="bx2" x="404" y="30" width="332" height="34" fill="rgba(25,184,154,.12)" stroke="var(--b)"/>
+      <text class="t2" x="418" y="52">reused — {{already installed}}</text>
+      <rect class="bx2" x="404" y="74" width="332" height="34" fill="rgba(169,116,240,.16)" stroke="var(--ctrl)"/>
+      <text class="t2" x="418" y="96">new — {{lib}} {{x.y}}</text>
+      <rect class="bx2" x="404" y="118" width="332" height="34" fill="#161922" stroke="var(--line)"/>
+      <text class="s2" x="418" y="134">one library per job · no duplicate</text>
+      <text class="s2" x="418" y="147">functionality with what exists</text>
+    </svg>
+    <figcaption><b>{{Caption.}}</b> {{one line}}</figcaption>
+  </div></figure>
+  <div class="deck">
+    <div class="row"><div class="k">Manager</div><div>{{conda (house default) | uv | poetry | pip+venv | npm}} · <span class="mono-chip">{{manifest}}</span> — for Python this was <b class="hl">asked, not assumed</b>.</div></div>
+  </div>
+  <h3 style="font-size:16px;margin:16px 0 6px">External libraries</h3>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Library</th><th>Version</th><th>Purpose</th><th>Reused / new</th><th>Why over the alternative</th></tr></thead>
+    <tbody>
+      <tr><td>{{lib}}</td><td>{{x.y}}</td><td>{{…}}</td><td>reused</td><td>already in the repo</td></tr>
+      <tr><td>{{lib}}</td><td>{{x.y}}</td><td>{{…}}</td><td>new</td><td>{{rejected: …}}</td></tr>
+    </tbody>
+  </table></div>
+  <!-- Delete only if genuinely greenfield. -->
+  <h3 style="font-size:16px;margin:16px 0 6px">Existing code, data &amp; integrations we reuse</h3>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Already there</th><th>Where</th><th>How we reuse it</th></tr></thead>
+    <tbody>
+      <tr><td>{{module / layout}}</td><td><span class="mono-chip">{{path}}</span></td><td>{{extended, not replaced}}</td></tr>
+      <tr><td>{{db / integration}}</td><td>{{service}}</td><td>{{reused — no new store}}</td></tr>
+    </tbody>
+  </table></div>
+  <p class="small">Replacing an incumbent? Name it, justify it, and plan its removal — never leave both.</p>
+</section>
+
+<!-- ROADMAP -->
+<section class="slide" id="roadmap">
+  <div class="kicker k-c">Roadmap</div>
+  <h2>{{N}} phases, one critical path</h2>
+  <figure><div class="fig svgwrap">
+    <svg viewBox="0 0 760 110" role="img" aria-label="phase timeline">
+      <defs><marker id="pa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#8a93a8"/></marker></defs>
+      <style>.pb{rx:8;stroke-width:1.6}.pt{fill:#fff;font:700 11px "Segoe UI",sans-serif;text-anchor:middle}.ps{fill:#e7ebf3;font:8.5px var(--mono),monospace;text-anchor:middle}</style>
+      <rect class="pb" x="20" y="40" width="150" height="42" fill="rgba(91,141,239,.14)" stroke="var(--a)"/><text class="pt" x="95" y="60">P0 · {{theme}}</text><text class="ps" x="95" y="75">foundations</text>
+      <rect class="pb" x="200" y="40" width="150" height="42" fill="rgba(25,184,154,.14)" stroke="var(--b)"/><text class="pt" x="275" y="60">P1 · {{theme}}</text><text class="ps" x="275" y="75">→ M1</text>
+      <rect class="pb" x="380" y="40" width="150" height="42" fill="rgba(240,167,60,.14)" stroke="var(--c)"/><text class="pt" x="455" y="60">P2 · {{theme}}</text><text class="ps" x="455" y="75">→ M2</text>
+      <rect class="pb" x="560" y="40" width="180" height="42" fill="rgba(169,116,240,.16)" stroke="var(--ctrl)"/><text class="pt" x="650" y="60">P3 · {{theme}}</text><text class="ps" x="650" y="75">→ M3</text>
+      <line x1="170" y1="61" x2="199" y2="61" stroke="#8a93a8" stroke-width="1.6" marker-end="url(#pa)"/>
+      <line x1="350" y1="61" x2="379" y2="61" stroke="#8a93a8" stroke-width="1.6" marker-end="url(#pa)"/>
+      <line x1="530" y1="61" x2="559" y2="61" stroke="#8a93a8" stroke-width="1.6" marker-end="url(#pa)"/>
+    </svg>
+    <figcaption><b>Phases feed milestones.</b> Each phase ends at a milestone with a test gate (detailed in the work plan).</figcaption>
+  </div></figure>
+</section>
+
+<!-- PHASES / DELIVERABLES + GATES -->
+<section class="slide" id="phases">
+  <div class="kicker k-ctrl">Phases</div>
+  <h2>Deliverables, architecture, and test gates</h2>
+  <div class="card" style="margin-bottom:12px">
+    <div class="meta-row"><b>P0 · {{theme}}</b></div>
+    <div class="meta-row">ships: {{deliverable}}</div>
+    <div class="meta-row">gate: {{the tests that must pass}}</div>
+  </div>
+  <div class="card" style="margin-bottom:12px">
+    <div class="meta-row"><b>P1 · {{theme}} → M1</b></div>
+    <div class="meta-row">ships: {{deliverable}}</div>
+    <div class="meta-row">gate: {{the tests that must pass}}</div>
+  </div>
+  <p class="small">Full task breakdown lives in <span class="mono-chip">{{NAME}}_WORK_PLAN.md</span>.</p>
+</section>
+
+<!-- RISKS -->
+<section class="slide" id="risks">
+  <div class="kicker k-d">Risks</div>
+  <h2>What we watch, and how we contain it</h2>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Risk</th><th>Likelihood / impact</th><th>Mitigation</th></tr></thead>
+    <tbody>
+      <tr><td>{{risk}}</td><td>{{med / high}}</td><td>{{how we contain it}}</td></tr>
+      <tr><td>{{risk}}</td><td>{{low / high}}</td><td>{{how we contain it}}</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section class="slide" style="border-bottom:none">
+  <div class="kicker k-a">In one line</div>
+  <h2 style="max-width:920px">{{THE_WHOLE_RFC_AS_A_SINGLE_SENTENCE}}</h2>
+  <p class="small">Next: <span class="mono-chip">{{NAME}}_DRP.md</span> (detailed requirements) and
+    <span class="mono-chip">{{NAME}}_WORK_PLAN.md</span> (phases → milestones → tasks).</p>
+</section>
+
+<footer class="footer">{{PROJECT}} · RFC · {{DATE}} · {{REPO_OR_SOURCE_LINK}}</footer>
+</body>
+</html>

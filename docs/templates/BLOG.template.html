@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- TEMPLATE: BLOG — the vision / narrative piece. Replace {{PLACEHOLDERS}}.
+     Stage 1 of the pipeline. A BLOG answers: why this, why now, for whom, what changes.
+     Keep it a story with 1-2 diagrams, not a spec. Link house.css or inline it. -->
+<title>{{TITLE}} — {{ONE_LINE}}</title>
+<link rel="stylesheet" href="../assets/house.css">
+</head>
+<body>
+
+<header class="hero">
+  <div class="hero-inner">
+    <div class="eyebrow">{{PROJECT}} · blog · {{DATE}}</div>
+    <h1>{{HEADLINE}}</h1>
+    <p class="lede">{{LEDE — the promise in 1–2 sentences: what becomes possible, and for whom.}}</p>
+    <div class="byline">By {{AUTHOR}} · {{CONTEXT_OR_SOURCE_LINK}}</div>
+    <div class="hero-tags">
+      <span class="tag">{{THEME_1}}</span>
+      <span class="tag">{{THEME_2}}</span>
+      <span class="tag">{{THEME_3}}</span>
+    </div>
+  </div>
+</header>
+
+<div class="layout">
+<nav class="toc" aria-label="Contents">
+  <div class="tl-title">In this post</div>
+  <ol>
+    <li><a href="#problem">The problem</a></li>
+    <li><a href="#idea">The idea</a></li>
+    <li><a href="#how">How it works</a></li>
+    <li><a href="#why-now">Why now</a></li>
+    <li><a href="#next">Where this goes</a></li>
+  </ol>
+</nav>
+
+<main>
+<article>
+
+  <section id="problem">
+    <div class="kicker">The problem</div>
+    <h2>{{WHAT_HURTS_TODAY}}</h2>
+    <p class="lead-p">{{Set the scene. Who feels this pain, and what does it cost them?}}</p>
+    <p>{{Make it concrete — a real scenario, a real number if you have one.}}</p>
+  </section>
+
+  <section id="idea">
+    <div class="kicker">The idea</div>
+    <h2>{{THE_SHIFT_IN_ONE_LINE}}</h2>
+    <p class="pull">{{The single sentence a reader should remember.}}</p>
+    <p>{{Why this reframing changes the game.}}</p>
+  </section>
+
+  <section id="how">
+    <div class="kicker">How it works</div>
+    <h2>{{THE_MECHANISM}}</h2>
+    <figure><div class="fig svgwrap">
+      <!-- One clear diagram of the idea. Use house tokens. Replace this sketch. -->
+      <svg viewBox="0 0 760 200" role="img" aria-label="{{DIAGRAM_LABEL}}">
+        <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#8a93a8"/></marker></defs>
+        <style>.bx{rx:10;stroke-width:1.7}.t{fill:#fff;font:700 12px "Segoe UI",sans-serif;text-anchor:middle}.s{fill:#e7ebf3;font:9px var(--mono),monospace;text-anchor:middle}</style>
+        <rect class="bx" x="40" y="70" width="180" height="60" fill="rgba(91,141,239,.14)" stroke="var(--a)"/><text class="t" x="130" y="96">{{STEP_1}}</text><text class="s" x="130" y="114">{{detail}}</text>
+        <rect class="bx" x="290" y="70" width="180" height="60" fill="rgba(25,184,154,.14)" stroke="var(--b)"/><text class="t" x="380" y="96">{{STEP_2}}</text><text class="s" x="380" y="114">{{detail}}</text>
+        <rect class="bx" x="540" y="70" width="180" height="60" fill="rgba(169,116,240,.16)" stroke="var(--ctrl)"/><text class="t" x="630" y="96">{{STEP_3}}</text><text class="s" x="630" y="114">{{detail}}</text>
+        <line x1="220" y1="100" x2="289" y2="100" stroke="#8a93a8" stroke-width="1.6" marker-end="url(#ar)"/>
+        <line x1="470" y1="100" x2="539" y2="100" stroke="#8a93a8" stroke-width="1.6" marker-end="url(#ar)"/>
+      </svg>
+      <figcaption><b>{{Caption headline.}}</b> {{one-line explanation}}</figcaption>
+    </div></figure>
+    <p>{{Walk the reader through the diagram.}}</p>
+  </section>
+
+  <section id="why-now">
+    <div class="kicker">Why now</div>
+    <h2>{{WHAT_MADE_THIS_POSSIBLE}}</h2>
+    <p>{{The enabling shift — tech, market, or a capability that just crossed a threshold.}}</p>
+  </section>
+
+  <section id="next">
+    <div class="kicker">Where this goes</div>
+    <h2>{{THE_ARC}}</h2>
+    <p>{{What the RFC will propose. Link it once written.}}</p>
+    <div class="callout key"><div class="clabel">◆ Next artifact</div>
+      This BLOG motivates <b>{{NAME}}_RFC.html</b> — the concrete proposal and phased plan.</div>
+  </section>
+
+</article>
+</main>
+</div>
+
+<footer class="footer">{{PROJECT}} · {{DATE}} · {{SOURCE_OR_REPO_LINK}}</footer>
+</body>
+</html>

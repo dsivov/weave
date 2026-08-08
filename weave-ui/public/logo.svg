@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Weave">
+  <defs>
+    <linearGradient id="cg-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1c2436"/>
+      <stop offset="1" stop-color="#10131b"/>
+    </linearGradient>
+    <radialGradient id="cg-glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#a974f0" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#a974f0" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect x="1.5" y="1.5" width="61" height="61" rx="15" fill="url(#cg-bg)" stroke="#2c3346" stroke-width="1.5"/>
+  <!-- the fourth element, glowing -->
+  <circle cx="44" cy="44" r="17" fill="url(#cg-glow)"/>
+  <!-- edges: a connected quadruple; the diagonal accents the fourth element -->
+  <g fill="none" stroke-linecap="round">
+    <path d="M21 21 L43 20" stroke="#3f4a63" stroke-width="2.4"/>
+    <path d="M21 21 L20 43" stroke="#3f4a63" stroke-width="2.4"/>
+    <path d="M43 20 L44 44" stroke="#7d5bb0" stroke-width="2.4"/>
+    <path d="M20 43 L44 44" stroke="#7d5bb0" stroke-width="2.4"/>
+    <path d="M21 21 L44 44" stroke="#a974f0" stroke-width="2.4" stroke-opacity="0.9"/>
+  </g>
+  <!-- nodes: h (teal), t (blue), r (amber), rc = the fourth element (purple, ringed) -->
+  <circle cx="21" cy="21" r="5.5" fill="#19b89a"/>
+  <circle cx="43" cy="20" r="5.5" fill="#5b8def"/>
+  <circle cx="20" cy="43" r="5.5" fill="#f0a73c"/>
+  <circle cx="44" cy="44" r="7" fill="#a974f0" stroke="#d8c2f7" stroke-width="1.6"/>
+</svg>

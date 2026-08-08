@@ -1,0 +1,39 @@
+{
+  "_comment": "Weave preset - RBAC. Opt-in, deny-by-default WITHIN this policy. The principal's role comes from its authenticated identity, never a request field. Manager is unrestricted; Developer claims + opens PRs; Architect reviews/merges + records decisions; Integrator advances + merges after integration. A dev host registers under the developer identity its machine was given.",
+  "name": "weave",
+  "roles": {
+    "manager": [
+      "*"
+    ],
+    "architect": [
+      "invoke:RecordDecision",
+      "invoke:CreateTask",
+      "invoke:ProposeModule",
+      "invoke:AdvanceTask",
+      "invoke:AdvanceChangeRequest",
+      "invoke:CreateChangeRequest",
+      "invoke:MergeToMain",
+      "invoke:PublishPlan"
+    ],
+    "developer": [
+      "invoke:ClaimTask",
+      "invoke:AdvanceTask",
+      "invoke:ProposeModule",
+      "invoke:CreateChangeRequest",
+      "invoke:OpenPullRequest",
+      "invoke:RegisterWorker",
+      "invoke:RecordDecision",
+      "invoke:RegisterDevHost"
+    ],
+    "integrator": [
+      "invoke:AdvanceTask",
+      "invoke:MergeToMain",
+      "invoke:RegisterWorker",
+      "invoke:RecordDecision",
+      "invoke:Deploy",
+      "invoke:RunIntegration",
+      "invoke:Promote",
+      "invoke:RegisterDevHost"
+    ]
+  }
+}

@@ -1,0 +1,52 @@
+# Packaging and tool configuration only.
+#
+# THE DEPENDENCY MANIFEST IS `environment.yml` (conda, D-006, A11) — deliberately
+# not this file. `dependencies` below stays empty so there is exactly one place a
+# library is declared; a second list here would drift from the first within a
+# phase. Install with:
+#
+#     conda env create -f environment.yml && conda activate weave
+#     pip install -e . --no-deps
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "weave"
+dynamic = ["version"]
+description = "Weave — humans and autonomous agents building on one governed graph"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+dependencies = []
+
+[tool.setuptools.packages.find]
+include = ["weave*", "weave_core*"]
+exclude = ["tests*", "scripts*", "deploy*", "docs*", "weave-ui*"]
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.dynamic]
+version = { attr = "weave_core.version.__version__" }
+
+[tool.setuptools.package-data]
+"weave.team" = ["preset/*.json"]
+"weave.server" = ["webui/**/*", "static/**/*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+markers = [
+    "offline: no external dependencies",
+    "integration: requires external services (skipped by default)",
+    "requires_db: requires a database",
+    "requires_api: requires a running Weave API server",
+]
+
+[tool.ruff]
+target-version = "py312"

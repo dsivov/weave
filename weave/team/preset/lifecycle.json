@@ -1,0 +1,49 @@
+{
+  "_comment": "Weave preset - lifecycle. Declarative state machines enforced as transitions: an Advance/Claim is checked against these before it writes; an illegal jump is refused with 409. Role gates encode the pipeline (Developer claims, Architect approves/merges, Integrator integrates). The Task machine is the coordination primitive - the claim (pending->in_progress) succeeds for exactly one agent.",
+  "name": "weave",
+  "machines": {
+    "Task": {
+      "states": ["pending", "in_progress", "review", "approved", "testing", "done", "blocked"],
+      "initial": "pending",
+      "transitions": [
+        {"from": "pending", "to": "in_progress", "roles": ["developer", "architect", "integrator"]},
+        {"from": "in_progress", "to": "review", "roles": ["developer", "architect"]},
+        {"from": "review", "to": "approved", "roles": ["architect", "manager"]},
+        {"from": "approved", "to": "testing", "roles": ["integrator"]},
+        {"from": "testing", "to": "done", "roles": ["integrator", "architect"]},
+        {"from": "in_progress", "to": "blocked"},
+        {"from": "review", "to": "blocked"},
+        {"from": "blocked", "to": "in_progress"},
+        {"from": "testing", "to": "in_progress"}
+      ]
+    },
+    "ChangeRequest": {
+      "states": ["open", "in_progress", "closed"],
+      "initial": "open",
+      "transitions": [
+        {"from": "open", "to": "in_progress", "roles": ["manager", "architect"]},
+        {"from": "in_progress", "to": "closed", "roles": ["manager"]},
+        {"from": "open", "to": "closed", "roles": ["manager"]}
+      ]
+    },
+    "PullRequest": {
+      "states": ["open", "in_review", "merged", "closed"],
+      "initial": "open",
+      "transitions": [
+        {"from": "open", "to": "in_review", "roles": ["developer", "architect", "integrator"]},
+        {"from": "in_review", "to": "merged", "roles": ["architect", "integrator", "manager"]},
+        {"from": "in_review", "to": "closed", "roles": ["architect", "manager"]},
+        {"from": "open", "to": "closed", "roles": ["developer", "architect", "manager"]}
+      ]
+    },
+    "ArchitectureDecisionRecord": {
+      "states": ["proposed", "accepted", "superseded", "rejected"],
+      "initial": "proposed",
+      "transitions": [
+        {"from": "proposed", "to": "accepted", "roles": ["architect", "manager"]},
+        {"from": "proposed", "to": "rejected", "roles": ["architect", "manager"]},
+        {"from": "accepted", "to": "superseded", "roles": ["architect", "manager"]}
+      ]
+    }
+  }
+}

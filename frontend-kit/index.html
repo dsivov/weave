@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>House UI Kit — components</title>
+<link rel="stylesheet" href="house-ui.css">
+</head>
+<body>
+<!-- Standalone themed UI kit. Buildless reference of the app-UI components + tokens.
+     Copy house-ui.css into a project; reuse these markup patterns. Toggle theme with the
+     button in the top bar. A typical app-shell layout (nav shell, cards,
+     stats, tables, pills, callouts, forms) so React views can follow the same classes. -->
+<div class="app">
+
+  <!-- sidebar -->
+  <aside class="side">
+    <div class="brand"><span class="dot"></span> {{PROJECT}}</div>
+    <div class="navgroup">Studio</div>
+    <nav class="nav">
+      <button class="navitem active">◧ Overview</button>
+      <button class="navitem">▤ Items <span class="badge">12</span></button>
+      <button class="navitem">⚙ Settings</button>
+    </nav>
+    <div class="navgroup">Operations</div>
+    <nav class="nav">
+      <button class="navitem">▮ Dashboard</button>
+      <button class="navitem">◷ Activity</button>
+    </nav>
+  </aside>
+
+  <!-- main -->
+  <div class="main">
+    <div class="topbar">
+      <div style="font-weight:700">Overview</div>
+      <button class="btn sm ghost" style="margin-left:auto"
+              onclick="var r=document.documentElement;r.dataset.theme=r.dataset.theme==='dark'?'light':'dark'">
+        ◐ theme
+      </button>
+      <button class="btn sm primary">+ New</button>
+    </div>
+
+    <div class="view">
+      <div class="h1">Component showcase</div>
+      <div class="sub">Every element below uses the house tokens — restyle by editing <span class="mono">house-ui.css</span> only.</div>
+
+      <!-- stats -->
+      <div class="grid g4" style="margin:18px 0">
+        <div class="card stat"><div class="n">269</div><div class="cap">total items</div></div>
+        <div class="card stat"><div class="n good">143</div><div class="cap">active</div></div>
+        <div class="card stat"><div class="n">182</div><div class="cap">links</div></div>
+        <div class="card stat"><div class="n crit">0</div><div class="cap">errors</div></div>
+      </div>
+
+      <!-- tabs -->
+      <div class="tabs">
+        <button class="tab active">Table</button>
+        <button class="tab">Form</button>
+        <button class="tab">Callouts</button>
+      </div>
+
+      <div class="grid g2">
+        <!-- table -->
+        <div class="card">
+          <div class="tablewrap"><table>
+            <thead><tr><th>Name</th><th>Status</th><th>Value</th></tr></thead>
+            <tbody>
+              <tr><td>alpha</td><td><span class="pill good">ok</span></td><td>1,204</td></tr>
+              <tr><td>beta</td><td><span class="pill warn">pending</span></td><td>318</td></tr>
+              <tr><td>gamma</td><td><span class="pill crit">failed</span></td><td>0</td></tr>
+              <tr><td>delta</td><td><span class="pill accent">new</span></td><td>—</td></tr>
+            </tbody>
+          </table></div>
+        </div>
+
+        <!-- form -->
+        <div class="card">
+          <label class="field"><span class="lbl">Name</span><input class="input" placeholder="e.g. My item"></label>
+          <label class="field"><span class="lbl">Type</span>
+            <select><option>Standard</option><option>Advanced</option></select></label>
+          <label class="field"><span class="lbl">Notes</span><textarea rows="3" placeholder="Optional…"></textarea></label>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button class="btn primary">Save</button>
+            <button class="btn ghost">Cancel</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- callouts -->
+      <div style="margin-top:16px">
+        <div class="callout"><div class="clabel">Info</div>Neutral note using the accent rail.</div>
+        <div class="callout good"><div class="clabel">Success</div>Something completed cleanly.</div>
+        <div class="callout warn"><div class="clabel">Warning</div>Worth attention, not blocking.</div>
+        <div class="callout crit"><div class="clabel">Critical</div>Needs a fix before proceeding.</div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

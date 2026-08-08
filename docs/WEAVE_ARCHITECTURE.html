@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Weave — architecture</title>
+<link rel="stylesheet" href="assets/house.css">
+</head>
+<body>
+
+<header class="hero">
+  <div class="hero-inner">
+    <div class="eyebrow">Weave · architecture · 2026-08-08</div>
+    <h1>Weave — architecture</h1>
+    <p class="lede">Three deployables over one governed graph. A library core that knows nothing about
+      HTTP, a product layer that owns the team model, and surfaces — REST, MCP, SSE, CLI, the web UI —
+      that are all adapters over the same handlers. Every port has exactly the adapters the three
+      supported deployments need, and no more.</p>
+    <div class="byline">Implements <a href="WEAVE_RFC.html">WEAVE_RFC.html</a> ·
+      requirements <a href="WEAVE_DRP.md">WEAVE_DRP.md</a> · governed by
+      <a href="CONSTRAINTS.md">CONSTRAINTS.md</a> v1 (in force)</div>
+  </div>
+</header>
+
+<div class="layout">
+<nav class="toc" aria-label="Contents">
+  <div class="tl-title">In this doc</div>
+  <ol>
+    <li><a href="#principle">Guiding principle</a></li>
+    <li><a href="#components">Components</a></li>
+    <li><a href="#data">Data model</a></li>
+    <li><a href="#flows">Key flows</a></li>
+    <li><a href="#layout">Code layout &amp; dependencies</a></li>
+    <li><a href="#boundaries">Boundaries &amp; ownership</a></li>
+    <li><a href="#tradeoffs">Trade-offs</a></li>
+  </ol>
+</nav>
+
+<main>
+<article>
+
+  <section id="principle">
+    <div class="kicker">Guiding principle</div>
+    <h2>Every surface is an adapter over one governed core</h2>
+    <p class="pull">An adapter that holds state has become a second source of truth — and every
+      failure this system is designed to prevent starts there.</p>
+    <p>The rules that follow all derive from it. The core is a library and knows nothing about HTTP, so
+      it cannot grow a private request-scoped cache. A question has one handler, and REST and MCP are
+      two thin adapters over it, so the human and agent answers cannot drift (A9, A10). Configuration is
+      the signed ledger version the runtime reads, so a wizard cannot become a config the runtime
+      ignores (A8). An artifact node carries a locator rather than a copied body, so the index cannot
+      disagree with the repository (A5). And the fleet reconciles to state it reads back rather than to
+      commands pushed at it, so a supervisor's intent lives in one place (A15).</p>
+
+    <figure><div class="fig svgwrap">
+      <svg viewBox="0 0 760 280" role="img" aria-label="A governed core at the centre with five stateless adapters around it — REST, MCP, SSE, CLI and the web UI — all calling the same handlers. Below, a crossed-out adapter that holds its own state, labelled as the failure this design prevents.">
+        <defs><marker id="p1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#8a93a8"/></marker></defs>
+        <style>
+          .pb{rx:9;stroke-width:1.6}
+          .pt{fill:#fff;font:700 11px "Segoe UI",sans-serif;text-anchor:middle}
+          .ps{fill:#aab3c5;font:9px "SF Mono",ui-monospace,monospace;text-anchor:middle}
+          .pl{fill:#8a93a8;font:9.5px "Segoe UI",sans-serif;text-anchor:middle}
+        </style>
+
+        <rect class="pb" x="270" y="96" width="220" height="76" fill="rgba(25,184,154,.16)" stroke="var(--b)" stroke-width="2.2"/>
+        <text class="pt" x="380" y="126" style="font-size:13px">governed core</text>
+        <text class="ps" x="380" y="146">one handler per question</text>
+        <text class="ps" x="380" y="161">stateless between calls</text>
+
+        <rect class="pb" x="20" y="30" width="130" height="44" fill="rgba(91,141,239,.14)" stroke="var(--a)"/>
+        <text class="pt" x="85" y="50">REST</text><text class="ps" x="85" y="65">weave/server</text>
+        <rect class="pb" x="170" y="20" width="130" height="44" fill="rgba(91,141,239,.14)" stroke="var(--a)"/>
+        <text class="pt" x="235" y="40">MCP</text><text class="ps" x="235" y="55">agent + human seats</text>
+        <rect class="pb" x="460" y="20" width="130" height="44" fill="rgba(91,141,239,.14)" stroke="var(--a)"/>
+        <text class="pt" x="525" y="40">SSE</text><text class="ps" x="525" y="55">weave/live</text>
+        <rect class="pb" x="610" y="30" width="130" height="44" fill="rgba(91,141,239,.14)" stroke="var(--a)"/>
+        <text class="pt" x="675" y="50">CLI</text><text class="ps" x="675" y="65">weave/cli</text>
+        <rect class="pb" x="610" y="112" width="130" height="44" fill="rgba(169,116,240,.18)" stroke="var(--ctrl)"/>
+        <text class="pt" x="675" y="132">web UI</text><text class="ps" x="675" y="147">weave-ui</text>
+        <rect class="pb" x="20" y="112" width="130" height="44" fill="rgba(169,116,240,.18)" stroke="var(--ctrl)"/>
+        <text class="pt" x="85" y="132">wizards</text><text class="ps" x="85" y="147">weave/wizards</text>
+
+        <line x1="150" y1="60" x2="268" y2="104" stroke="#8a93a8" stroke-width="1.4" marker-end="url(#p1)"/>
+        <line x1="270" y1="52" x2="330" y2="94" stroke="#8a93a8" stroke-width="1.4" marker-end="url(#p1)"/>
+        <line x1="490" y1="52" x2="432" y2="94" stroke="#8a93a8" stroke-width="1.4" marker-end="url(#p1)"/>
+        <line x1="610" y1="60" x2="492" y2="104" stroke="#8a93a8" stroke-width="1.4" marker-end="url(#p1)"/>
+        <line x1="608" y1="134" x2="492" y2="134" stroke="#8a93a8" stroke-width="1.4" marker-end="url(#p1)"/>
+        <line x1="152" y1="134" x2="268" y2="134" stroke="#8a93a8" stroke-width="1.4" marker-end="url(#p1)"/>
+
+        <rect class="pb" x="250" y="206" width="260" height="48" fill="rgba(239,91,110,.08)" stroke="rgba(239,91,110,.5)" stroke-dasharray="5 4"/>
+        <text class="pt" x="380" y="228" fill="#f6a2ad">an adapter with its own state</text>
+        <text class="ps" x="380" y="244" fill="#f6a2ad">= a second source of truth</text>
+        <line x1="356" y1="212" x2="404" y2="248" stroke="#ef5b6e" stroke-width="2.4"/>
+        <line x1="404" y1="212" x2="356" y2="248" stroke="#ef5b6e" stroke-width="2.4"/>
+        <text class="pl" x="380" y="192">the one thing no surface may do</text>
+      </svg>
+      <figcaption><b>The shape of every rule below.</b> Six surfaces, one core, no state at the edge —
+        which is why a wizard, an agent and a person cannot end up believing different things.</figcaption>
+    </div></figure>
+  </section>
+
+  <section id="components">
+    <div class="kicker">Components</div>
+    <h2>The parts and what each owns</h2>
+
+    <figure><div class="fig svgwrap">
+      <svg viewBox="0 0 760 400" role="img" aria-label="Component map in four tiers: three deployables at the top (dev-agent image, dev-host daemon, Weave server serving the UI); the weave product layer with model, team, devhost, server, live, wizards and cli; the weave_core engine with graph, governance, studio, events, knowledge and llm; and the ports at the base — record store, graph store and event bus — each with its adapters.">
+        <defs><marker id="c1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#8a93a8"/></marker></defs>
+        <style>
+          .cb{rx:8;stroke-width:1.5}
+          .ct{fill:#fff;font:700 10.5px "Segoe UI",sans-serif;text-anchor:middle}
+          .cs{fill:#aab3c5;font:8.5px "SF Mono",ui-monospace,monospace;text-anchor:middle}
+          .ch{font:800 10px "Segoe UI",sans-serif;letter-spacing:.12em}
+        </style>
+
+        <text class="ch" x="20" y="18" fill="#7ee3b4">DEPLOYABLES (A1)</text>
+        <rect class="cb" x="20" y="26" width="228" height="42" fill="rgba(62,207,142,.12)" stroke="var(--ok)"/>
+        <text class="ct" x="134" y="44">Weave server</text><text class="cs" x="134" y="59">serves the built UI</text>
+        <rect class="cb" x="264" y="26" width="228" height="42" fill="rgba(62,207,142,.12)" stroke="var(--ok)"/>
+        <text class="ct" x="378" y="44">Dev-host daemon</text><text class="cs" x="378" y="59">one per machine · outbound only</text>
+        <rect class="cb" x="508" y="26" width="232" height="42" fill="rgba(62,207,142,.12)" stroke="var(--ok)"/>
+        <text class="ct" x="624" y="44">Dev-agent image</text><text class="cs" x="624" y="59">one container per worker</text>
+
+        <text class="ch" x="20" y="98" fill="#9dbcff">weave/ — the product</text>
+        <rect class="cb" x="20" y="106" width="140" height="46" fill="rgba(169,116,240,.18)" stroke="var(--ctrl)"/>
+        <text class="ct" x="90" y="126">model/</text><text class="cs" x="90" y="141">answers · locator</text>
+        <rect class="cb" x="168" y="106" width="140" height="46" fill="rgba(25,184,154,.13)" stroke="var(--b)"/>
+        <text class="ct" x="238" y="126">team/</text><text class="cs" x="238" y="141">claim · fleet · gate</text>
+        <rect class="cb" x="316" y="106" width="140" height="46" fill="rgba(25,184,154,.13)" stroke="var(--b)"/>
+        <text class="ct" x="386" y="126">devhost/</text><text class="cs" x="386" y="141">registry · daemon</text>
+        <rect class="cb" x="464" y="106" width="140" height="46" fill="rgba(91,141,239,.15)" stroke="var(--a)"/>
+        <text class="ct" x="534" y="126">server/</text><text class="cs" x="534" y="141">routers · auth · users</text>
+        <rect class="cb" x="612" y="106" width="128" height="46" fill="rgba(169,116,240,.18)" stroke="var(--ctrl)"/>
+        <text class="ct" x="676" y="126">live · wizards · cli</text><text class="cs" x="676" y="141">NEW</text>
+
+        <text class="ch" x="20" y="182" fill="#7fe3cf">weave_core/ — the engine · no HTTP</text>
+        <rect class="cb" x="20" y="190" width="140" height="46" fill="rgba(25,184,154,.13)" stroke="var(--b)"/>
+        <text class="ct" x="90" y="210">graph/</text><text class="cs" x="90" y="225">quadruples · CGR3</text>
+        <rect class="cb" x="168" y="190" width="140" height="46" fill="rgba(25,184,154,.13)" stroke="var(--b)"/>
+        <text class="ct" x="238" y="210">governance/</text><text class="cs" x="238" y="225">rbac·lifecycle·rules</text>
+        <rect class="cb" x="316" y="190" width="140" height="46" fill="rgba(25,184,154,.13)" stroke="var(--b)"/>
+        <text class="ct" x="386" y="210">studio/</text><text class="cs" x="386" y="225">signed ledger</text>
+        <rect class="cb" x="464" y="190" width="140" height="46" fill="rgba(25,184,154,.13)" stroke="var(--b)"/>
+        <text class="ct" x="534" y="210">events/</text><text class="cs" x="534" y="225">bus port</text>
+        <rect class="cb" x="612" y="190" width="128" height="46" fill="rgba(240,167,60,.13)" stroke="var(--c)"/>
+        <text class="ct" x="676" y="210">knowledge · llm</text><text class="cs" x="676" y="225">metered — A13</text>
+
+        <text class="ch" x="20" y="266" fill="#ffce86">PORTS — one interface, only the adapters we ship</text>
+        <rect class="cb" x="20" y="274" width="228" height="60" fill="rgba(240,167,60,.13)" stroke="var(--c)"/>
+        <text class="ct" x="134" y="294">RecordStore</text>
+        <text class="cs" x="134" y="311">memory · json · postgres</text>
+        <text class="cs" x="134" y="326">users · hosts · workers · tasks</text>
+        <rect class="cb" x="264" y="274" width="228" height="60" fill="rgba(240,167,60,.13)" stroke="var(--c)"/>
+        <text class="ct" x="378" y="294">GraphStore</text>
+        <text class="cs" x="378" y="311">networkx · postgres · neo4j</text>
+        <text class="cs" x="378" y="326">the quadruple graph</text>
+        <rect class="cb" x="508" y="274" width="232" height="60" fill="rgba(240,167,60,.13)" stroke="var(--c)"/>
+        <text class="ct" x="624" y="294">EventBus</text>
+        <text class="cs" x="624" y="311">in-process · postgres NOTIFY</text>
+        <text class="cs" x="624" y="326">must match the deployment</text>
+
+        <line x1="134" y1="106" x2="134" y2="72" stroke="#8a93a8" stroke-width="1.4" marker-end="url(#c1)"/>
+        <line x1="386" y1="106" x2="386" y2="72" stroke="#8a93a8" stroke-width="1.4" marker-end="url(#c1)"/>
+        <line x1="300" y1="190" x2="300" y2="156" stroke="#8a93a8" stroke-width="1.4" marker-end="url(#c1)"/>
+        <line x1="300" y1="274" x2="300" y2="240" stroke="#8a93a8" stroke-width="1.4" marker-end="url(#c1)"/>
+        <text class="cs" x="360" y="174" fill="#8a93a8">imports inward only (A2)</text>
+        <text class="cs" x="352" y="258" fill="#8a93a8">adapters chosen by config</text>
+
+        <text class="cs" x="380" y="356" fill="#7b8499">weave-ui/ is built into the server image — it is not a deployable of its own</text>
+        <text class="cs" x="380" y="374" fill="#f6a2ad">nothing below a tier ever imports something above it</text>
+      </svg>
+      <figcaption><b>Four tiers, one import direction.</b> The ports at the base are why the three
+        supported deployments are a configuration choice rather than three codebases.</figcaption>
+    </div></figure>
+
+    <div class="tablewrap"><table>
+      <thead><tr><th>Component</th><th>Responsibility</th><th>Owner</th><th>Entry point</th></tr></thead>
+      <tbody>
+        <tr><td><b>weave_core/graph</b></td><td>The quadruple store and CGR3 retrieve → rank → reason. Knows nothing about HTTP or users.</td><td>engine</td><td><span class="mono-chip">weave_core/graph/engine.py</span></td></tr>
+        <tr><td><b>weave_core/governance</b></td><td>RBAC, lifecycle state machines, governed actions, the rules engine, the ontology. Returns verdicts; never raises HTTP.</td><td>engine</td><td><span class="mono-chip">weave_core/governance/gate.py</span></td></tr>
+        <tr><td><b>weave_core/studio</b></td><td>The signed, versioned artifact ledger — propose → diff → sign, and rollback.</td><td>engine</td><td><span class="mono-chip">weave_core/studio/service.py</span></td></tr>
+        <tr><td><b>weave_core/events</b></td><td>The <span class="mono-chip">EventBus</span> port and its two adapters, plus the durable ingress log.</td><td>engine</td><td><span class="mono-chip">weave_core/events/bus.py</span></td></tr>
+        <tr><td><b>weave_core/knowledge</b></td><td>Document ingestion and extraction, dedup, quality, community. Produces the retrieval index — derived data, not artifact bodies (A5).</td><td>engine</td><td><span class="mono-chip">weave_core/knowledge/ingest.py</span></td></tr>
+        <tr><td><b>weave_core/llm</b></td><td>The eight wired backend connectors. <b class="hl">The only module permitted to hold a model credential</b> (A13).</td><td>engine</td><td><span class="mono-chip">weave_core/llm/binding.py</span></td></tr>
+        <tr><td><b>weave/model</b></td><td>The team data model: Feature, Review, Insight, Question; the locator type; ProjectLayout registration and resolution.</td><td>product</td><td><span class="mono-chip">weave/model/answers.py</span> · <span class="mono-chip">locator.py</span></td></tr>
+        <tr><td><b>weave/team</b></td><td>The coordinator and atomic claim, the worker/fleet registry, the integration merge gate.</td><td>product</td><td><span class="mono-chip">weave/team/coordinator.py</span></td></tr>
+        <tr><td><b>weave/devhost</b></td><td>Host registry and the daemon: register → heartbeat → reconcile containers. Deployable #2.</td><td>product</td><td><span class="mono-chip">weave/devhost/daemon.py</span></td></tr>
+        <tr><td><b>weave/server</b></td><td>The FastAPI app, all routers, config, auth, the user store, and the mounted MCP sub-app. <b>The only place HTTP exists.</b></td><td>product</td><td><span class="mono-chip">weave/server/app.py</span></td></tr>
+        <tr><td><b>weave/live</b></td><td>SSE fan-out and presence, subscribed to the event bus.</td><td>product</td><td><span class="mono-chip">weave/live/stream.py</span></td></tr>
+        <tr><td><b>weave/wizards</b></td><td>Team-vocabulary interview → proposal → signed ledger write. Holds no configuration of its own.</td><td>product</td><td><span class="mono-chip">weave/wizards/session.py</span></td></tr>
+        <tr><td><b>weave/cli</b></td><td>The <span class="mono-chip">weave</span> command. Calls the same service functions the routers do.</td><td>product</td><td><span class="mono-chip">weave/cli/main.py</span></td></tr>
+        <tr><td><b>weave-ui</b></td><td>The React application, built into the server image and served as static assets.</td><td>product</td><td><span class="mono-chip">weave-ui/src/main.tsx</span></td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section id="data">
+    <div class="kicker">Data model</div>
+    <h2>The shapes that flow through</h2>
+    <figure><div class="fig svgwrap">
+      <svg viewBox="0 0 760 320" role="img" aria-label="The data model in three groups: the answer surface with ChangeRequest, Task, Commit, Feature, Review and Insight, each carrying a locator; the locator and ProjectLayout that resolve to a real file; and the identity records User and WorkspaceMembership that the RBAC principal derives from.">
+        <style>
+          .eb{rx:8;stroke-width:1.6}
+          .et{fill:#fff;font:700 11px "Segoe UI",sans-serif;text-anchor:middle}
+          .ef{fill:#aab3c5;font:8.5px "SF Mono",ui-monospace,monospace;text-anchor:start}
+          .eh{font:800 9.5px "Segoe UI",sans-serif;letter-spacing:.1em}
+          .el{fill:#8a93a8;font:9px "Segoe UI",sans-serif;text-anchor:middle}
+        </style>
+
+        <text class="eh" x="24" y="18" fill="#9dbcff">THE ANSWER SURFACE — every node carries a locator</text>
+        <rect class="eb" x="20" y="26" width="164" height="96" fill="var(--panel2)" stroke="var(--a)"/>
+        <text class="et" x="102" y="46">ChangeRequest → Task</text>
+        <text class="ef" x="32" y="66">title · status · priority</text>
+        <text class="ef" x="32" y="82">assignee · risk</text>
+        <text class="ef" x="32" y="98">touches: list[str]</text>
+        <text class="ef" x="32" y="114">locator</text>
+
+        <rect class="eb" x="200" y="26" width="164" height="96" fill="var(--panel2)" stroke="var(--a)"/>
+        <text class="et" x="282" y="46">Commit · PullRequest</text>
+        <text class="ef" x="212" y="66">sha  ← new</text>
+        <text class="ef" x="212" y="82">subject · url · branch</text>
+        <text class="ef" x="212" y="98">locator</text>
+
+        <rect class="eb" x="380" y="26" width="164" height="96" fill="rgba(169,116,240,.14)" stroke="var(--ctrl)"/>
+        <text class="et" x="462" y="46">Feature  ← new</text>
+        <text class="ef" x="392" y="66">title · status · summary</text>
+        <text class="ef" x="392" y="82">implemented_by → Module</text>
+        <text class="ef" x="392" y="98">specified_by → PRD/RFC</text>
+        <text class="ef" x="392" y="114">locator</text>
+
+        <rect class="eb" x="560" y="26" width="180" height="96" fill="rgba(169,116,240,.14)" stroke="var(--ctrl)"/>
+        <text class="et" x="650" y="46">Review · Insight  ← new</text>
+        <text class="ef" x="572" y="66">verdict · reviewer</text>
+        <text class="ef" x="572" y="82">statement · confidence</text>
+        <text class="ef" x="572" y="98">Question → answered_by</text>
+        <text class="ef" x="572" y="114">locator</text>
+
+        <text class="eh" x="24" y="156" fill="#ffce86">RESOLUTION — index, never a copy (A5)</text>
+        <rect class="eb" x="20" y="164" width="230" height="88" fill="rgba(240,167,60,.13)" stroke="var(--c)"/>
+        <text class="et" x="135" y="184">Locator</text>
+        <text class="ef" x="32" y="204">repo: str</text>
+        <text class="ef" x="32" y="220">path: str</text>
+        <text class="ef" x="32" y="236">rev: str        ← pinned, not HEAD</text>
+
+        <rect class="eb" x="290" y="164" width="230" height="88" fill="rgba(240,167,60,.13)" stroke="var(--c)"/>
+        <text class="et" x="405" y="184">ProjectLayout</text>
+        <text class="ef" x="302" y="204">name · clone_url</text>
+        <text class="ef" x="302" y="220">local_path · default_rev</text>
+        <text class="ef" x="302" y="236">resolve() → url | content</text>
+        <line x1="250" y1="208" x2="288" y2="208" stroke="#8a93a8" stroke-width="1.5"/>
+
+        <text class="eh" x="560" y="156" fill="#7fe3cf">IDENTITY (A14)</text>
+        <rect class="eb" x="560" y="164" width="180" height="88" fill="rgba(25,184,154,.13)" stroke="var(--b)"/>
+        <text class="et" x="650" y="184">User</text>
+        <text class="ef" x="572" y="204">username · email</text>
+        <text class="ef" x="572" y="220">password_hash (bcrypt)</text>
+        <text class="ef" x="572" y="236">role · status</text>
+
+        <rect class="eb" x="290" y="272" width="450" height="34" fill="#161922" stroke="var(--line)"/>
+        <text class="el" x="515" y="293">WorkspaceMembership — the grant the RBAC principal is scoped by (A7)</text>
+        <line x1="650" y1="252" x2="650" y2="270" stroke="#8a93a8" stroke-width="1.5"/>
+
+        <text class="el" x="135" y="272">a node points at a file</text>
+        <text class="el" x="135" y="288">it never contains one</text>
+      </svg>
+      <figcaption><b>Four question classes, one resolution path, one identity.</b> The
+        <span class="mono-chip">rev</span> field is what stops a locator rotting against a moving
+        <span class="mono-chip">HEAD</span>.</figcaption>
+    </div></figure>
+  </section>
+
+  <section id="flows">
+    <div class="kicker">Key flows</div>
+    <h2>A governed write, end to end — and how it reaches every watcher</h2>
+    <figure><div class="fig svgwrap">
+      <svg viewBox="0 0 760 260" role="img" aria-label="A claim request from a Claude Code session enters through the MCP or REST adapter, is checked by the governance gate which can return 403 or 409, is written through the store port, publishes an event to the bus, and fans out over SSE to every connected session. The gate and the store are the only places the request can be refused.">
+        <defs>
+          <marker id="f1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#8a93a8"/></marker>
+          <marker id="f2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#ef5b6e"/></marker>
+        </defs>
+        <style>
+          .fb{rx:8;stroke-width:1.6}
+          .ft{fill:#fff;font:700 10.5px "Segoe UI",sans-serif;text-anchor:middle}
+          .fs{fill:#aab3c5;font:8.5px "SF Mono",ui-monospace,monospace;text-anchor:middle}
+          .fl{fill:#8a93a8;font:9px "Segoe UI",sans-serif;text-anchor:middle}
+        </style>
+
+        <rect class="fb" x="14" y="60" width="118" height="48" fill="rgba(62,207,142,.12)" stroke="var(--ok)"/>
+        <text class="ft" x="73" y="80">Claude Code</text><text class="fs" x="73" y="96">seat · any machine</text>
+
+        <rect class="fb" x="156" y="60" width="118" height="48" fill="rgba(91,141,239,.14)" stroke="var(--a)"/>
+        <text class="ft" x="215" y="80">adapter</text><text class="fs" x="215" y="96">MCP tool | REST</text>
+
+        <rect class="fb" x="298" y="60" width="130" height="48" fill="rgba(25,184,154,.14)" stroke="var(--b)"/>
+        <text class="ft" x="363" y="80">governance gate</text><text class="fs" x="363" y="96">rbac · lifecycle · rules</text>
+
+        <rect class="fb" x="452" y="60" width="130" height="48" fill="rgba(240,167,60,.14)" stroke="var(--c)"/>
+        <text class="ft" x="517" y="80">store port</text><text class="fs" x="517" y="96">claim, one winner</text>
+
+        <rect class="fb" x="606" y="60" width="140" height="48" fill="rgba(169,116,240,.16)" stroke="var(--ctrl)"/>
+        <text class="ft" x="676" y="80">event bus</text><text class="fs" x="676" y="96">publish</text>
+
+        <line x1="134" y1="84" x2="154" y2="84" stroke="#8a93a8" stroke-width="1.5" marker-end="url(#f1)"/>
+        <line x1="276" y1="84" x2="296" y2="84" stroke="#8a93a8" stroke-width="1.5" marker-end="url(#f1)"/>
+        <line x1="430" y1="84" x2="450" y2="84" stroke="#8a93a8" stroke-width="1.5" marker-end="url(#f1)"/>
+        <line x1="584" y1="84" x2="604" y2="84" stroke="#8a93a8" stroke-width="1.5" marker-end="url(#f1)"/>
+
+        <line x1="363" y1="110" x2="363" y2="140" stroke="#ef5b6e" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#f2)"/>
+        <text class="fl" x="363" y="154" fill="#f6a2ad">403 · 409 · rule REJECT</text>
+        <line x1="517" y1="110" x2="517" y2="140" stroke="#ef5b6e" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#f2)"/>
+        <text class="fl" x="517" y="154" fill="#f6a2ad">409 — someone else won</text>
+
+        <rect class="fb" x="180" y="188" width="400" height="50" fill="rgba(169,116,240,.16)" stroke="var(--ctrl)"/>
+        <text class="ft" x="380" y="208">SSE fan-out — every connected session, &lt; 1s</text>
+        <text class="fs" x="380" y="225">board · fleet · presence</text>
+        <path d="M676 110 L676 213 L582 213" stroke="#8a93a8" stroke-width="1.5" fill="none" marker-end="url(#f1)"/>
+        <line x1="178" y1="213" x2="90" y2="213" stroke="#8a93a8" stroke-width="1.5" marker-end="url(#f1)"/>
+        <path d="M73 200 L73 110" stroke="#8a93a8" stroke-width="1.5" fill="none" marker-end="url(#f1)"/>
+        <text class="fl" x="120" y="200">and back to every watcher</text>
+
+        <text class="fl" x="380" y="30" style="font-size:10px">the adapter decides nothing — it translates a request and renders a verdict</text>
+        <text class="fl" x="380" y="46" fill="#7b8499">the same handler serves the MCP tool and the REST route (A9)</text>
+      </svg>
+      <figcaption><b>One path, two places it can be refused.</b> The gate answers "may this principal
+        do this, in this state"; the store answers "did anyone else get here first". Nothing else in
+        the chain is allowed an opinion.</figcaption>
+    </div></figure>
+
+    <p>The <b class="hl">fleet flow</b> inverts the arrows and is the reason the system works across
+      networks it does not control: the dev-host daemon opens the connection, never the server. It
+      registers, then heartbeats; the reply carries the control state and
+      <span class="mono-chip">desired_workers</span>; the daemon reconciles its containers to match.
+      A supervisor scaling a machine writes a number onto the host record — the machine learns it on
+      its next beat. Nothing is ever pushed to a host, which is what lets one sit behind NAT (A15).</p>
+  </section>
+
+  <section id="layout">
+    <div class="kicker">Code layout &amp; dependencies</div>
+    <h2>Where code lives, and what it stands on</h2>
+
+    <figure><div class="fig svgwrap">
+      <svg viewBox="0 0 760 260" role="img" aria-label="Repository layout: weave_core the engine, weave the product, weave-ui the React app, plus tests, scripts, deploy and docs, with environment.yml as the conda manifest and PROVENANCE.md pinning the source commit. Beside it, the placement rule and the dependency rule.">
+        <style>
+          .dir{rx:8;stroke-width:1.6}
+          .dt{fill:#fff;font:700 11.5px "Segoe UI",sans-serif}
+          .ds{fill:#aab3c5;font:9.5px "SF Mono",ui-monospace,monospace}
+          .tag{fill:#7fe3cf;font:700 9px "SF Mono",ui-monospace,monospace}
+          .tagn{fill:#cdb1f7;font:700 9px "SF Mono",ui-monospace,monospace}
+        </style>
+        <rect class="dir" x="24" y="16" width="200" height="34" fill="rgba(240,167,60,.12)" stroke="var(--c)"/>
+        <text class="dt" x="38" y="32">Weave/</text><text class="ds" x="38" y="45">repo root</text>
+        <line x1="44" y1="50" x2="44" y2="238" stroke="var(--line)" stroke-width="1.4"/>
+
+        <line x1="44" y1="76" x2="70" y2="76" stroke="var(--line)" stroke-width="1.4"/>
+        <rect class="dir" x="70" y="58" width="300" height="36" fill="rgba(25,184,154,.12)" stroke="var(--b)"/>
+        <text class="dt" x="84" y="74">weave_core/</text><text class="ds" x="84" y="88">engine · no HTTP anywhere</text>
+        <text class="tag" x="318" y="80">copied</text>
+
+        <line x1="44" y1="120" x2="70" y2="120" stroke="var(--line)" stroke-width="1.4"/>
+        <rect class="dir" x="70" y="102" width="300" height="36" fill="rgba(91,141,239,.14)" stroke="var(--a)"/>
+        <text class="dt" x="84" y="118">weave/</text><text class="ds" x="84" y="132">product · the only HTTP</text>
+        <text class="tagn" x="326" y="124">+new</text>
+
+        <line x1="44" y1="164" x2="70" y2="164" stroke="var(--line)" stroke-width="1.4"/>
+        <rect class="dir" x="70" y="146" width="300" height="36" fill="rgba(169,116,240,.16)" stroke="var(--ctrl)"/>
+        <text class="dt" x="84" y="162">weave-ui/</text><text class="ds" x="84" y="176">built into the server image</text>
+        <text class="tagn" x="326" y="168">+new</text>
+
+        <line x1="44" y1="208" x2="70" y2="208" stroke="var(--line)" stroke-width="1.4"/>
+        <rect class="dir" x="70" y="190" width="300" height="36" fill="var(--panel2)" stroke="var(--line)"/>
+        <text class="dt" x="84" y="206">tests · scripts · deploy · docs</text>
+        <text class="ds" x="84" y="220">environment.yml · PROVENANCE.md</text>
+
+        <rect class="dir" x="420" y="58" width="316" height="168" fill="#161922" stroke="var(--line)"/>
+        <text class="dt" x="438" y="82">The placement rule</text>
+        <text class="ds" x="438" y="104">does it touch HTTP? → weave/server</text>
+        <text class="ds" x="438" y="122">is it about a team? → weave/</text>
+        <text class="ds" x="438" y="140">is it about the graph? → weave_core/</text>
+        <text class="dt" x="438" y="170">The dependency rule</text>
+        <text class="ds" x="438" y="192">one library per job · none added here</text>
+        <text class="ds" x="438" y="210">a new one needs a D-NN first (A11)</text>
+      </svg>
+      <figcaption><b>Three questions place any file.</b> If a file would answer two of them, it is two
+        files.</figcaption>
+    </div></figure>
+
+<pre class="mono" style="background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;overflow-x:auto;font-size:12.5px;line-height:1.6">Weave/
+├── weave_core/                  <b>the engine — imports nothing from weave/, contains no HTTP</b>
+│   ├── graph/
+│   │   ├── engine.py            quadruple store, CGR3 retrieve → rank → reason
+│   │   ├── types.py             RelationContext, the quadruple
+│   │   └── storage/             GraphStore adapters: networkx · postgres · neo4j
+│   ├── governance/              gate.py · rbac/ · lifecycle/ · actions/ · rules/ · ontology/
+│   ├── studio/                  service.py  — propose → diff → sign, versioned, rollback
+│   ├── events/
+│   │   ├── bus.py               the EventBus port
+│   │   ├── inprocess.py         adapter — single-process deployments
+│   │   ├── postgres.py          adapter — LISTEN/NOTIFY, multi-worker  [new]
+│   │   └── ingress.py           durable append-then-publish log
+│   ├── knowledge/               ingest · extract · dedup · quality · community
+│   ├── llm/                     the 8 wired connectors — <b>the only model credential (A13)</b>
+│   └── store/                   RecordStore port + memory/json/postgres adapters
+├── weave/                       <b>the product</b>
+│   ├── model/                   answers.py · locator.py · project_layout.py       [new]
+│   ├── team/                    coordinator.py · claim · workers.py · integration.py
+│   ├── devhost/                 registry.py · daemon.py · runtime.py · worktree.py
+│   ├── server/
+│   │   ├── app.py               the FastAPI app — <b>the only place HTTP exists</b>
+│   │   ├── routers/             one thin router per resource
+│   │   ├── mcp.py               the MCP sub-app — adapters over the same handlers
+│   │   ├── auth.py              JWT issue/verify; principal from identity (A7)
+│   │   └── users.py             the user store                                    [new]
+│   ├── live/                    stream.py (SSE) · presence.py                     [new]
+│   ├── wizards/                 session.py · templates/                           [new]
+│   └── cli/                     main.py — init · roles · user · project · up · agents · doctor  [new]
+├── weave-ui/                    React 19 · Vite 7 · Tailwind 4 · zustand 5
+│   └── src/{pages,components,stores,api}
+├── tests/                       copied suites + one gate suite per milestone
+├── scripts/                     nameguard.sh · measure_live_latency.py
+│                                measure_claim_concurrency.py · measure_onboarding.py
+├── deploy/                      compose.yml · compose.devhost.yml · dev-agent.Dockerfile
+├── docs/                        BLOG · RFC · DRP · ARCHITECTURE · CONSTRAINTS · DECISIONS
+├── environment.yml              <b>conda manifest</b>
+├── PROVENANCE.md                pinned source commit + module selection + port log
+└── CLAUDE.md                    working agreement; imports CONSTRAINTS.md every session</pre>
+
+    <div class="callout key"><div class="clabel">◆ Dependency manager</div>
+      <b>conda</b> (house default) · manifest <span class="mono-chip">environment.yml</span> — for Python
+      this was <b>asked, not assumed</b> and logged as D-006. The UI keeps <b>bun</b> with
+      <span class="mono-chip">package.json</span>. Tests: <span class="mono-chip">pytest</span> for
+      Python, <span class="mono-chip">bun test</span> for the UI — one runner per language (A11).</div>
+
+    <h3 style="font-size:16px;margin:16px 0 6px">External libraries</h3>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Library</th><th>Version</th><th>Purpose</th><th>Reused / new</th><th>Why over the alternative</th></tr></thead>
+      <tbody>
+        <tr><td>fastapi · uvicorn · gunicorn</td><td>as source</td><td>HTTP, ASGI, multi-worker serving</td><td>reused</td><td>the whole API is written against it</td></tr>
+        <tr><td>pydantic</td><td>2.x</td><td>request, response and artifact schemas</td><td>reused</td><td>already every schema in the tree</td></tr>
+        <tr><td>mcp</td><td>&gt;=1.26,&lt;2</td><td>the agent + human seat tool surface, Streamable HTTP</td><td>reused</td><td>the transport that already makes remote roles work</td></tr>
+        <tr><td>PyJWT</td><td>&gt;=2.8,&lt;3</td><td>token issue and verify</td><td>reused</td><td><b>replaces python-jose</b>, declared in the source but imported nowhere — two JWT libraries for one job is the defect this table exists to catch</td></tr>
+        <tr><td>bcrypt</td><td>&gt;=4.0</td><td>password hashing for the user store</td><td>reused</td><td>already present — the user store adds no crypto library</td></tr>
+        <tr><td>asyncpg</td><td>&gt;=0.31,&lt;1</td><td>PostgreSQL client — KV, vector, graph <b>and LISTEN/NOTIFY</b></td><td>reused</td><td>the one library that also solves the multi-worker event fan-out, which is why no broker is needed</td></tr>
+        <tr><td>pgvector</td><td>&gt;=0.4.2</td><td>vector storage in PostgreSQL</td><td>reused</td><td>keeps the production deployment to one service</td></tr>
+        <tr><td>neo4j</td><td>&gt;=5,&lt;7</td><td>optional dedicated graph backend</td><td>reused</td><td>chosen over Memgraph — wider operational familiarity, same driver shape</td></tr>
+        <tr><td>networkx · nano-vectordb</td><td>as source</td><td>file-based dev storage</td><td>reused</td><td>zero-install first run</td></tr>
+        <tr><td>openai · google-genai (+ azure, bedrock, ollama, lollms, jina)</td><td>openai &gt;=2,&lt;3</td><td>extraction and embedding — the metered path</td><td>reused</td><td>only the 8 the server config mounts; the 7 unwired connector modules are dropped</td></tr>
+        <tr><td>model2vec · business_rule_engine</td><td>&gt;=0.3 / &gt;=1.0</td><td>the rules engine's fuzzy field matching</td><td>reused</td><td>governance depends on it</td></tr>
+        <tr><td>pypdf · python-docx · python-pptx · openpyxl</td><td>as source</td><td>document extraction for the brain</td><td>reused</td><td>needed for curated backfill</td></tr>
+        <tr><td>React 19 · Vite 7 · Tailwind 4 · zustand 5 · sigma 3 · @xyflow/react 12 · mermaid 11</td><td>as source</td><td>the web application</td><td>reused</td><td>26,659 LOC is written against exactly these</td></tr>
+        <tr><td colspan="5"><b>New libraries introduced by this architecture: none.</b> SSE is Starlette streaming; the Postgres bus adapter is <span class="mono-chip">asyncpg</span> LISTEN/NOTIFY; the CLI is <span class="mono-chip">argparse</span>; the user store is the existing <span class="mono-chip">RecordStore</span> pattern with bcrypt.</td></tr>
+        <tr><td><b>Removed:</b> anthropic · python-jose · lxml · playwright · redis · pymongo · pymilvus · qdrant-client · docling · llama-index(+openai) · zhipuai · aioboto3 · voyageai</td><td>—</td><td>leave with the modules that used them, or were never used at all</td><td>dropped</td><td>13 fewer libraries to patch, audit and ship. <span class="mono-chip">anthropic</span> is additionally <b>forbidden</b> by A13.</td></tr>
+      </tbody>
+    </table></div>
+
+    <h3 style="font-size:16px;margin:16px 0 6px">What already exists, and how this design reuses it</h3>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Already there</th><th>Where</th><th>How this design reuses it</th></tr></thead>
+      <tbody>
+        <tr><td>House UI kit — the same token palette as the docs, plus app components</td><td><span class="mono-chip">frontend-kit/house-ui.css</span> + <span class="mono-chip">index.html</span> (this repo)</td><td><b>The design system for <span class="mono-chip">weave-ui/</span>.</b> New screens use its tokens and class patterns; no second stylesheet is introduced</td></tr>
+        <tr><td>Typed record stores — atomic replace, corrupt-file tolerance, workspace sanitising</td><td>source <span class="mono-chip">weave/recordstore.py</span></td><td>Promoted to <span class="mono-chip">weave_core/store/</span> as the <b>one persistence port</b>; users, hosts, workers and layouts are all written against it</td></tr>
+        <tr><td>Event bus port + durable ingress log</td><td>source <span class="mono-chip">events/</span></td><td>Kept as the port; gains a second adapter (see trade-offs) — the design the docstring already anticipated</td></tr>
+        <tr><td>Signed artifact ledger</td><td>source <span class="mono-chip">studio/</span></td><td>Wizards write through it; <span class="mono-chip">rbac</span> and <span class="mono-chip">lifecycle</span> join as artifact kinds</td></tr>
+        <tr><td>Dev-host registry + daemon, 1,072 LOC</td><td>source <span class="mono-chip">devhost.py</span> · <span class="mono-chip">devhost_daemon.py</span></td><td>Copied whole to <span class="mono-chip">weave/devhost/</span>; its invariants are pinned as R62–R76</td></tr>
+        <tr><td>Subscription seat boundary — scrub + preflight assert</td><td>source <span class="mono-chip">worker.py</span></td><td>Extended from the container path to <b>human seats</b>; unchanged in mechanism</td></tr>
+        <tr><td>MCP over Streamable HTTP, mounted on the app</td><td>source <span class="mono-chip">mcp_server.py</span></td><td>Kept — it is already what makes a remote role work; tools become adapters over shared handlers</td></tr>
+        <tr><td>Databases in use</td><td>file-based (NetworkX · Json · Nano)</td><td>Stays the default; Postgres and Neo4j are added paths. <b>No new store is introduced</b></td></tr>
+      </tbody>
+    </table></div>
+
+    <div class="callout caveat"><div class="clabel">◆ Replacing an incumbent</div>
+      Four replacements, each with a phase that deletes the old one — they never coexist past a
+      milestone. <span class="mono-chip">python-jose</span> → PyJWT (P0).
+      <span class="mono-chip">AUTH_ACCOUNTS</span>/<span class="mono-chip">AUTH_ROLES</span> → the user
+      store (P1). 4-second polling → SSE (P3). Task <span class="mono-chip">reviews</span>/<span class="mono-chip">learnings</span>
+      list fields → <span class="mono-chip">Review</span>/<span class="mono-chip">Insight</span> nodes
+      (after M2 sign-off).</div>
+  </section>
+
+  <section id="boundaries">
+    <div class="kicker">Boundaries &amp; ownership</div>
+    <h2>Who owns what</h2>
+
+    <figure><div class="fig svgwrap">
+      <svg viewBox="0 0 760 270" role="img" aria-label="Three boundaries. The import boundary: weave-ui to weave to weave_core to ports, one direction only. The credential boundary: subscription seats on one side, the server's metered LLM backend on the other, with nothing crossing. The network boundary: the server never dials out; hosts and workers connect outward only.">
+        <defs><marker id="b1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#8a93a8"/></marker></defs>
+        <style>
+          .bb{rx:8;stroke-width:1.5}
+          .bt{fill:#fff;font:700 10.5px "Segoe UI",sans-serif;text-anchor:middle}
+          .bs{fill:#aab3c5;font:8.5px "SF Mono",ui-monospace,monospace;text-anchor:middle}
+          .bh{font:800 9.5px "Segoe UI",sans-serif;letter-spacing:.1em}
+        </style>
+
+        <text class="bh" x="20" y="18" fill="#9dbcff">IMPORT — one direction (A2)</text>
+        <rect class="bb" x="20" y="26" width="106" height="34" fill="rgba(169,116,240,.16)" stroke="var(--ctrl)"/>
+        <text class="bs" x="73" y="47">weave-ui</text>
+        <rect class="bb" x="146" y="26" width="106" height="34" fill="rgba(91,141,239,.14)" stroke="var(--a)"/>
+        <text class="bs" x="199" y="47">weave/</text>
+        <rect class="bb" x="272" y="26" width="106" height="34" fill="rgba(25,184,154,.13)" stroke="var(--b)"/>
+        <text class="bs" x="325" y="47">weave_core/</text>
+        <rect class="bb" x="398" y="26" width="106" height="34" fill="rgba(240,167,60,.13)" stroke="var(--c)"/>
+        <text class="bs" x="451" y="47">ports</text>
+        <line x1="128" y1="43" x2="144" y2="43" stroke="#8a93a8" stroke-width="1.5" marker-end="url(#b1)"/>
+        <line x1="254" y1="43" x2="270" y2="43" stroke="#8a93a8" stroke-width="1.5" marker-end="url(#b1)"/>
+        <line x1="380" y1="43" x2="396" y2="43" stroke="#8a93a8" stroke-width="1.5" marker-end="url(#b1)"/>
+        <text class="bs" x="620" y="47" fill="#f6a2ad">never the other way — and no HTTP left of weave/server</text>
+
+        <text class="bh" x="20" y="94" fill="#7ee3b4">CREDENTIAL (A13)</text>
+        <rect class="bb" x="20" y="102" width="330" height="58" fill="rgba(62,207,142,.09)" stroke="var(--ok)"/>
+        <text class="bt" x="185" y="124">subscription seats</text>
+        <text class="bs" x="185" y="141">human roles · dev containers · dev hosts</text>
+        <text class="bs" x="185" y="154">CLAUDE_CODE_OAUTH_TOKEN — never scrubbed</text>
+        <rect class="bb" x="410" y="102" width="330" height="58" fill="rgba(240,167,60,.12)" stroke="var(--c)"/>
+        <text class="bt" x="575" y="124">metered backend</text>
+        <text class="bs" x="575" y="141">weave_core/llm only</text>
+        <text class="bs" x="575" y="154">the only model credential in the system</text>
+        <line x1="380" y1="102" x2="380" y2="160" stroke="#ef5b6e" stroke-width="1.8" stroke-dasharray="5 4"/>
+        <line x1="372" y1="122" x2="388" y2="140" stroke="#ef5b6e" stroke-width="2.2"/>
+        <line x1="388" y1="122" x2="372" y2="140" stroke="#ef5b6e" stroke-width="2.2"/>
+
+        <text class="bh" x="20" y="194" fill="#ffce86">NETWORK (A15)</text>
+        <rect class="bb" x="20" y="202" width="200" height="48" fill="rgba(91,141,239,.14)" stroke="var(--a)"/>
+        <text class="bt" x="120" y="222">Weave server</text><text class="bs" x="120" y="238">never dials out</text>
+        <rect class="bb" x="380" y="202" width="180" height="48" fill="rgba(25,184,154,.13)" stroke="var(--b)"/>
+        <text class="bt" x="470" y="222">dev host</text><text class="bs" x="470" y="238">behind NAT is fine</text>
+        <rect class="bb" x="590" y="202" width="150" height="48" fill="rgba(25,184,154,.13)" stroke="var(--b)"/>
+        <text class="bt" x="665" y="222">worker</text><text class="bs" x="665" y="238">long-polls</text>
+        <line x1="378" y1="226" x2="224" y2="226" stroke="#8a93a8" stroke-width="1.6" marker-end="url(#b1)"/>
+        <line x1="588" y1="226" x2="564" y2="226" stroke="#8a93a8" stroke-width="1.6" marker-end="url(#b1)"/>
+        <text class="bs" x="300" y="216" fill="#8a93a8">register · heartbeat</text>
+        <text class="bs" x="300" y="248" fill="#7b8499">the reply carries desired_workers — state read, not pushed</text>
+      </svg>
+      <figcaption><b>Three boundaries, three different failure modes.</b> Cross the import boundary and
+        the engine stops being reusable; cross the credential boundary and the subscription model
+        breaks; cross the network boundary and remote fleets stop working.</figcaption>
+    </div></figure>
+
+    <div class="callout key"><div class="clabel">◆ The boundary in one line</div>
+      <b>weave_core</b> owns the graph and the verdicts and knows nothing about who is asking;
+      <b>weave</b> owns the team, the identities and every byte of HTTP; <b>weave-ui</b> owns only
+      rendering. They meet at service functions — never at a shared mutable object, a global, or a
+      request-scoped cache.</div>
+  </section>
+
+  <section id="tradeoffs">
+    <div class="kicker">Trade-offs</div>
+    <h2>What we chose against</h2>
+
+    <p>One decision deserves the space, because the RFC left it implied and the failure it prevents is
+      silent. <b class="hl">The event bus is single-process by construction</b> — the source's own
+      docstring says so: <em>"Single-process async pub/sub… not durable… swap to a broker later."</em>
+      Meanwhile the server supports gunicorn with <span class="mono-chip">--workers N</span>. Put SSE on
+      that bus unchanged and a client connected to worker 2 will never see an event published on
+      worker 1. Nothing errors. The board just quietly stops updating for some users.</p>
+
+    <figure><div class="fig svgwrap">
+      <svg viewBox="0 0 760 250" role="img" aria-label="Left: with the in-process bus across two gunicorn workers, an event published in worker one reaches only the client connected to worker one; the client on worker two never sees it and nothing errors. Right: with the Postgres LISTEN NOTIFY adapter, the publish goes to the database and every worker is notified, so both clients receive it.">
+        <defs>
+          <marker id="t1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#8a93a8"/></marker>
+          <marker id="t2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#3ecf8e"/></marker>
+        </defs>
+        <style>
+          .tb{rx:8;stroke-width:1.5}
+          .tt{fill:#fff;font:700 10px "Segoe UI",sans-serif;text-anchor:middle}
+          .ts{fill:#aab3c5;font:8.5px "SF Mono",ui-monospace,monospace;text-anchor:middle}
+          .th{font:800 9.5px "Segoe UI",sans-serif;letter-spacing:.1em;text-anchor:middle}
+        </style>
+
+        <text class="th" x="185" y="18" fill="#f6a2ad">IN-PROCESS BUS · 2 WORKERS — SILENT LOSS</text>
+        <rect class="tb" x="16" y="26" width="338" height="200" fill="rgba(239,91,110,.06)" stroke="rgba(239,91,110,.4)"/>
+        <rect class="tb" x="34" y="46" width="140" height="44" fill="rgba(91,141,239,.14)" stroke="var(--a)"/>
+        <text class="tt" x="104" y="65">worker 1</text><text class="ts" x="104" y="80">publish(claimed)</text>
+        <rect class="tb" x="196" y="46" width="140" height="44" fill="rgba(91,141,239,.14)" stroke="var(--a)"/>
+        <text class="tt" x="266" y="65">worker 2</text><text class="ts" x="266" y="80">its own empty bus</text>
+        <rect class="tb" x="34" y="140" width="140" height="44" fill="rgba(62,207,142,.12)" stroke="var(--ok)"/>
+        <text class="tt" x="104" y="159">client A</text><text class="ts" x="104" y="174">sees it</text>
+        <rect class="tb" x="196" y="140" width="140" height="44" fill="rgba(239,91,110,.10)" stroke="var(--danger)"/>
+        <text class="tt" x="266" y="159">client B</text><text class="ts" x="266" y="174" fill="#f6a2ad">never sees it</text>
+        <line x1="104" y1="92" x2="104" y2="138" stroke="#8a93a8" stroke-width="1.5" marker-end="url(#t1)"/>
+        <line x1="266" y1="92" x2="266" y2="138" stroke="#ef5b6e" stroke-width="1.5" stroke-dasharray="4 3"/>
+        <line x1="258" y1="106" x2="274" y2="122" stroke="#ef5b6e" stroke-width="2"/>
+        <line x1="274" y1="106" x2="258" y2="122" stroke="#ef5b6e" stroke-width="2"/>
+        <text class="ts" x="185" y="208" fill="#f6a2ad">no error · no log · the board just stops updating</text>
+
+        <text class="th" x="575" y="18" fill="#7ee3b4">POSTGRES LISTEN/NOTIFY — FANS OUT</text>
+        <rect class="tb" x="406" y="26" width="338" height="200" fill="rgba(62,207,142,.06)" stroke="rgba(62,207,142,.4)"/>
+        <rect class="tb" x="424" y="46" width="140" height="44" fill="rgba(91,141,239,.14)" stroke="var(--a)"/>
+        <text class="tt" x="494" y="65">worker 1</text><text class="ts" x="494" y="80">NOTIFY weave_events</text>
+        <rect class="tb" x="586" y="46" width="140" height="44" fill="rgba(91,141,239,.14)" stroke="var(--a)"/>
+        <text class="tt" x="656" y="65">worker 2</text><text class="ts" x="656" y="80">LISTEN</text>
+        <rect class="tb" x="490" y="102" width="170" height="34" fill="rgba(240,167,60,.14)" stroke="var(--c)"/>
+        <text class="ts" x="575" y="123">PostgreSQL — already there</text>
+        <rect class="tb" x="424" y="150" width="140" height="40" fill="rgba(62,207,142,.12)" stroke="var(--ok)"/>
+        <text class="tt" x="494" y="167">client A</text><text class="ts" x="494" y="181">sees it</text>
+        <rect class="tb" x="586" y="150" width="140" height="40" fill="rgba(62,207,142,.12)" stroke="var(--ok)"/>
+        <text class="tt" x="656" y="167">client B</text><text class="ts" x="656" y="181">sees it</text>
+        <line x1="494" y1="92" x2="520" y2="100" stroke="#8a93a8" stroke-width="1.4" marker-end="url(#t1)"/>
+        <line x1="630" y1="100" x2="656" y2="92" stroke="#3ecf8e" stroke-width="1.4" marker-end="url(#t2)"/>
+        <line x1="494" y1="138" x2="494" y2="148" stroke="#3ecf8e" stroke-width="1.4" marker-end="url(#t2)"/>
+        <line x1="656" y1="92" x2="656" y2="148" stroke="#3ecf8e" stroke-width="1.4" marker-end="url(#t2)"/>
+        <text class="ts" x="575" y="208" fill="#7ee3b4">asyncpg is already a dependency — no broker, no new library</text>
+      </svg>
+      <figcaption><b>Why the bus adapter is a deployment decision, not a detail.</b> The pairing is
+        also self-consistent: file-based storage is single-operator only (A4), so it only ever runs one
+        worker, where the in-process bus is correct.</figcaption>
+    </div></figure>
+
+    <div class="tablewrap"><table>
+      <thead><tr><th>Decision</th><th>Chosen</th><th>Rejected</th><th>Why</th></tr></thead>
+      <tbody>
+        <tr><td><b>Event fan-out across workers</b></td><td>Two adapters behind the existing port: in-process for single-process deployments, PostgreSQL <span class="mono-chip">LISTEN/NOTIFY</span> for multi-worker</td><td>Redis pub/sub · a real broker (NATS, RabbitMQ) · pinning every deployment to one worker</td><td>A broker is a new dependency and a fourth service to run, both barred without a decision (A11, A1). <span class="mono-chip">asyncpg</span> is already installed and already required for the multi-user path, so the fan-out costs nothing new. One worker forever would cap the product at a scale we intend to exceed.</td></tr>
+        <tr><td><b>Persistence shape</b></td><td>The existing <span class="mono-chip">RecordStore</span> port with memory/json/postgres adapters</td><td>SQLAlchemy or another ORM</td><td>An ORM is a new library for a job a working, tested abstraction already does — and it would only cover the Postgres path, leaving the file path on a second mechanism.</td></tr>
+        <tr><td><b>MCP surface</b></td><td>Tools are adapters over the same service functions the routers call</td><td>Independent tool implementations, as in the source</td><td>Two implementations of one question drift, and the drift is invisible until a human and an agent disagree in a review (A9).</td></tr>
+        <tr><td><b>Web UI delivery</b></td><td>Built into the server image, served as static assets</td><td>A separately deployed front end behind its own server or CDN</td><td>A fourth deployable to run, version-match and onboard, against a measured onboarding target. It also buys nothing: the UI has no traffic profile the API server cannot serve.</td></tr>
+        <tr><td><b>Document reference</b></td><td>Locator (<span class="mono-chip">repo · path · rev</span>) resolved through a registered layout</td><td>Storing artifact bodies in the graph</td><td>A copied body rots against the repository, and reconciling the two becomes a permanent background job. A locator that stops resolving is a detectable defect instead (A5).</td></tr>
+        <tr><td><b>Graph backend</b></td><td>Neo4j as the optional dedicated engine</td><td>Memgraph</td><td>Same driver shape and a similar feature surface, but wider operational familiarity — and only one of them can be gated at every milestone (A4).</td></tr>
+        <tr><td><b>Shared edit convergence</b></td><td>Version-checked writes: 409 plus a merge view, on the ledger that already versions everything</td><td>CRDT co-editing (<span class="mono-chip">pycrdt</span> + Yjs)</td><td>Two libraries across two runtimes, ahead of demonstrated need, for artifacts that are mostly edited by one person at a time. Deferred behind the transport seam, revisited if the merge-conflict rate justifies it.</td></tr>
+        <tr><td><b>Human client</b></td><td>Ordinary Claude Code — CLI, app, IDE extension</td><td>A bespoke desktop or terminal client</td><td>A second client architecture to build and keep in step with the agents' surface, replacing one that already works remotely over Streamable HTTP (A10).</td></tr>
+      </tbody>
+    </table></div>
+    <p class="small">Recorded in <span class="mono-chip">DECISIONS.md</span> as D-019 … D-021; the
+      contract gains <span class="mono-chip">A7</span> (bus adapter must match the deployment).</p>
+  </section>
+
+</article>
+</main>
+</div>
+
+<footer class="footer">Weave · architecture · 2026-08-08 · implements
+  <a href="WEAVE_RFC.html">WEAVE_RFC.html</a> · governed by <a href="CONSTRAINTS.md">CONSTRAINTS.md</a> ·
+  index at <a href="DOCS_INDEX.md">DOCS_INDEX.md</a></footer>
+</body>
+</html>

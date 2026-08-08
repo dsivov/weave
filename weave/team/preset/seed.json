@@ -1,0 +1,11 @@
+{
+  "_comment": "Weave preset - seed. Entities first, then relations. Seeds the four Weave roles as Role nodes so RBAC and assignments have real identities to reference. Modules/tasks/CRs are created live through the governed actions or backfilled from the repo.",
+  "name": "weave",
+  "entities": [
+    {"entity_name": "manager", "entity_data": {"entity_type": "Role", "description": "Orchestrator and human entry point: intake, PRDs, the global task list, discussion docs.", "active": "true"}},
+    {"entity_name": "architect", "entity_data": {"entity_type": "Role", "description": "Design authority: RFCs, READMEs, diagrams, task breakdown, code-review standards, merge.", "active": "true"}},
+    {"entity_name": "developer", "entity_data": {"entity_type": "Role", "description": "Autonomous worker: claims tasks, writes code, runs unit tests, opens pull requests, records the why.", "active": "true"}},
+    {"entity_name": "integrator", "entity_data": {"entity_type": "Role", "description": "Environment owner: runs the assembled frontend+backend+DB, integration/e2e tests, promotion.", "active": "true"}}
+  ],
+  "relations": []
+}

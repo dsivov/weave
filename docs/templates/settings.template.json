@@ -1,0 +1,31 @@
+{
+  "//": "House-methodology Claude Code settings. new-project copies this to .claude/settings.json. If the project already has one, MERGE these keys in (don't overwrite). Hooks run from the project root.",
+  "permissions": {
+    "//": "The architect/manager skills own docs/ — writing artifacts there never prompts. Scoped to docs/ on purpose: code still asks.",
+    "allow": [
+      "Read(docs/**)",
+      "Edit(docs/**)",
+      "Write(docs/**)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/session-banner.sh",
+            "timeout": 10,
+            "statusMessage": "Loading methodology context…"
+          }
+        ]
+      }
+    ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "bash .claude/hooks/statusline.sh",
+    "padding": 1
+  }
+}

@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Weave — RFC &amp; build plan</title>
+<link rel="stylesheet" href="assets/house.css">
+</head>
+<body>
+
+<header class="hero">
+  <div class="hero-inner">
+    <div class="eyebrow">Weave · RFC · 2026-08-08 · status: accepted</div>
+    <h1>Weave — RFC &amp; build plan</h1>
+    <p class="lede">Stand Weave up as a standalone product: copy the engine and governance layers out of
+      the parent tree into a new repository, rebrand them completely, and build the six things the parent
+      never had — a real user store with an admin UI; a data model that answers the team's four standing
+      questions and links every entry back to the real document; a live multi-user surface;
+      team-vocabulary setup wizards; a supervisory seat beside the autonomous fleet; and a one-command
+      onboarding bundle that brings up the server, the database and the container dev agents. Seven
+      phases, seven milestones, and no new external library.</p>
+    <div class="byline">Motivated by <a href="BLOG_THE_TEAM_IS_THE_PRODUCT.html">BLOG_THE_TEAM_IS_THE_PRODUCT.html</a>
+      · source inventory taken from the parent tree at <span class="mono-chip">feat/weave-p0</span>
+      (head <span class="mono-chip">608401b8</span>, 23 commits ahead of <span class="mono-chip">main</span>)</div>
+  </div>
+</header>
+
+<!-- SUMMARY -->
+<section class="slide" id="summary">
+  <div class="kicker k-a">Summary</div>
+  <h2>Fork the engine once, brand it wholly ours, and build the product the parent could not</h2>
+
+  <figure><div class="fig svgwrap">
+    <svg viewBox="0 0 760 260" role="img" aria-label="A one-way copy: the parent Context_Graph directory is a read-only source, verified unchanged by checksum. A copy-and-rebrand step moves the selected modules into the standalone Weave repository. Nothing is ever written back, and the parent is never imported at runtime.">
+      <defs>
+        <marker id="s1a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#f0a73c"/></marker>
+      </defs>
+      <style>
+        .b1{rx:11;stroke-width:1.8}
+        .t1{fill:#fff;font:700 12.5px "Segoe UI",sans-serif;text-anchor:middle}
+        .s1{fill:#aab3c5;font:10px "SF Mono",ui-monospace,monospace;text-anchor:middle}
+        .h1l{font:800 10.5px "Segoe UI",sans-serif;letter-spacing:.14em;text-anchor:middle}
+        .l1{fill:#8a93a8;font:10px "Segoe UI",sans-serif;text-anchor:middle}
+      </style>
+
+      <text class="h1l" x="120" y="24" fill="#7b8499">READ-ONLY SOURCE</text>
+      <rect class="b1" x="20" y="36" width="200" height="82" fill="rgba(123,132,153,.10)" stroke="#7b8499" stroke-dasharray="6 4"/>
+      <text class="t1" x="120" y="64">Context_Graph/</text>
+      <text class="s1" x="120" y="84">feat/weave-p0 · 608401b8</text>
+      <text class="s1" x="120" y="101">never modified</text>
+
+      <text class="h1l" x="380" y="24" fill="#ffce86">ONE-WAY</text>
+      <rect class="b1" x="280" y="36" width="200" height="82" fill="rgba(240,167,60,.14)" stroke="var(--c)"/>
+      <text class="t1" x="380" y="64">copy + rebrand</text>
+      <text class="s1" x="380" y="84">select · rename · re-test</text>
+      <text class="s1" x="380" y="101">CI name-guard enforces</text>
+
+      <text class="h1l" x="640" y="24" fill="#cdb1f7">STANDALONE</text>
+      <rect class="b1" x="540" y="36" width="200" height="82" fill="rgba(169,116,240,.16)" stroke="var(--ctrl)"/>
+      <text class="t1" x="640" y="64">Weave/</text>
+      <text class="s1" x="640" y="84">own git · own server</text>
+      <text class="s1" x="640" y="101">own brand · own release</text>
+
+      <line x1="222" y1="77" x2="278" y2="77" stroke="var(--c)" stroke-width="2.2" marker-end="url(#s1a)"/>
+      <line x1="482" y1="77" x2="538" y2="77" stroke="var(--c)" stroke-width="2.2" marker-end="url(#s1a)"/>
+
+      <path d="M640 126 L640 150 L120 150 L120 128" stroke="#ef5b6e" stroke-width="1.5" fill="none" stroke-dasharray="5 5"/>
+      <line x1="368" y1="140" x2="392" y2="160" stroke="#ef5b6e" stroke-width="2.2"/>
+      <line x1="392" y1="140" x2="368" y2="160" stroke="#ef5b6e" stroke-width="2.2"/>
+      <text class="l1" x="380" y="176" fill="#f6a2ad">no writes back · no runtime import · no submodule</text>
+
+      <rect class="b1" x="20" y="192" width="350" height="54" fill="rgba(25,184,154,.12)" stroke="var(--b)"/>
+      <text class="t1" x="195" y="214">crosses the boundary</text>
+      <text class="s1" x="195" y="233">55,701 engine+server · 9,406 storage · 26,659 UI</text>
+
+      <rect class="b1" x="390" y="192" width="350" height="54" fill="rgba(123,132,153,.10)" stroke="#7b8499"/>
+      <text class="t1" x="565" y="214">left behind</text>
+      <text class="s1" x="565" y="233">6 backends 7,617 · tools 4,936 · scraper 1,819 · eval 1,041</text>
+    </svg>
+    <figcaption><b>A fork, declared as one.</b> The parent directory is a source we read once per
+      deliberate sync, never a dependency and never a write target — which is what makes "no changes in
+      Context_Graph" a checkable assertion rather than a good intention.</figcaption>
+  </div></figure>
+
+  <div class="grid g3" style="margin-top:16px">
+    <div class="card rail rb"><h3 style="margin-top:0">What we assemble</h3>
+      <p class="small">The proven layers, copied and renamed: the governed graph and CGR3 decision
+        retrieval; <b class="hl">rbac · lifecycle · actions · rules · ontology</b>; the Studio signed
+        ledger and diagrams; the event bus; document ingestion; the whole Weave team layer (coordinator, atomic claim, fleet registry, integration gate) and the <b class="hl">dev-host bundle</b> (registry + daemon, 1,072 LOC — outbound-only heartbeat, reconcile, drain, one seat per machine); the React WebUI and its
+        28 components. <b>~92k LOC across Python and TypeScript.</b></p></div>
+    <div class="card rail rctrl"><h3 style="margin-top:0">What we build</h3>
+      <p class="small">A persisted <b class="hl">user store + Admin ▸ Users UI</b> — the parent has none.
+        The <b class="hl">answer surface</b>: <span class="mono-chip">Feature</span>,
+        <span class="mono-chip">Review</span>, <span class="mono-chip">Insight</span>,
+        <span class="mono-chip">Question</span> as real nodes, plus a <b class="hl">locator on every
+        artifact</b> so the index leads back to the document in the project layout. A
+        <b class="hl">live transport</b> (SSE on the existing bus) with presence, replacing 4-second
+        polling. <b class="hl">Team-vocabulary wizards</b> over the signed ledger, plus RBAC and lifecycle
+        as ledger artifact kinds. The <b class="hl">senior-developer seat</b>. And a
+        <b class="hl">one-command onboarding bundle</b> — a <span class="mono-chip">weave</span> CLI and compose stacks for the server, the database, and the <b class="hl">dev-host daemon</b> that proxies a developer environment to Weave and carries the container fleet.</p></div>
+    <div class="card rail rc"><h3 style="margin-top:0">What we avoid</h3>
+      <p class="small">Any edit to <span class="filepath">Context_Graph/</span>. Any runtime dependency on
+        it — no submodule, no upstream package, no shared venv. Six storage backends we will not test.
+        The web scraper, the evaluation harness, and <span class="mono-chip">lightrag.tools</span>. CRDT
+        co-editing in v1 (named seam, deferred). Federation of per-developer graphs. Any surviving use of
+        the names <em>Context Graph</em> or <em>LightRAG</em>.</p></div>
+  </div>
+</section>
+
+<!-- DECISIONS -->
+<section class="slide" id="decisions">
+  <div class="kicker k-b">Decisions</div>
+  <h2>The choices this plan is built on</h2>
+
+  <figure><div class="fig svgwrap">
+    <svg viewBox="0 0 760 280" role="img" aria-label="The rebrand mapping, including the MCP server name and workspace header that ship inside every user's .mcp.json,: context_graph and lightrag Python packages become weave_core and weave, the web UI directory becomes weave-ui, LIGHTRAG and CG environment variables become WEAVE, and the product names in prose become Weave. A continuous integration name guard greps the tree and fails the build on any surviving occurrence.">
+      <defs>
+        <marker id="s2a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#8a93a8"/></marker>
+      </defs>
+      <style>
+        .b2{rx:9;stroke-width:1.6}
+        .o2{fill:#f6a2ad;font:11.5px "SF Mono",ui-monospace,monospace}
+        .n2{fill:#7fe3cf;font:11.5px "SF Mono",ui-monospace,monospace}
+        .h2l{font:800 10.5px "Segoe UI",sans-serif;letter-spacing:.14em}
+        .l2{fill:#8a93a8;font:10px "Segoe UI",sans-serif}
+      </style>
+
+      <text class="h2l" x="24" y="22" fill="#f6a2ad">FORBIDDEN</text>
+      <text class="h2l" x="430" y="22" fill="#7fe3cf">REBRANDED</text>
+
+      <rect class="b2" x="20" y="32" width="300" height="176" fill="rgba(239,91,110,.07)" stroke="rgba(239,91,110,.45)"/>
+      <text class="o2" x="34" y="56">context_graph/</text>
+      <text class="o2" x="34" y="80">lightrag/</text>
+      <text class="o2" x="34" y="104">lightrag_webui/</text>
+      <text class="o2" x="34" y="128">LIGHTRAG_*_STORAGE</text>
+      <text class="o2" x="34" y="152">mcp: "context-graph"</text>
+      <text class="o2" x="34" y="176">LIGHTRAG-WORKSPACE header</text>
+      <text class="l2" x="34" y="196">…and every doc + UI string</text>
+
+      <rect class="b2" x="426" y="32" width="314" height="176" fill="rgba(25,184,154,.09)" stroke="rgba(25,184,154,.45)"/>
+      <text class="n2" x="440" y="56">weave_core/{graph,governance,studio}</text>
+      <text class="n2" x="440" y="80">weave_core/ + weave/{team,server}</text>
+      <text class="n2" x="440" y="104">weave-ui/</text>
+      <text class="n2" x="440" y="128">WEAVE_*_STORAGE</text>
+      <text class="n2" x="440" y="152">mcp: "weave"</text>
+      <text class="n2" x="440" y="176">WEAVE-WORKSPACE header</text>
+      <text class="l2" x="440" y="196">one name — one marked lineage exemption</text>
+
+      <line x1="322" y1="60" x2="424" y2="60" stroke="#8a93a8" stroke-width="1.5" marker-end="url(#s2a)"/>
+      <line x1="322" y1="84" x2="424" y2="84" stroke="#8a93a8" stroke-width="1.5" marker-end="url(#s2a)"/>
+      <line x1="322" y1="108" x2="424" y2="108" stroke="#8a93a8" stroke-width="1.5" marker-end="url(#s2a)"/>
+      <line x1="322" y1="132" x2="424" y2="132" stroke="#8a93a8" stroke-width="1.5" marker-end="url(#s2a)"/>
+      <line x1="322" y1="156" x2="424" y2="156" stroke="#8a93a8" stroke-width="1.5" marker-end="url(#s2a)"/>
+      <line x1="322" y1="180" x2="424" y2="180" stroke="#8a93a8" stroke-width="1.5" marker-end="url(#s2a)"/>
+
+      <rect class="b2" x="20" y="224" width="720" height="42" fill="rgba(240,167,60,.12)" stroke="var(--c)"/>
+      <text x="40" y="244" fill="#fff" font-family="Segoe UI,sans-serif" font-size="12" font-weight="700">CI name-guard</text>
+      <text x="40" y="259" fill="#aab3c5" font-family="SF Mono,ui-monospace,monospace" font-size="10">scripts/nameguard.sh → 0 hits outside a marked &lt;!-- nameguard:allow lineage --&gt; passage · non-zero fails the build, every commit</text>
+    </svg>
+    <figcaption><b>Rebranding is a gate, not a chore.</b> Left in a human's hands it decays; expressed as a
+      grep that fails the build, a stray name cannot reach <span class="mono-chip">main</span>.</figcaption>
+  </div></figure>
+
+  <div class="deck">
+    <div class="row"><div class="k">D-002</div><div><b>Standalone by copy, not by dependency</b> — the selected
+      modules are copied into a new repository and renamed. <b class="hl">Because</b> Weave must be a
+      product with its own release, brand and roadmap, and an upstream dependency would drag the parent's
+      naming, config surface and release cadence with it. (Rejected: git submodule — keeps the forbidden
+      names in every path; upstream pip package — same, plus couples releases; monorepo — violates
+      "standalone".)</div></div>
+    <div class="row"><div class="k">D-003</div><div><b>Zero writes to <span class="mono-chip">Context_Graph/</span></b>
+      — one-way, verified. The parent tree's git HEAD and working-tree checksum are asserted unchanged in
+      CI. <b class="hl">Because</b> an intention is not a control. (Rejected: "we'll be careful".)</div></div>
+    <div class="row"><div class="k">D-004</div><div><b>Total rebrand, enforced by a name-guard</b> — no
+      occurrence of <em>lightrag</em> or <em>context graph</em> in any filename, module path, environment
+      variable, database identifier, UI string or document. <b class="hl">Because</b> a half-rebrand is
+      worse than none: it teaches everyone the old names anyway. (Rejected: rebrand the UI only; rebrand
+      incrementally per phase.)</div></div>
+    <div class="row"><div class="k">D-005</div><div><b>Two Python packages —
+      <span class="mono-chip">weave_core/</span> (engine) and <span class="mono-chip">weave/</span>
+      (product)</b>, plus <span class="mono-chip">weave-ui/</span>. <b class="hl">Because</b> the engine
+      has a plausible independent life and the split keeps the team layer from reaching into graph
+      internals. (Rejected: one flat package — no seam; a third brand for the engine — a second name to
+      explain in every doc.)</div></div>
+    <div class="row"><div class="k">D-006</div><div><b>conda</b> as the dependency manager,
+      <span class="mono-chip">environment.yml</span> as the manifest. <b class="hl">Because</b> it is the
+      house default and handles the non-Python pieces (database clients, native wheels) directly. Asked,
+      not assumed (R9). (Rejected: uv — better source alignment, since the parent ships
+      <span class="mono-chip">uv.lock</span>, but not the house default; poetry; pip + venv.)</div></div>
+    <div class="row"><div class="k">D-007</div><div><b>Three storage paths: file-based, PostgreSQL, Neo4j</b>
+      — 9,406 of 18,740 LOC of backend code. <b class="hl">Because</b> file-based makes first-run trivial,
+      Postgres covers KV + vector + graph in one production service, and Neo4j gives teams that want a real
+      graph engine one. (Rejected: Mongo, Milvus, Memgraph, Redis, Qdrant, Faiss — 7,617 LOC nobody would
+      gate per milestone.)</div></div>
+    <div class="row"><div class="k">D-008</div><div><b>Keep ingestion and retrieval, drop the scraper</b> —
+      the brain needs document extraction and CGR3 precedent for orient and curated backfill.
+      <b class="hl">Because</b> those are load-bearing for the team story; web crawling is a parent use
+      case. (Rejected: keep webingest 1,819 LOC + lxml + playwright; drop RAG entirely — kills semantic
+      precedent.)</div></div>
+    <div class="row"><div class="k">D-009</div><div><b>A real user store replaces
+      <span class="mono-chip">AUTH_ACCOUNTS</span></b> — persisted users with bcrypt hashes, governance
+      roles and per-workspace membership, managed in an Admin UI. <b class="hl">Because</b> the parent has
+      no user store at all: <span class="filepath">auth.py</span> parses
+      <span class="mono-chip">'admin:admin123,user1:pass456'</span> from an environment variable once at
+      boot, with zero CRUD routes and no table anywhere, so adding a person means editing
+      <span class="mono-chip">.env</span> and restarting. It reuses the Weave
+      <span class="mono-chip">RecordStore</span> pattern (in-memory + JSON + Postgres) and the bcrypt and
+      PyJWT already present. (Rejected: extend the env string; adopt an external IdP in v1.)</div></div>
+    <div class="row"><div class="k">D-010</div><div><b>Live updates over SSE on the existing event bus;
+      optimistic concurrency for shared edits</b>. <b class="hl">Because</b> the transport is
+      server→client, an in-process bus with a durable ingress log already exists with nothing attached to
+      it, and Starlette streams responses without a new library — while the Studio ledger already versions
+      every artifact, so a version-checked write yields a 409 and a merge view instead of a silent
+      overwrite. (Rejected: WebSocket — bidirectional capability we do not need, and a uvicorn extra;
+      CRDT co-editing — deferred behind a named seam, revisited if artifact merge conflicts become
+      common.)</div></div>
+    <div class="row"><div class="k">D-011</div><div><b>The data model gains four answer-bearing node
+      types</b> — <span class="mono-chip">Feature</span>, <span class="mono-chip">Review</span>,
+      <span class="mono-chip">Insight</span>, <span class="mono-chip">Question</span>.
+      <b class="hl">Because</b> Weave has to answer four question classes for humans and agents alike —
+      <em>what changed · why · what does it do · what did we learn</em> — and today only the first two
+      have nodes. <em>Functionality</em> has none at all, and reviews and learnings are persisted as
+      plain fields inside a task record (<span class="mono-chip">store.py:41-44</span>), so they cannot
+      be queried, linked or cited across the graph — while the declared
+      <span class="mono-chip">reviewed_in</span> link type has no node to point at. (Rejected: keep them
+      as task fields and answer by full-text retrieval — unciteable and invisible to
+      traversal.)</div></div>
+    <div class="row"><div class="k">D-012</div><div><b>Every artifact node carries a resolvable
+      locator</b> — <span class="mono-chip">repo · path · rev · anchor</span>, plus a registered
+      <span class="mono-chip">ProjectLayout</span> that turns those into a link a human can open and a
+      file an agent can read. <b class="hl">Because</b> the graph is an index, and an index whose entries
+      do not lead back to the document is trivia: of 14 node types only
+      <span class="mono-chip">Module.path</span>, <span class="mono-chip">PullRequest.url</span> and
+      <span class="mono-chip">Environment.url</span> carry a locator today — PRD, RFC, ADR, Diagram,
+      ChangeRequest and Task carry none, and Commit has only a subject line, not a sha. (Rejected:
+      store document bodies in the graph — duplicates the repo and rots; convention-based paths — breaks
+      the moment a team reorganises.)</div></div>
+    <div class="row"><div class="k">D-013</div><div><b>Onboarding is a product surface, not a
+      library</b> — a <span class="mono-chip">weave</span> CLI, a compose bundle, and role-install
+      scripts. <b class="hl">Because</b> the pieces exist but nothing assembles them:
+      <span class="mono-chip">scripts/</span> is empty, the compose file has a single service pulling the
+      parent's upstream image with no Weave in it, all four console entry points are
+      <span class="mono-chip">lightrag-*</span>, and there is no <span class="mono-chip">weave</span>
+      command at all — so standing up a team means calling Python functions by hand. (Rejected: document
+      the manual steps better — the measured onboarding target cannot be met by prose.)</div></div>
+    <div class="row"><div class="k">D-015</div><div><b>Every role is a Claude Code session, and the two
+      LLM paths never merge</b> — humans run it interactively (CLI first, plus desktop app and IDE
+      extension), dev agents run it headless in a container, and both speak the same MCP surface over
+      HTTP so a role works unchanged on a remote machine. Every such seat is <b class="hl">subscription
+      only</b>: <span class="mono-chip">anthropic</span> is not a dependency, and no API key, auth token
+      or base-URL override reaches a Claude Code process. Server-side LLM use — graph build, extraction,
+      embedding, retrieval, rules — runs through the configurable backend connectors and is the only
+      place a model credential exists. <b class="hl">Because</b> subscription-based access is a hard
+      limitation of this architecture, and one client architecture cannot drift from itself the way two
+      would. The parent already enforces this for containers
+      (<span class="mono-chip">preflight_subscription_auth()</span> scrubs
+      <span class="mono-chip">ANTHROPIC_API_KEY</span> and friends); this extends the same boundary to
+      human seats. (Rejected: a bespoke human client; any SDK-based agent runtime.)</div></div>
+  </div>
+  <p class="small">These are logged in <span class="mono-chip">DECISIONS.md</span> as D-002 … D-015 and not
+    re-opened without a new decision entry.</p>
+</section>
+
+<!-- ARCHITECTURE / REUSE MAP -->
+<section class="slide" id="arch">
+  <div class="kicker k-ctrl">Architecture</div>
+  <h2>One server, four new surfaces, everything else carried across</h2>
+
+  <figure><div class="fig svgwrap">
+    <svg viewBox="0 0 760 500" role="img" aria-label="The Weave stack. Top: every role is a Claude Code session on a subscription seat — human roles interactive via CLI, app or IDE extension; dev agents headless in containers. Beside them, behind a barrier no credential crosses, the metered LLM backend used only by the server. Between the agents and the server sits the dev-host daemon, one per machine, which registers and heartbeats outbound-only and reconciles containers to the desired worker count it reads back. Below: the weave-ui screens, the weave product layer, the weave_core engine, and the three storage paths.">
+      <defs>
+        <marker id="s3a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#8a93a8"/></marker>
+        <marker id="s3c" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#f0a73c"/></marker>
+        <marker id="s3b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#19b89a"/></marker>
+      </defs>
+      <style>
+        .b3{rx:8;stroke-width:1.5}
+        .t3{fill:#fff;font:700 11px "Segoe UI",sans-serif;text-anchor:middle}
+        .s3{fill:#aab3c5;font:9px "SF Mono",ui-monospace,monospace;text-anchor:middle}
+        .h3l{font:800 10px "Segoe UI",sans-serif;letter-spacing:.12em}
+        .l3{fill:#8a93a8;font:9.5px "Segoe UI",sans-serif}
+      </style>
+
+      <text class="h3l" x="20" y="18" fill="#7ee3b4">EVERY ROLE IS A CLAUDE CODE SESSION — SUBSCRIPTION SEAT ONLY</text>
+      <rect class="b3" x="16" y="26" width="468" height="72" fill="rgba(62,207,142,.07)" stroke="var(--ok)" stroke-dasharray="6 4"/>
+      <rect class="b3" x="28" y="40" width="200" height="46" fill="rgba(91,141,239,.15)" stroke="var(--a)"/>
+      <text class="t3" x="128" y="60">Human roles — interactive</text>
+      <text class="s3" x="128" y="77">CLI · app · IDE extension</text>
+      <rect class="b3" x="244" y="40" width="228" height="46" fill="rgba(25,184,154,.14)" stroke="var(--b)"/>
+      <text class="t3" x="358" y="60">Dev agents — headless</text>
+      <text class="s3" x="358" y="77">one container per worker</text>
+
+      <text class="h3l" x="516" y="18" fill="#ffce86">METERED — SERVER ONLY</text>
+      <rect class="b3" x="516" y="26" width="228" height="72" fill="rgba(240,167,60,.13)" stroke="var(--c)"/>
+      <text class="t3" x="630" y="48">LLM backend</text>
+      <text class="s3" x="630" y="66">graph build · retrieval · rules</text>
+      <text class="s3" x="630" y="83">the only model credential</text>
+      <line x1="500" y1="26" x2="500" y2="98" stroke="#ef5b6e" stroke-width="1.6" stroke-dasharray="5 4"/>
+      <line x1="492" y1="54" x2="508" y2="70" stroke="#ef5b6e" stroke-width="2"/>
+      <line x1="508" y1="54" x2="492" y2="70" stroke="#ef5b6e" stroke-width="2"/>
+      <text class="l3" x="516" y="114" fill="#f6a2ad">no credential crosses · no anthropic SDK</text>
+
+      <rect class="b3" x="232" y="128" width="252" height="54" fill="rgba(25,184,154,.13)" stroke="var(--b)" stroke-width="2"/>
+      <text class="t3" x="358" y="148">Dev-host daemon — per machine</text>
+      <text class="s3" x="358" y="165">register · heartbeat · reconcile</text>
+      <text class="s3" x="358" y="178">behind NAT is fine</text>
+      <line x1="358" y1="128" x2="358" y2="90" stroke="var(--b)" stroke-width="1.6" marker-end="url(#s3b)"/>
+      <text class="l3" x="366" y="114" fill="#7fe3cf">starts / stops · one seat, shared</text>
+      <line x1="358" y1="182" x2="358" y2="214" stroke="var(--b)" stroke-width="1.6" marker-end="url(#s3b)"/>
+      <text class="l3" x="366" y="202" fill="#7fe3cf">outbound only — reply carries desired_workers</text>
+      <line x1="128" y1="98" x2="128" y2="214" stroke="#8a93a8" stroke-width="1.6" marker-end="url(#s3a)"/>
+      <text class="l3" x="20" y="150">MCP over HTTP</text>
+      <text class="l3" x="20" y="164">any machine</text>
+
+      <text class="h3l" x="20" y="234" fill="#cdb1f7">weave-ui/</text>
+      <rect class="b3" x="20" y="242" width="118" height="40" fill="rgba(169,116,240,.20)" stroke="var(--ctrl)"/>
+      <text class="t3" x="79" y="260">Live board</text><text class="s3" x="79" y="274">NEW</text>
+      <rect class="b3" x="146" y="242" width="118" height="40" fill="rgba(169,116,240,.20)" stroke="var(--ctrl)"/>
+      <text class="t3" x="205" y="260">Admin ▸ Users</text><text class="s3" x="205" y="274">NEW</text>
+      <rect class="b3" x="272" y="242" width="118" height="40" fill="rgba(169,116,240,.20)" stroke="var(--ctrl)"/>
+      <text class="t3" x="331" y="260">Setup wizards</text><text class="s3" x="331" y="274">NEW</text>
+      <rect class="b3" x="398" y="242" width="112" height="40" fill="rgba(25,184,154,.13)" stroke="var(--b)"/>
+      <text class="t3" x="454" y="260">Fleet view</text><text class="s3" x="454" y="274">copied</text>
+      <rect class="b3" x="518" y="242" width="112" height="40" fill="rgba(25,184,154,.13)" stroke="var(--b)"/>
+      <text class="t3" x="574" y="260">Studio · Docs</text><text class="s3" x="574" y="274">copied</text>
+      <rect class="b3" x="638" y="242" width="102" height="40" fill="rgba(25,184,154,.13)" stroke="var(--b)"/>
+      <text class="t3" x="689" y="260">Decisions</text><text class="s3" x="689" y="274">copied</text>
+
+      <text class="h3l" x="20" y="304" fill="#9dbcff">weave/</text>
+      <rect class="b3" x="20" y="312" width="176" height="44" fill="rgba(25,184,154,.13)" stroke="var(--b)"/>
+      <text class="t3" x="108" y="332">team/</text>
+      <text class="s3" x="108" y="347">claim · fleet · merge gate</text>
+      <rect class="b3" x="204" y="312" width="154" height="44" fill="rgba(25,184,154,.13)" stroke="var(--b)"/>
+      <text class="t3" x="281" y="332">devhost/</text>
+      <text class="s3" x="281" y="347">registry + daemon</text>
+      <rect class="b3" x="366" y="312" width="184" height="44" fill="rgba(91,141,239,.15)" stroke="var(--a)"/>
+      <text class="t3" x="458" y="332">server/</text>
+      <text class="s3" x="458" y="347">routers · auth · users NEW</text>
+      <rect class="b3" x="558" y="312" width="182" height="44" fill="rgba(169,116,240,.20)" stroke="var(--ctrl)"/>
+      <text class="t3" x="649" y="332">wizards · live · cli</text>
+      <text class="s3" x="649" y="347">NEW</text>
+
+      <text class="h3l" x="20" y="378" fill="#7fe3cf">weave_core/</text>
+      <rect class="b3" x="20" y="386" width="172" height="44" fill="rgba(25,184,154,.13)" stroke="var(--b)"/>
+      <text class="t3" x="106" y="406">graph/</text><text class="s3" x="106" y="421">quadruples · CGR3</text>
+      <rect class="b3" x="200" y="386" width="182" height="44" fill="rgba(25,184,154,.13)" stroke="var(--b)"/>
+      <text class="t3" x="291" y="406">governance/</text><text class="s3" x="291" y="421">rbac·lifecycle·actions·rules</text>
+      <rect class="b3" x="390" y="386" width="164" height="44" fill="rgba(25,184,154,.13)" stroke="var(--b)"/>
+      <text class="t3" x="472" y="406">studio/ · events/</text><text class="s3" x="472" y="421">ledger · bus</text>
+      <rect class="b3" x="562" y="386" width="178" height="44" fill="rgba(25,184,154,.13)" stroke="var(--b)"/>
+      <text class="t3" x="651" y="406">knowledge/ · llm/</text><text class="s3" x="651" y="421">ingest · 8 connectors</text>
+      <text class="l3" x="596" y="380" fill="#ffce86">the metered path ↗</text>
+      <path d="M744 408 L754 408 L754 62 L746 62" stroke="var(--c)" stroke-width="1.5" fill="none" stroke-dasharray="4 3" marker-end="url(#s3c)"/>
+
+      <text class="h3l" x="20" y="452" fill="#ffce86">storage</text>
+      <rect class="b3" x="20" y="460" width="230" height="30" fill="rgba(240,167,60,.13)" stroke="var(--c)"/>
+      <text class="s3" x="135" y="479">files — networkx · json · nano</text>
+      <rect class="b3" x="258" y="460" width="230" height="30" fill="rgba(240,167,60,.13)" stroke="var(--c)"/>
+      <text class="s3" x="373" y="479">PostgreSQL — KV+vector+graph</text>
+      <rect class="b3" x="496" y="460" width="244" height="30" fill="rgba(240,167,60,.13)" stroke="var(--c)"/>
+      <text class="s3" x="618" y="479">Neo4j — dedicated graph, optional</text>
+
+      <line x1="300" y1="312" x2="300" y2="286" stroke="#8a93a8" stroke-width="1.5" marker-end="url(#s3a)"/>
+      <line x1="300" y1="386" x2="300" y2="358" stroke="#8a93a8" stroke-width="1.5" marker-end="url(#s3a)"/>
+      <line x1="300" y1="460" x2="300" y2="432" stroke="#8a93a8" stroke-width="1.5" marker-end="url(#s3a)"/>
+      <text class="l3" x="308" y="302">REST · MCP · SSE</text>
+      <text class="l3" x="308" y="376">governed API</text>
+      <text class="l3" x="308" y="450">one configured backend</text>
+    </svg>
+    <figcaption><b>Three deployables, one client, two LLM paths that never meet.</b> The dev-host daemon is the proxy between a developer environment and Weave: it registers and heartbeats <em>outbound only</em>, so a machine behind NAT still carries fleet capacity, and it reconciles containers to a worker count it reads back rather than one pushed at it. Everything teal is copied and renamed; the violet boxes are the build.</figcaption>
+  </div></figure>
+
+  <h3 style="font-size:16px;margin:16px 0 6px">Reuse map</h3>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Capability</th><th>Reuse from the parent (copied + renamed)</th><th>Build new</th></tr></thead>
+    <tbody>
+      <tr><td>Governed graph, decision retrieval</td><td><span class="mono-chip">context_graph/core.py</span> 2,352 · <span class="mono-chip">lightrag/{operate,lightrag,utils_graph,prompt}</span> 12,059</td><td>—</td></tr>
+      <tr><td>Governance: roles, states, actions, rules</td><td><span class="mono-chip">context_graph/{rbac,lifecycle,actions,rules,ontology}</span> 4,570</td><td>RBAC + lifecycle become <em>ledger artifact kinds</em></td></tr>
+      <tr><td>Signed authoring ledger, diagrams</td><td><span class="mono-chip">context_graph/{studio,diagrams}</span> 1,532</td><td>—</td></tr>
+      <tr><td>Team layer: tasks, claim, fleet, dev hosts, merge gate</td><td><span class="mono-chip">context_graph/weave/</span> 3,577 + <span class="mono-chip">integration/</span> 587</td><td>Senior-developer supervisory principal</td></tr>
+      <tr><td>Knowledge: ingest, dedup, quality, community</td><td><span class="mono-chip">context_graph/{dedup,quality,community,connectivity}</span> 1,426 + document routes</td><td>—</td></tr>
+      <tr><td>Event backbone</td><td><span class="mono-chip">context_graph/events/</span> 289 — bus + durable ingress log</td><td>SSE transport + presence on top of it</td></tr>
+      <tr><td>HTTP server, config, workspaces</td><td><span class="mono-chip">lightrag/api/</span> 12,533 — app, 13 routers, workspace pool</td><td>User routes; <span class="mono-chip">WEAVE_*</span> config surface</td></tr>
+      <tr><td>Authentication</td><td><span class="mono-chip">auth.py</span> JWT issuance + bcrypt (already a dependency)</td><td><b>The entire user store and Admin UI</b> — none exists</td></tr>
+      <tr><td>Storage</td><td>file-based 1,706 · postgres 5,778 · neo4j 1,922</td><td>User + membership tables on the same three paths</td></tr>
+      <tr><td>Web application</td><td><span class="mono-chip">lightrag_webui/</span> 26,659 — React 19, 28 UI components, stores, API client</td><td>Live board, Admin ▸ Users, wizard flow</td></tr>
+      <tr><td>Configuration authoring</td><td>Studio propose → diff → sign; the Get Started interview</td><td>Team-vocabulary wizards + Weave templates</td></tr>
+      <tr><td>Team data model</td><td>14 object types + 18 link types in <span class="mono-chip">weave/preset/ontology.json</span>; RelationContext's decision fields</td><td><span class="mono-chip">Feature · Review · Insight · Question</span> + a locator on every artifact + <span class="mono-chip">ProjectLayout</span></td></tr>
+      <tr><td>Role kits &amp; preset install</td><td><span class="mono-chip">weave/playbook.py</span> <span class="mono-chip">role_kit()</span> / <span class="mono-chip">claude_md()</span> / <span class="mono-chip">_mcp_config()</span>; <span class="mono-chip">preset.install()</span></td><td>A <span class="mono-chip">weave</span> CLI that calls them — today they are library functions with no command</td></tr>
+      <tr><td>Subscription seat boundary</td><td><span class="mono-chip">weave/worker.py</span> — <span class="mono-chip">scrub_api_auth()</span> + <span class="mono-chip">preflight_subscription_auth()</span>, container path only</td><td>Extended to <b>human seats</b>; <span class="mono-chip">weave doctor</span> reports seat status</td></tr>
+      <tr><td>Remote role access</td><td>MCP Streamable HTTP mounted on the server; <span class="mono-chip">role_kit()</span> emits <span class="mono-chip">.mcp.json</span> pointed at the server URL</td><td>Rebranded server name + workspace header; one generator for human and agent roles alike</td></tr>
+      <tr><td>Container dev agents</td><td><span class="mono-chip">docker/weave-dev.Dockerfile</span> (no git creds, no API keys, non-root, OAuth-token seat) + the dev-host daemon</td><td>A compose bundle that runs the daemon as a service and a CLI that scales the fleet</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- DATA MODEL -->
+<section class="slide" id="datamodel">
+  <div class="kicker k-b">Data model</div>
+  <h2>One index the whole team asks — and every entry leads back to the real document</h2>
+  <p>Weave is the team's primary source of truth. A person joining on Tuesday and an agent claiming a
+    task at 3am ask the same four questions, and both should get the same answer from the same place:
+    <b class="hl">what changed · why · what does it do · what did we learn</b>. The inherited model
+    answers the first two well and the last two not at all.</p>
+
+  <figure><div class="fig svgwrap">
+    <svg viewBox="0 0 760 360" role="img" aria-label="The Weave data model arranged by the four question classes it answers. Changes and Reasons are covered by inherited node types. Functionality has no node type today and gains Feature. Learning has no node types and gains Review and Insight. Every artifact node gains a locator of repository, path, revision and anchor, resolved through a registered project layout into a link a human opens and a file an agent reads.">
+      <defs>
+        <marker id="dm1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#8a93a8"/></marker>
+        <marker id="dm2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#f0a73c"/></marker>
+      </defs>
+      <style>
+        .bd{rx:9;stroke-width:1.6}
+        .td{fill:#fff;font:700 11px "Segoe UI",sans-serif;text-anchor:middle}
+        .sd{fill:#aab3c5;font:9px "SF Mono",ui-monospace,monospace;text-anchor:middle}
+        .qd{font:800 10px "Segoe UI",sans-serif;letter-spacing:.1em;text-anchor:middle}
+        .ld{fill:#8a93a8;font:9.5px "Segoe UI",sans-serif;text-anchor:middle}
+      </style>
+
+      <text class="qd" x="98" y="20" fill="#9dbcff">WHAT CHANGED</text>
+      <rect class="bd" x="16" y="30" width="164" height="96" fill="rgba(91,141,239,.13)" stroke="var(--a)"/>
+      <text class="sd" x="98" y="50">ChangeRequest</text>
+      <text class="sd" x="98" y="68">Task</text>
+      <text class="sd" x="98" y="86">Commit · PullRequest</text>
+      <text class="sd" x="98" y="104">IntegrationRun</text>
+      <text class="ld" x="98" y="120" fill="#7ee3b4">inherited ✓</text>
+
+      <text class="qd" x="286" y="20" fill="#9dbcff">WHY</text>
+      <rect class="bd" x="204" y="30" width="164" height="96" fill="rgba(91,141,239,.13)" stroke="var(--a)"/>
+      <text class="sd" x="286" y="50">ArchitectureDecision…</text>
+      <text class="sd" x="286" y="68">RelationContext</text>
+      <text class="sd" x="286" y="86">decided · justified_by</text>
+      <text class="sd" x="286" y="104">approved_by · policy_ref</text>
+      <text class="ld" x="286" y="120" fill="#7ee3b4">inherited ✓</text>
+
+      <text class="qd" x="474" y="20" fill="#cdb1f7">WHAT IT DOES</text>
+      <rect class="bd" x="392" y="30" width="164" height="96" fill="rgba(169,116,240,.18)" stroke="var(--ctrl)"/>
+      <text class="td" x="474" y="52">Feature</text>
+      <text class="sd" x="474" y="72">→ implemented_by Module</text>
+      <text class="sd" x="474" y="90">→ specified_by PRD/RFC</text>
+      <text class="sd" x="474" y="106">→ depicted_by Diagram</text>
+      <text class="ld" x="474" y="120" fill="#cdb1f7">NEW — no node exists today</text>
+
+      <text class="qd" x="662" y="20" fill="#cdb1f7">WHAT WE LEARNED</text>
+      <rect class="bd" x="580" y="30" width="164" height="96" fill="rgba(169,116,240,.18)" stroke="var(--ctrl)"/>
+      <text class="td" x="662" y="52">Review · Insight</text>
+      <text class="sd" x="662" y="72">+ Question</text>
+      <text class="sd" x="662" y="90">today: list fields on a</text>
+      <text class="sd" x="662" y="106">task record, unqueryable</text>
+      <text class="ld" x="662" y="120" fill="#cdb1f7">NEW — promoted to nodes</text>
+
+      <rect class="bd" x="16" y="156" width="728" height="60" fill="rgba(240,167,60,.13)" stroke="var(--c)"/>
+      <text class="td" x="380" y="178">every artifact node carries a locator</text>
+      <text class="sd" x="380" y="199">repo · path · rev · anchor    —   Commit also gains sha</text>
+
+      <line x1="98" y1="128" x2="98" y2="154" stroke="#8a93a8" stroke-width="1.4" marker-end="url(#dm1)"/>
+      <line x1="286" y1="128" x2="286" y2="154" stroke="#8a93a8" stroke-width="1.4" marker-end="url(#dm1)"/>
+      <line x1="474" y1="128" x2="474" y2="154" stroke="#8a93a8" stroke-width="1.4" marker-end="url(#dm1)"/>
+      <line x1="662" y1="128" x2="662" y2="154" stroke="#8a93a8" stroke-width="1.4" marker-end="url(#dm1)"/>
+
+      <rect class="bd" x="230" y="246" width="300" height="52" fill="rgba(25,184,154,.14)" stroke="var(--b)"/>
+      <text class="td" x="380" y="268">ProjectLayout — registered repo roots</text>
+      <text class="sd" x="380" y="287">name → clone URL · local path · default rev</text>
+      <line x1="380" y1="218" x2="380" y2="244" stroke="var(--c)" stroke-width="1.8" marker-end="url(#dm2)"/>
+      <text class="ld" x="452" y="236">resolved through</text>
+
+      <rect class="bd" x="90" y="316" width="250" height="36" fill="rgba(91,141,239,.13)" stroke="var(--a)"/>
+      <text class="sd" x="215" y="339">a human opens a link</text>
+      <rect class="bd" x="420" y="316" width="250" height="36" fill="rgba(91,141,239,.13)" stroke="var(--a)"/>
+      <text class="sd" x="545" y="339">an agent reads the file</text>
+      <line x1="330" y1="300" x2="250" y2="314" stroke="#8a93a8" stroke-width="1.4" marker-end="url(#dm1)"/>
+      <line x1="430" y1="300" x2="510" y2="314" stroke="#8a93a8" stroke-width="1.4" marker-end="url(#dm1)"/>
+    </svg>
+    <figcaption><b>The index has to lead somewhere.</b> Four question classes, two of them currently
+      unanswerable, and one locator contract so that every answer ends at the real document in the team's
+      project layout rather than at a summary of it.</figcaption>
+  </div></figure>
+
+  <h3 style="font-size:16px;margin:16px 0 6px">What the inherited model has, and what is missing</h3>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Question a team member asks</th><th>Node types today</th><th>Locator today</th><th>Change proposed</th></tr></thead>
+    <tbody>
+      <tr><td>What changed, and where did it land?</td><td><span class="pill win">ChangeRequest · Task · Commit · PullRequest · IntegrationRun</span></td><td><span class="mono-chip">PullRequest.url</span> only — <b>Commit has no sha</b></td><td>add <span class="mono-chip">sha</span> + locator</td></tr>
+      <tr><td>Why was it done this way?</td><td><span class="pill win">ArchitectureDecisionRecord + RelationContext (decision_trace, approved_by, policy_ref, valid_from/until)</span></td><td><span class="pill danger">none</span></td><td>add locator so the ADR resolves to the real file</td></tr>
+      <tr><td>What does this system actually do?</td><td><span class="pill danger">no node type</span> — Module is code-structural; PRD/RFC are documents</td><td>—</td><td><b>new <span class="mono-chip">Feature</span></b> + <span class="mono-chip">implemented_by</span> / <span class="mono-chip">specified_by</span> / <span class="mono-chip">depicted_by</span></td></tr>
+      <tr><td>Who reviewed it, and what did we learn?</td><td><span class="pill danger">no node types</span> — <span class="mono-chip">reviews</span> / <span class="mono-chip">learnings</span> are list fields on the task record; <span class="mono-chip">reviewed_in</span> points at nothing</td><td>—</td><td><b>new <span class="mono-chip">Review</span> + <span class="mono-chip">Insight</span></b>, promoted to first-class nodes with a one-time migration out of the task fields</td></tr>
+      <tr><td>Has anyone asked this before?</td><td><span class="pill danger">no node type</span> — retrieval only, nothing citable</td><td>—</td><td><b>new <span class="mono-chip">Question</span></b> — an asked-and-answered node linked to whatever answered it</td></tr>
+      <tr><td>Where is the full document?</td><td>—</td><td><span class="pill danger">3 of 14 types</span>: Module.path, PullRequest.url, Environment.url</td><td><b>locator on every artifact node</b> + <span class="mono-chip">ProjectLayout</span> registration</td></tr>
+    </tbody>
+  </table></div>
+
+  <div class="callout info"><div class="clabel">◆ Why a locator and not the document itself</div>
+    The graph stays an <em>index over</em> the team's repositories, never a second copy of them. A node
+    carries <span class="mono-chip">repo · path · rev · anchor</span>; the registered
+    <span class="mono-chip">ProjectLayout</span> turns that into a URL for a person and a readable file
+    for an agent. Nothing has to be kept in sync, because nothing is duplicated — and a node whose
+    locator no longer resolves is a detectable defect rather than silent rot.</div>
+</section>
+
+<!-- CODE LAYOUT & DEPENDENCIES -->
+<section class="slide" id="layout">
+  <div class="kicker k-b">Code layout &amp; dependencies</div>
+  <h2>Where the code lives, and what it stands on</h2>
+
+  <figure><div class="fig svgwrap">
+    <svg viewBox="0 0 760 300" role="img" aria-label="Repository layout on the left with weave_core, weave, weave-ui, tests, deploy and an environment.yml manifest; on the right the dependency position: every library reused from the parent, none added, and thirteen removed.">
+      <style>
+        .b4{rx:9;stroke-width:1.6}
+        .t4{fill:#fff;font:700 11.5px "Segoe UI",sans-serif}
+        .s4{fill:#aab3c5;font:9.5px "SF Mono",ui-monospace,monospace}
+        .h4l{font:800 10.5px "Segoe UI",sans-serif;letter-spacing:.12em}
+      </style>
+
+      <text class="h4l" x="24" y="20" fill="#9dbcff">LAYOUT</text>
+      <rect class="b4" x="20" y="28" width="352" height="30" fill="rgba(240,167,60,.12)" stroke="var(--c)"/>
+      <text class="t4" x="34" y="48">Weave/ — one repository, own git</text>
+
+      <rect class="b4" x="20" y="64" width="352" height="52" fill="rgba(25,184,154,.12)" stroke="var(--b)"/>
+      <text class="t4" x="34" y="82">weave_core/</text>
+      <text class="s4" x="34" y="97">graph · governance · studio · events</text>
+      <text class="s4" x="34" y="110">knowledge · llm — the engine</text>
+
+      <rect class="b4" x="20" y="122" width="352" height="52" fill="rgba(91,141,239,.14)" stroke="var(--a)"/>
+      <text class="t4" x="34" y="140">weave/</text>
+      <text class="s4" x="34" y="155">team · devhost · server · wizards · live · cli</text>
+      <text class="s4" x="34" y="168">the product</text>
+
+      <rect class="b4" x="20" y="180" width="352" height="40" fill="rgba(169,116,240,.16)" stroke="var(--ctrl)"/>
+      <text class="t4" x="34" y="198">weave-ui/</text>
+      <text class="s4" x="34" y="212">React 19 · Vite 7 · Tailwind 4 · zustand 5</text>
+
+      <rect class="b4" x="20" y="226" width="352" height="56" fill="#161922" stroke="var(--line)"/>
+      <text class="s4" x="34" y="244">tests/  deploy/  docs/  scripts/   — 3 deployables</text>
+      <text class="s4" x="34" y="259">environment.yml — conda manifest</text>
+      <text class="s4" x="34" y="274">PROVENANCE.md — pinned source commit</text>
+
+      <text class="h4l" x="404" y="20" fill="#7fe3cf">DEPENDENCY POSITION</text>
+      <rect class="b4" x="400" y="28" width="340" height="66" fill="rgba(25,184,154,.12)" stroke="var(--b)"/>
+      <text class="t4" x="414" y="48">reused — every one already in the tree</text>
+      <text class="s4" x="414" y="65">fastapi · uvicorn · pydantic · PyJWT · bcrypt</text>
+      <text class="s4" x="414" y="79">asyncpg · pgvector · neo4j · networkx · openai …</text>
+
+      <rect class="b4" x="400" y="102" width="340" height="52" fill="rgba(123,132,153,.10)" stroke="#7b8499" stroke-dasharray="5 4"/>
+      <text class="t4" x="414" y="122">new — none · and one is now forbidden</text>
+      <text class="s4" x="414" y="139">SSE/users/wizards need none · anthropic barred by A13</text>
+
+      <rect class="b4" x="400" y="162" width="340" height="66" fill="rgba(239,91,110,.08)" stroke="rgba(239,91,110,.45)"/>
+      <text class="t4" x="414" y="182">removed — 13</text>
+      <text class="s4" x="414" y="199">anthropic (SDK — forbidden in the seat path) · python-jose</text>
+      <text class="s4" x="414" y="213">lxml · playwright · redis · pymongo · qdrant-client …</text>
+
+      <rect class="b4" x="400" y="236" width="340" height="46" fill="#161922" stroke="var(--line)"/>
+      <text class="s4" x="414" y="256">one library per job · two for one job is a defect</text>
+      <text class="s4" x="414" y="271">net movement is subtraction, not addition</text>
+    </svg>
+    <figcaption><b>The dependency budget goes down.</b> Nothing in this proposal needs a library the tree
+      does not already carry, and the copy is the moment to drop thirteen that earn nothing.</figcaption>
+  </div></figure>
+
+  <div class="deck">
+    <div class="row"><div class="k">Manager</div><div><b>conda</b> (house default) ·
+      <span class="mono-chip">environment.yml</span> — for Python this was <b class="hl">asked, not
+      assumed</b> (R9). The parent's <span class="mono-chip">pyproject.toml</span> + uv.lock are read once
+      as the source of truth for versions, then not carried.</div></div>
+    <div class="row"><div class="k">UI</div><div><b>bun</b> · <span class="mono-chip">package.json</span> —
+      unchanged from the parent's toolchain, which already builds this app.</div></div>
+  </div>
+
+  <h3 style="font-size:16px;margin:16px 0 6px">External libraries</h3>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Library</th><th>Version</th><th>Purpose</th><th>Reused / new</th><th>Why over the alternative</th></tr></thead>
+    <tbody>
+      <tr><td>fastapi + uvicorn + gunicorn</td><td>unpinned / as parent</td><td>HTTP server, routers, workers</td><td>reused</td><td>the whole API is written against it</td></tr>
+      <tr><td>pydantic</td><td>2.x</td><td>request/response and artifact schemas</td><td>reused</td><td>already every schema in the tree</td></tr>
+      <tr><td>PyJWT</td><td>&gt;=2.8,&lt;3</td><td>token issue + verify</td><td>reused</td><td><b>rejected: python-jose</b> — declared in the parent but imported nowhere; two JWT libraries for one job is a defect (R10)</td></tr>
+      <tr><td>bcrypt</td><td>&gt;=4.0</td><td>password hashing for the new user store</td><td>reused</td><td>already a dependency — the user store adds no crypto library</td></tr>
+      <tr><td>asyncpg + pgvector</td><td>&gt;=0.31 / &gt;=0.4.2</td><td>PostgreSQL KV, vector and graph storage</td><td>reused</td><td>the production path; one service covers three storage roles</td></tr>
+      <tr><td>neo4j</td><td>&gt;=5,&lt;7</td><td>optional dedicated graph backend</td><td>reused</td><td>chosen over Memgraph — larger operational footprint of knowledge, same driver surface</td></tr>
+      <tr><td>networkx · nano-vectordb</td><td>as parent</td><td>file-based dev storage</td><td>reused</td><td>zero-install first run</td></tr>
+      <tr><td>openai · google-genai · (azure, bedrock, ollama, lollms, jina)</td><td>openai &gt;=2,&lt;3</td><td>extraction + embedding connectors actually wired by the server</td><td>reused</td><td>only the 8 the config mounts; the 7 unwired connector modules are dropped</td></tr>
+      <tr><td>mcp</td><td>&gt;=1.26,&lt;2</td><td>agent tool surface for Claude Code sessions</td><td>reused</td><td>how every role connects</td></tr>
+      <tr><td>model2vec + business_rule_engine</td><td>&gt;=0.3 / &gt;=1.0</td><td>the rules engine's fuzzy field matching</td><td>reused</td><td>governance depends on it</td></tr>
+      <tr><td>pypdf · python-docx · python-pptx · openpyxl</td><td>as parent</td><td>document extraction for the brain</td><td>reused</td><td>needed for curated backfill</td></tr>
+      <tr><td>React 19 · Vite 7 · Tailwind 4 · zustand 5 · sigma 3 · @xyflow/react 12 · mermaid 11</td><td>as parent</td><td>the web application</td><td>reused</td><td>the UI is 26,659 LOC written against exactly these</td></tr>
+      <tr><td colspan="5"><b>New libraries introduced by this RFC: none.</b> SSE is Starlette streaming; presence, users, membership and wizards are application code over stores that already exist.</td></tr>
+      <tr><td>python-jose, lxml, playwright, redis, pymongo, pymilvus, qdrant-client, docling, llama-index(+openai), zhipuai, aioboto3, voyageai, anthropic</td><td>—</td><td>removed with the modules that used them (or never used at all)</td><td>dropped</td><td>13 fewer libraries to patch, audit and ship</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3 style="font-size:16px;margin:16px 0 6px">Existing code, data &amp; integrations we reuse</h3>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Already there</th><th>Where (in the parent, read-only)</th><th>How we reuse it</th></tr></thead>
+    <tbody>
+      <tr><td>Weave team layer, 12 modules</td><td><span class="mono-chip">context_graph/weave/</span></td><td>copied whole and renamed to <span class="mono-chip">weave/team/</span>; its tests come with it</td></tr>
+      <tr><td>Typed record stores (in-memory + JSON, atomic replace, corrupt-file tolerance)</td><td><span class="mono-chip">context_graph/weave/recordstore.py</span></td><td>the user store is written <em>against this</em> rather than inventing a persistence layer</td></tr>
+      <tr><td>Event bus + durable ingress log</td><td><span class="mono-chip">context_graph/events/</span></td><td>the SSE stream subscribes to it — the bus exists today with no consumer</td></tr>
+      <tr><td>Signed artifact ledger (propose → diff → sign, versioned)</td><td><span class="mono-chip">context_graph/studio/</span></td><td>wizards write through it; RBAC and lifecycle are added as new kinds</td></tr>
+      <tr><td>Workspace pool + per-workspace isolation</td><td><span class="mono-chip">lightrag/api/workspace_pool.py</span></td><td>becomes the unit that user membership is granted against</td></tr>
+      <tr><td>JWT issuance with server-side role assignment</td><td><span class="mono-chip">lightrag/api/auth.py</span></td><td>kept; only the account <em>source</em> changes from env string to the user store</td></tr>
+      <tr><td>28 UI components, 3 stores, API client</td><td><span class="mono-chip">lightrag_webui/src/</span></td><td>the new Admin, wizard and live-board screens are built from them, not beside them</td></tr>
+      <tr><td>Databases in use today</td><td>file-based (NetworkX · Json · NanoVectorDB) per the running <span class="mono-chip">.env</span></td><td>stays the default; Postgres and Neo4j are the added production paths, no new store invented</td></tr>
+    </tbody>
+  </table></div>
+  <p class="small">Replacing an incumbent: <span class="mono-chip">AUTH_ACCOUNTS</span> is replaced by the
+    user store and <b>removed in the same phase</b> — migrated on first boot, then deleted from the config
+    surface. The two must never coexist.</p>
+</section>
+
+<!-- ROADMAP -->
+<section class="slide" id="roadmap">
+  <div class="kicker k-c">Roadmap</div>
+  <h2>Seven phases, one critical path</h2>
+  <figure><div class="fig svgwrap">
+    <svg viewBox="0 0 760 168" role="img" aria-label="Seven phases in sequence: P0 fork and rebrand to M0, P1 standalone server and users to M1, P2 the data model and answer surface to M2, P3 live collaboration to M3, P4 wizards to M4, P5 the senior developer seat to M5, and P6 the onboarding bundle and productisation to M6.">
+      <defs><marker id="pa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#8a93a8"/></marker></defs>
+      <style>.pb{rx:8;stroke-width:1.6}.pt{fill:#fff;font:700 10.5px "Segoe UI",sans-serif;text-anchor:middle}.ps{fill:#aab3c5;font:8px "SF Mono",ui-monospace,monospace;text-anchor:middle}</style>
+
+      <rect class="pb" x="12" y="52" width="96" height="46" fill="rgba(240,167,60,.14)" stroke="var(--c)"/>
+      <text class="pt" x="60" y="72">P0 · fork</text><text class="ps" x="60" y="88">rebrand → M0</text>
+
+      <rect class="pb" x="118" y="52" width="96" height="46" fill="rgba(91,141,239,.14)" stroke="var(--a)"/>
+      <text class="pt" x="166" y="72">P1 · server</text><text class="ps" x="166" y="88">users → M1</text>
+
+      <rect class="pb" x="224" y="52" width="96" height="46" fill="rgba(25,184,154,.14)" stroke="var(--b)"/>
+      <text class="pt" x="272" y="72">P2 · model</text><text class="ps" x="272" y="88">answers → M2</text>
+
+      <rect class="pb" x="330" y="52" width="96" height="46" fill="rgba(25,184,154,.14)" stroke="var(--b)"/>
+      <text class="pt" x="378" y="72">P3 · live</text><text class="ps" x="378" y="88">presence → M3</text>
+
+      <rect class="pb" x="436" y="52" width="96" height="46" fill="rgba(169,116,240,.16)" stroke="var(--ctrl)"/>
+      <text class="pt" x="484" y="72">P4 · wizards</text><text class="ps" x="484" y="88">templates → M4</text>
+
+      <rect class="pb" x="542" y="52" width="96" height="46" fill="rgba(169,116,240,.16)" stroke="var(--ctrl)"/>
+      <text class="pt" x="590" y="72">P5 · the seat</text><text class="ps" x="590" y="88">supervise → M5</text>
+
+      <rect class="pb" x="648" y="52" width="100" height="46" fill="rgba(62,207,142,.14)" stroke="var(--ok)"/>
+      <text class="pt" x="698" y="72">P6 · onboard</text><text class="ps" x="698" y="88">bundle → M6</text>
+
+      <line x1="108" y1="75" x2="117" y2="75" stroke="#8a93a8" stroke-width="1.6" marker-end="url(#pa)"/>
+      <line x1="214" y1="75" x2="223" y2="75" stroke="#8a93a8" stroke-width="1.6" marker-end="url(#pa)"/>
+      <line x1="320" y1="75" x2="329" y2="75" stroke="#8a93a8" stroke-width="1.6" marker-end="url(#pa)"/>
+      <line x1="426" y1="75" x2="435" y2="75" stroke="#8a93a8" stroke-width="1.6" marker-end="url(#pa)"/>
+      <line x1="532" y1="75" x2="541" y2="75" stroke="#8a93a8" stroke-width="1.6" marker-end="url(#pa)"/>
+      <line x1="638" y1="75" x2="647" y2="75" stroke="#8a93a8" stroke-width="1.6" marker-end="url(#pa)"/>
+
+      <text x="380" y="24" fill="#7b8499" font-family="Segoe UI,sans-serif" font-size="10.5" font-weight="800" letter-spacing="1.4" text-anchor="middle">CRITICAL PATH — EACH PHASE ENDS AT A GATED MILESTONE</text>
+      <text x="380" y="42" fill="#8a93a8" font-family="Segoe UI,sans-serif" font-size="9.5" text-anchor="middle">P2 comes before the surfaces that display it — a live board of an unanswerable model is not worth building</text>
+      <text x="380" y="126" fill="#8a93a8" font-family="Segoe UI,sans-serif" font-size="10" text-anchor="middle">P0 is mechanical and changes no behaviour · P1–P5 each add one surface · P6 assembles and measures</text>
+      <text x="380" y="146" fill="#f6a2ad" font-family="Segoe UI,sans-serif" font-size="10" text-anchor="middle">a failed gate stops the line — the next phase does not start (R3, R4)</text>
+      <text x="380" y="162" fill="#7ee3b4" font-family="Segoe UI,sans-serif" font-size="10" text-anchor="middle">M6 is the only milestone that measures the product goal: onboarding, timed and published</text>
+    </svg>
+    <figcaption><b>Phases feed milestones.</b> Each phase ends at a milestone with a test gate; the full
+      task breakdown lives in the work plan.</figcaption>
+  </div></figure>
+</section>
+
+<!-- PHASES -->
+<section class="slide" id="phases">
+  <div class="kicker k-ctrl">Phases</div>
+  <h2>Deliverables, and the gate each must pass</h2>
+
+  <figure><div class="fig svgwrap">
+    <svg viewBox="0 0 760 190" role="img" aria-label="The shape of every gate: a deliverable is checked by an assertion that can fail, which either advances the milestone or stops the line and returns to the phase. Four named assertion classes: the parent tree is unchanged, no forbidden name survives, the behaviour is observed end to end, and no model credential is present in any Claude Code seat.">
+      <defs><marker id="g1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#8a93a8"/></marker>
+      <marker id="g2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#ef5b6e"/></marker></defs>
+      <style>.b5{rx:9;stroke-width:1.6}.t5{fill:#fff;font:700 11.5px "Segoe UI",sans-serif;text-anchor:middle}
+      .s5{fill:#aab3c5;font:9.5px "SF Mono",ui-monospace,monospace;text-anchor:middle}.l5{fill:#8a93a8;font:10px "Segoe UI",sans-serif;text-anchor:middle}</style>
+
+      <rect class="b5" x="20" y="56" width="150" height="52" fill="rgba(91,141,239,.14)" stroke="var(--a)"/>
+      <text class="t5" x="95" y="78">deliverable</text><text class="s5" x="95" y="95">what the phase ships</text>
+
+      <rect class="b5" x="238" y="56" width="180" height="52" fill="rgba(240,167,60,.14)" stroke="var(--c)"/>
+      <text class="t5" x="328" y="78">assertion that can fail</text><text class="s5" x="328" y="95">not "it works"</text>
+
+      <rect class="b5" x="486" y="56" width="150" height="52" fill="rgba(62,207,142,.14)" stroke="var(--ok)"/>
+      <text class="t5" x="561" y="78">milestone</text><text class="s5" x="561" y="95">reviewed, then advance</text>
+
+      <line x1="172" y1="82" x2="236" y2="82" stroke="#8a93a8" stroke-width="1.6" marker-end="url(#g1)"/>
+      <line x1="420" y1="82" x2="484" y2="82" stroke="#8a93a8" stroke-width="1.6" marker-end="url(#g1)"/>
+      <text class="l5" x="204" y="72">checked by</text>
+      <text class="l5" x="452" y="72">passes</text>
+
+      <path d="M328 110 L328 148 L95 148 L95 112" stroke="#ef5b6e" stroke-width="1.6" fill="none" stroke-dasharray="5 5" marker-end="url(#g2)"/>
+      <text class="l5" x="212" y="166" fill="#f6a2ad">fails → the line stops, nothing advances</text>
+
+      <text x="380" y="22" fill="#7b8499" font-family="Segoe UI,sans-serif" font-size="10" font-weight="800" letter-spacing="1.2" text-anchor="middle">EVERY GATE BELOW IS ONE OF THESE FOUR ASSERTION CLASSES</text>
+      <text x="100" y="40" fill="#aab3c5" font-family="SF Mono,ui-monospace,monospace" font-size="9.5" text-anchor="middle">parent unchanged</text>
+      <text x="290" y="40" fill="#aab3c5" font-family="SF Mono,ui-monospace,monospace" font-size="9.5" text-anchor="middle">no forbidden name</text>
+      <text x="480" y="40" fill="#aab3c5" font-family="SF Mono,ui-monospace,monospace" font-size="9.5" text-anchor="middle">behaviour observed end to end</text>
+      <text x="668" y="40" fill="#7ee3b4" font-family="SF Mono,ui-monospace,monospace" font-size="9.5" text-anchor="middle">no credential in a seat</text>
+    </svg>
+    <figcaption><b>A gate is an assertion, not an opinion.</b> Each one below either passes mechanically or
+      stops the phase.</figcaption>
+  </div></figure>
+
+  <div class="card rail rc" style="margin-bottom:12px">
+    <div class="meta-row"><b>P0 · Fork &amp; rebrand → M0</b> <span class="pill c">mechanical</span></div>
+    <div class="meta-row">ships: the selected ~92k LOC copied into <span class="mono-chip">weave_core/</span>,
+      <span class="mono-chip">weave/</span>, <span class="mono-chip">weave-ui/</span>; every module path,
+      env var, storage identifier, UI string and document renamed; the copied test suites; the CI
+      name-guard; <span class="mono-chip">PROVENANCE.md</span> pinning the source commit. No behaviour
+      change of any kind.</div>
+    <div class="meta-row">gate: (1) the copied test suite passes at the same count as in the source;
+      (2) <span class="mono-chip">grep -ril 'lightrag\|context.graph'</span> over the whole repo
+      excluding <span class="mono-chip">.git</span> returns <b>0</b> hits — including filenames;
+      (3) the parent tree's <span class="mono-chip">git status</span> is clean and its working-tree
+      checksum matches the pre-phase value <b>byte for byte</b>; (4) the server boots and serves the UI
+      against file-based storage.</div>
+  </div>
+
+  <div class="card rail ra" style="margin-bottom:12px">
+    <div class="meta-row"><b>P1 · Standalone server &amp; the user store → M1</b> <span class="pill a">the gap you hit</span></div>
+    <div class="meta-row">ships: <span class="mono-chip">WEAVE_*</span> configuration surface; a persisted
+      user store on all three storage paths (bcrypt hashes, governance role, per-workspace membership,
+      active/disabled); user CRUD routes; <b>Admin ▸ Users</b> in the UI; one-time migration of any
+      <span class="mono-chip">AUTH_ACCOUNTS</span>/<span class="mono-chip">AUTH_ROLES</span> value on
+      first boot, then removal of both from the config surface; Postgres and Neo4j deployment paths.</div>
+    <div class="meta-row">gate: (1) an admin creates a user in the UI, that user signs in, and sees
+      <em>only</em> the workspaces granted — asserted, not eyeballed; (2) a user holding
+      <span class="mono-chip">developer</span> receives <b>403</b> on an architect-only governed action;
+      (3) an install configured the old way migrates its accounts on boot and then serves with
+      <span class="mono-chip">AUTH_ACCOUNTS</span> unset; (4)
+      <span class="mono-chip">grep -r AUTH_ACCOUNTS</span> returns 0 outside the migration path;
+      (5) the same suite passes green on file-based <em>and</em> Postgres <em>and</em> Neo4j.</div>
+  </div>
+
+  <div class="card rail rb" style="margin-bottom:12px">
+    <div class="meta-row"><b>P2 · The data model &amp; the answer surface → M2</b> <span class="pill b">the team's source of truth</span></div>
+    <div class="meta-row">ships: <span class="mono-chip">Feature</span>,
+      <span class="mono-chip">Review</span>, <span class="mono-chip">Insight</span> and
+      <span class="mono-chip">Question</span> as first-class node types with their link types; a one-time
+      migration lifting existing <span class="mono-chip">reviews</span> and
+      <span class="mono-chip">learnings</span> out of task records into nodes; a
+      <span class="mono-chip">locator</span> (<span class="mono-chip">repo · path · rev · anchor</span>)
+      on every artifact node and <span class="mono-chip">sha</span> on Commit; the
+      <span class="mono-chip">ProjectLayout</span> registry; and the four canonical queries exposed to
+      both the UI and the agent tool surface.</div>
+    <div class="meta-row">gate: (1) each of the four questions — <em>what changed · why · what does it
+      do · what did we learn</em> — is answered by a single traversal returning nodes, not a text blob;
+      (2) <b>every</b> artifact node returned by those queries resolves through its locator to a file
+      that exists at the named revision — a dangling locator fails the gate; (3) an agent asks via MCP
+      and a human asks via the UI and receive the <b>same node set</b> for the same question;
+      (4) the migration moves 100% of existing task <span class="mono-chip">reviews</span>/<span class="mono-chip">learnings</span>
+      with no loss, asserted by count and content; (5) <span class="mono-chip">reviewed_in</span> now
+      terminates on a Review node — no declared link type points at nothing.</div>
+  </div>
+
+  <div class="card rail rb" style="margin-bottom:12px">
+    <div class="meta-row"><b>P3 · Live, multi-user surface → M3</b></div>
+    <div class="meta-row">ships: an SSE stream fed by the existing event bus; presence (who is on this
+      board, who is editing this artifact); the board, task states and fleet status updating live;
+      version-checked writes on Studio artifacts returning <b>409</b> plus a merge view; all polling
+      removed.</div>
+    <div class="meta-row">gate: (1) two authenticated sessions — a task claimed in one appears in the other
+      in <b>under 1 second</b> with no reload; (2) two sessions editing one artifact: the second write is
+      rejected with 409 and the merge view is offered — a silent overwrite fails the gate;
+      (3) <span class="mono-chip">grep -r setInterval</span> in the board code returns 0;
+      (4) a concurrent-writer test drives N simultaneous claims and asserts exactly one winner on
+      <em>each</em> storage path — the JSON store included.</div>
+  </div>
+
+  <div class="card rail rctrl" style="margin-bottom:12px">
+    <div class="meta-row"><b>P4 · Team-vocabulary wizards → M4</b> <span class="pill ctrl">the main goal</span></div>
+    <div class="meta-row">ships: a setup wizard that asks in team language (who signs off on schema
+      changes, how many developer containers, which task states you use) and writes ontology, rules,
+      actions, RBAC and lifecycle through the signed ledger; Weave-oriented starting templates;
+      <span class="mono-chip">rbac</span> and <span class="mono-chip">lifecycle</span> added as ledger
+      artifact kinds so they are versioned and signed like the rest.</div>
+    <div class="meta-row">gate: (1) from a fresh install, a wizard run produces a governed workspace with
+      roles and gates enforced — with <b>zero file edits and zero restarts</b>; (2) an RBAC change made in
+      the wizard is enforced on the <em>next</em> request, observed as a 403 that was a 200 before;
+      (3) a lifecycle change is observed as a 409; (4) both appear in ledger history with an attributed
+      signature and a diff; (5) rolling back to the prior ledger version restores the prior
+      behaviour.</div>
+  </div>
+
+  <div class="card rail rctrl" style="margin-bottom:12px">
+    <div class="meta-row"><b>P5 · The senior-developer seat → M5</b></div>
+    <div class="meta-row">ships: a supervisory principal that claims and orders work, dispatches
+      autonomous workers, and pauses / resumes / stops / redirects them; a review queue; every supervisory
+      act recorded as an attributed decision.</div>
+    <div class="meta-row">gate: (1) a senior developer dispatches N workers and each appears in the fleet
+      registry with a live heartbeat; (2) a pause is honoured <b>between steps</b> — the worker's last
+      action completes and no edit is left half-written; (3) every supervisory action is present on the
+      graph with an authenticated principal, none self-stamped; (4) the pre-existing claim tests still
+      pass unmodified — supervision must not have changed the claim protocol.</div>
+  </div>
+
+  <div class="card rail rb" style="margin-bottom:12px">
+    <div class="meta-row"><b>P6 · Onboarding bundle &amp; productisation → M6</b> <span class="pill win">the measured goal</span></div>
+    <div class="meta-row">ships: a <span class="mono-chip">weave</span> CLI as the single entry point —
+      <span class="mono-chip">weave init</span> (workspace + preset), <span class="mono-chip">weave roles install</span>,
+      <span class="mono-chip">weave user add</span>, <span class="mono-chip">weave project register</span>
+      (the ProjectLayout), <span class="mono-chip">weave up</span> (the bundle),
+      <span class="mono-chip">weave agents up / scale / down</span>; a compose bundle carrying the Weave
+      server, Postgres (optional Neo4j), and the <b>dev-host daemon that manages the container-based dev
+      agents</b>; the rebranded dev-agent image; role-kit generation wired to the CLI rather than called
+      as a Python function; the conda environment; documentation written for the job rather than the
+      engine; and the onboarding measurement itself.</div>
+    <div class="meta-row">gate: (1) on a clean machine with only Docker and the repo, the published steps
+      reach a <b>running Weave with an admin user, installed roles, a registered project and N dev agents
+      visible in the fleet</b> — no Python called by hand, no tribal knowledge; (2)
+      <span class="mono-chip">weave agents scale 3</span> results in exactly 3 registered workers with
+      live heartbeats, and <span class="mono-chip">down</span> retires them cleanly;
+      (3) <span class="mono-chip">scripts/</span> and <span class="mono-chip">[project.scripts]</span>
+      contain a Weave path for every step the docs mention — a documented step with no command behind it
+      fails the gate; (4) onboarding time is <b>measured and published</b>, and is lower than the
+      parent's baseline measured the same way — the target the blog set; (5) no document in
+      <span class="mono-chip">docs/</span> references the parent's product names.</div>
+  </div>
+
+  <p class="small">Full task breakdown lives in <span class="mono-chip">WEAVE_WORK_PLAN.md</span>;
+    detailed requirements and acceptance criteria in <span class="mono-chip">WEAVE_DRP.md</span>.</p>
+</section>
+
+<!-- RISKS -->
+<section class="slide" id="risks">
+  <div class="kicker k-d">Risks</div>
+  <h2>What we watch, and how we contain it</h2>
+
+  <figure><div class="fig svgwrap">
+    <svg viewBox="0 0 760 230" role="img" aria-label="Why the file-based store is not safe for concurrent writers: two processes each load the whole JSON file, modify it, and dump it, so the second dump overwrites the first process's change. The Postgres path performs the same update inside a transaction, so the second writer either serialises or fails loudly.">
+      <style>.b6{rx:9;stroke-width:1.6}.t6{fill:#fff;font:700 11.5px "Segoe UI",sans-serif}
+      .s6{fill:#aab3c5;font:10px "SF Mono",ui-monospace,monospace}.h6{font:800 10.5px "Segoe UI",sans-serif;letter-spacing:.12em}</style>
+
+      <text class="h6" x="24" y="20" fill="#f6a2ad">FILE-BASED — LOST WRITE</text>
+      <rect class="b6" x="20" y="30" width="350" height="152" fill="rgba(239,91,110,.07)" stroke="rgba(239,91,110,.45)"/>
+      <text class="s6" x="34" y="54">worker A   load(file)</text>
+      <text class="s6" x="34" y="74">worker B   load(file)      ← same snapshot</text>
+      <text class="s6" x="34" y="94">worker A   dump(file)      ← A's change lands</text>
+      <text class="s6" x="34" y="114">worker B   dump(file)      ← A's change gone</text>
+      <line x1="34" y1="126" x2="356" y2="126" stroke="rgba(239,91,110,.4)" stroke-width="1"/>
+      <text class="s6" x="34" y="146" fill="#f6a2ad">_write() is read-modify-write on the whole file</text>
+      <text class="s6" x="34" y="166" fill="#f6a2ad">safe for one process · not for N</text>
+
+      <text class="h6" x="404" y="20" fill="#7ee3b4">POSTGRES — SERIALISED</text>
+      <rect class="b6" x="400" y="30" width="340" height="152" fill="rgba(62,207,142,.08)" stroke="rgba(62,207,142,.45)"/>
+      <text class="s6" x="414" y="54">worker A   BEGIN · UPDATE · COMMIT</text>
+      <text class="s6" x="414" y="74">worker B   BEGIN · UPDATE …</text>
+      <text class="s6" x="414" y="94">           blocks, then sees A's row</text>
+      <text class="s6" x="414" y="114">           or fails loudly on conflict</text>
+      <line x1="414" y1="126" x2="726" y2="126" stroke="rgba(62,207,142,.4)" stroke-width="1"/>
+      <text class="s6" x="414" y="146" fill="#7ee3b4">the database enforces what the file cannot</text>
+      <text class="s6" x="414" y="166" fill="#7ee3b4">the multi-user production path</text>
+
+      <text x="380" y="208" fill="#8a93a8" font-family="Segoe UI,sans-serif" font-size="10.5" text-anchor="middle">file-based stays the default for a single operator; multi-user deployments are gated on Postgres at M3</text>
+    </svg>
+    <figcaption><b>The concurrency risk, drawn.</b> The same class of bug the parent's milestone review
+      already caught once in the claim lock — which is why M3's gate drives concurrent writers on every
+      storage path rather than trusting the design.</figcaption>
+  </div></figure>
+
+  <div class="tablewrap"><table>
+    <thead><tr><th>Risk</th><th>Likelihood / impact</th><th>Mitigation</th></tr></thead>
+    <tbody>
+      <tr><td><b>Rebrand decays.</b> A forbidden name survives in a filename, a log line or a database identifier and teaches everyone the old vocabulary.</td><td><span class="pill c">high</span> / <span class="pill c">med</span></td><td>The name-guard grep runs on every commit and fails the build. M0's gate is the first place it must return zero, and it never stops running.</td></tr>
+      <tr><td><b>Multi-user writes on file-based stores lose data</b> (drawn above). The JSON store is whole-file read-modify-write.</td><td><span class="pill c">med</span> / <span class="pill danger">high</span></td><td>Postgres is the documented multi-user path. M3's gate drives N concurrent writers on every storage path and asserts one winner; the file path is documented as single-operator.</td></tr>
+      <tr><td><b>We copy branch code.</b> The Weave layer lives on an unmerged branch, 23 commits ahead, whose review findings were fixed in place.</td><td><span class="pill c">med</span> / <span class="pill danger">high</span></td><td>Copy from the pinned commit recorded in <span class="mono-chip">PROVENANCE.md</span>, carry the tests with it, and re-run the prior review's findings as regression tests — starting with the workspace-keyed claim lock.</td></tr>
+      <tr><td><b>Fork divergence.</b> The parent keeps moving; our copy silently rots.</td><td><span class="pill c">med</span> / <span class="pill c">med</span></td><td>This is a fork by intent, not a mirror. <span class="mono-chip">PROVENANCE.md</span> pins the source commit; picking up a later parent change is a deliberate, reviewed port with its own decision entry — never an automatic sync.</td></tr>
+      <tr><td><b>Two production database paths.</b> Postgres and Neo4j both have to work.</td><td><span class="pill c">med</span> / <span class="pill c">med</span></td><td>M1's gate runs the suite green on all three paths. If Neo4j cannot hold that bar it ships labelled experimental rather than quietly half-working.</td></tr>
+      <tr><td><b>P0 is enormous.</b> ~92k LOC moving at once is a large blast radius.</td><td><span class="pill c">high</span> / <span class="pill c">med</span></td><td>P0 is mechanical by definition — copy and rename only, zero behaviour change — so its gate is "the same tests still pass at the same count", which a mechanical change can actually meet. Any behavioural fix found in P0 is deferred to a later phase with its own task.</td></tr>
+      <tr><td><b>Deferring CRDT co-editing bites.</b> Teams may find 409-and-merge too coarse for prose and diagrams.</td><td><span class="pill a">low</span> / <span class="pill c">med</span></td><td>The live layer is built behind a transport seam. Revisit if the artifact merge-conflict rate becomes a real complaint — a new decision entry, not a silent redesign.</td></tr>
+      <tr><td><b>The wizard becomes a second source of truth</b> — a config the runtime does not actually read.</td><td><span class="pill a">low</span> / <span class="pill danger">high</span></td><td>M4's gate is behavioural: a wizard change must be observed as a 403 or 409 on the next request. A wizard that writes anything the runtime does not enforce fails the gate.</td></tr>
+      <tr><td><b>Locators rot.</b> A node points at a path that moved, so the index leads nowhere and quietly loses the team's trust.</td><td><span class="pill c">med</span> / <span class="pill danger">high</span></td><td>Locators carry a <span class="mono-chip">rev</span>, so they resolve against the revision they were written for rather than a moving <span class="mono-chip">HEAD</span>. A resolver check runs over every artifact node — M2's gate fails on a single dangling locator, and the same check runs as a periodic job afterwards.</td></tr>
+      <tr><td><b>The model migration loses history</b> — lifting reviews and learnings out of task records drops data nobody notices is gone.</td><td><span class="pill a">low</span> / <span class="pill danger">high</span></td><td>The migration is asserted by count <em>and</em> content against the pre-migration records, is idempotent, and leaves the source fields readable until M2 is signed off — then removes them in one commit so the two never coexist.</td></tr>
+      <tr><td><b>Onboarding stays a demo.</b> The bundle works on the machine that built it and nowhere else.</td><td><span class="pill c">med</span> / <span class="pill c">med</span></td><td>M6's gate runs on a clean machine with only Docker and the repo, following the published steps verbatim, and asserts a live fleet at the end. Any documented step without a command behind it fails the gate — which is what stops the parent's "call these Python functions" pattern coming across.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section class="slide" style="border-bottom:none">
+  <div class="kicker k-a">In one line</div>
+  <h2 style="max-width:920px">Copy the proven engine out once and rename it wholly ours, then spend the
+    build on what the parent never had — real users, a model that answers the team's questions and leads
+    back to the real document, a live surface, wizards that speak the team's language, a seat for the
+    human who leads the fleet, and one command that stands the whole thing up.</h2>
+  <p class="small">Next: <span class="mono-chip">WEAVE_DRP.md</span> (detailed requirements &amp;
+    acceptance criteria) and <span class="mono-chip">WEAVE_WORK_PLAN.md</span> (phases → milestones →
+    tasks). <span class="mono-chip">docs/CONSTRAINTS.md</span> is written once this RFC and its DRP are
+    both agreed.</p>
+</section>
+
+<footer class="footer">Weave · RFC · 2026-08-08 · motivated by
+  <a href="BLOG_THE_TEAM_IS_THE_PRODUCT.html">BLOG_THE_TEAM_IS_THE_PRODUCT.html</a> · index at
+  <a href="DOCS_INDEX.md">docs/DOCS_INDEX.md</a> · decisions in <a href="DECISIONS.md">DECISIONS.md</a></footer>
+</body>
+</html>

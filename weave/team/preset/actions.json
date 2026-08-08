@@ -1,0 +1,183 @@
+{
+  "_comment": "Weave preset - governed actions. Each is validated, authorized by RBAC, run through the rules gate, checked against the lifecycle state machine, and written to the graph as an audit edge. Handlers are record-only in P0; OpenPullRequest gets a real git handler in P3. ClaimTask and OpenPullRequest are Weave-specific.",
+  "name": "weave",
+  "actions": [
+    {
+      "name": "CreateChangeRequest",
+      "object_type": "ChangeRequest",
+      "relation_type": "creates a change request",
+      "effect": "cr-created",
+      "params": [
+        {"name": "title", "kind": "string", "required": true},
+        {"name": "description", "kind": "text"},
+        {"name": "priority", "kind": "string"}
+      ],
+      "handler": {"kind": "none"}
+    },
+    {
+      "name": "AdvanceChangeRequest",
+      "object_type": "ChangeRequest",
+      "relation_type": "advances change request state",
+      "effect": "cr-transition",
+      "params": [
+        {"name": "to", "kind": "enum", "required": true, "enum_values": ["open", "in_progress", "closed"]}
+      ],
+      "transition": {"to_param": "to"},
+      "handler": {"kind": "none"}
+    },
+    {
+      "name": "CreateTask",
+      "object_type": "Task",
+      "relation_type": "creates a task",
+      "effect": "task-created",
+      "params": [
+        {"name": "title", "kind": "string", "required": true},
+        {"name": "description", "kind": "text"},
+        {"name": "assignee", "kind": "string"},
+        {"name": "risk", "kind": "enum", "enum_values": ["routine", "schema", "infra", "security"]}
+      ],
+      "handler": {"kind": "none"}
+    },
+    {
+      "name": "ClaimTask",
+      "object_type": "Task",
+      "relation_type": "claims a task",
+      "effect": "task-claimed",
+      "params": [
+        {"name": "to", "kind": "enum", "required": true, "enum_values": ["in_progress"]}
+      ],
+      "transition": {"to_param": "to"},
+      "handler": {"kind": "none"}
+    },
+    {
+      "name": "AdvanceTask",
+      "object_type": "Task",
+      "relation_type": "advances task state",
+      "effect": "task-transition",
+      "params": [
+        {"name": "to", "kind": "enum", "required": true, "enum_values": ["pending", "in_progress", "review", "approved", "testing", "done", "blocked"]}
+      ],
+      "transition": {"to_param": "to"},
+      "handler": {"kind": "none"}
+    },
+    {
+      "name": "OpenPullRequest",
+      "object_type": "PullRequest",
+      "relation_type": "opens a pull request",
+      "effect": "pr-opened",
+      "params": [
+        {"name": "task", "kind": "string", "required": true},
+        {"name": "branch", "kind": "string"},
+        {"name": "url", "kind": "string"},
+        {"name": "title", "kind": "string"}
+      ],
+      "handler": {"kind": "none"}
+    },
+    {
+      "name": "RecordDecision",
+      "object_type": "ArchitectureDecisionRecord",
+      "relation_type": "architecture decision recorded",
+      "effect": "architecture-decision",
+      "params": [
+        {"name": "decision", "kind": "text", "required": true},
+        {"name": "rationale", "kind": "text"}
+      ],
+      "handler": {"kind": "none"}
+    },
+    {
+      "name": "ProposeModule",
+      "object_type": "Module",
+      "relation_type": "proposes a new module",
+      "effect": "module-proposal",
+      "params": [
+        {"name": "name", "kind": "string", "required": true},
+        {"name": "path", "kind": "string"}
+      ],
+      "handler": {"kind": "none"}
+    },
+    {
+      "name": "MergeToMain",
+      "object_type": "Task",
+      "relation_type": "ships to the main branch",
+      "effect": "release",
+      "params": [
+        {"name": "branch", "kind": "string"},
+        {"name": "version", "kind": "string"}
+      ],
+      "handler": {"kind": "none"}
+    },
+    {
+      "name": "PublishPlan",
+      "object_type": "PRD",
+      "relation_type": "publishes a plan",
+      "effect": "plan-published",
+      "params": [
+        {"name": "plan_ref", "kind": "string", "required": true},
+        {"name": "plan_kind", "kind": "enum", "enum_values": ["PRD", "RFC"]},
+        {"name": "summary", "kind": "text"}
+      ],
+      "handler": {"kind": "none"}
+    },
+    {
+      "name": "RegisterDevHost",
+      "object_type": "DevHost",
+      "relation_type": "registers a dev host",
+      "effect": "devhost-registered",
+      "params": [
+        {"name": "host", "kind": "string", "required": true},
+        {"name": "machine", "kind": "string"},
+        {"name": "repo", "kind": "string"},
+        {"name": "image", "kind": "string"},
+        {"name": "seat", "kind": "enum", "enum_values": ["ok", "missing", "expired", "unknown"]}
+      ],
+      "handler": {"kind": "none"}
+    },
+    {
+      "name": "RegisterWorker",
+      "object_type": "Worker",
+      "relation_type": "registers a worker",
+      "effect": "worker-registered",
+      "params": [
+        {"name": "worker", "kind": "string", "required": true},
+        {"name": "host", "kind": "string"},
+        {"name": "capabilities", "kind": "string"},
+        {"name": "goal", "kind": "text"}
+      ],
+      "handler": {"kind": "none"}
+    },
+    {
+      "name": "Deploy",
+      "object_type": "Environment",
+      "relation_type": "deploys to the environment",
+      "effect": "deployed",
+      "params": [
+        {"name": "environment", "kind": "string", "required": true},
+        {"name": "ref", "kind": "string"}
+      ],
+      "handler": {"kind": "none"}
+    },
+    {
+      "name": "RunIntegration",
+      "object_type": "IntegrationRun",
+      "relation_type": "runs integration tests",
+      "effect": "integration-run",
+      "params": [
+        {"name": "environment", "kind": "string", "required": true},
+        {"name": "kind", "kind": "enum", "enum_values": ["integration", "e2e"]}
+      ],
+      "handler": {"kind": "none"}
+    },
+    {
+      "name": "Promote",
+      "object_type": "Task",
+      "relation_type": "promotes a task to done",
+      "effect": "promoted",
+      "params": [
+        {"name": "to", "kind": "enum", "required": true, "enum_values": ["done"]},
+        {"name": "environment", "kind": "string"}
+      ],
+      "transition": {"to_param": "to"},
+      "handler": {"kind": "none"}
+    }
+  ]
+}
