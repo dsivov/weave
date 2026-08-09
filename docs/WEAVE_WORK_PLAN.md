@@ -196,7 +196,7 @@ workspaces (asserted); `developer` receives **403** on an architect-only governe
 returns 0 outside the migration path; no endpoint returns a password hash; the suite is green on
 **all three** storage paths — or Neo4j is labelled experimental with the failing set named (R11).
 
-**Review:** code review; update the checkpoint.
+**Review:** ✅ **M1 reviewed 2026-08-09** → [WEAVE_CODE_REVIEW_M1.md](WEAVE_CODE_REVIEW_M1.md) — 0 Critical, 1 High (a decision for dsivov, not a code fix), 3 Medium. Gate reproduced independently: **679 passed / 0 failed / 0 skipped** against live PostgreSQL and Neo4j. **AS2 and AS3 verified.** P2 may start.
 
 ---
 
@@ -204,6 +204,8 @@ returns 0 outside the migration path; no endpoint returns a password hash; the s
 
 - [ ] **Contract check (R11)** — touches **A5** (artifact nodes reference, never embed), **A6**, **A9** (one handler for REST and MCP), **A14** (per-workspace membership — the locator resolver must not sit outside it).
 - [ ] `weave/team/preset/ontology.json` — add object types `Feature`, `Review`, `Insight`, `Question` and link types `implemented_by`, `specified_by`, `depicted_by`, `answered_by` (R19)
+- [ ] `weave/cli/users.py` — fold `python -m weave.server.users` (list/add/promote/passwd) into `weave user add`; it exists because M1 found that a migrated install has users but **no admin**, the HTTP bootstrap window having closed on the first user. *(Added from P1 implementation — R1. Seed of R44; do not let P6 rebuild it.)*
+- [ ] `deploy/server.Dockerfile` · `deploy/requirements.txt` — recorded as layout; the latter is a **generated projection** of `environment.yml` (`scripts/sync_requirements.py`) with `tests/test_dependency_parity.py` failing on drift, so A11 still has one manifest. *(Added from P1 implementation.)*
 - [ ] `weave/model/locator.py` `[new]` — `Locator{repo, path, rev, anchor}`; `sha` added to `Commit` (R21)
 - [ ] `weave/model/project_layout.py` `[new]` — `ProjectLayout` registry + `resolve()` → URL for a human, file content for an agent (R22); resolves against the recorded `rev`, never `HEAD` (R23). **Workspace-scoped, stored through `weave_core/store/record.py`** so the workspace argument is required by signature, not by convention (R22a/R22b)
 - [ ] `tests/test_project_layout_tenancy.py` `[new]` — two workspaces, one repo registered in one of them: the other gets **404** from `/projects/resolve`, not content and not a distinguishable error (R22a)

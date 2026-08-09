@@ -60,6 +60,9 @@ multi-role support.
   added constraint A7.
 
 ## Plan & progress
+- [WEAVE_CODE_REVIEW_M1.md](WEAVE_CODE_REVIEW_M1.md) — **M1**, 2026-08-09. 0 Critical · 1 High (an A4
+  decision, not a defect) · 3 Medium. Gate reproduced independently at 679 passed / 0 failed against live
+  PostgreSQL and Neo4j; **AS2 and AS3 verified**.
 - [WEAVE_CODE_REVIEW.md](WEAVE_CODE_REVIEW.md) — **M0**, 2026-08-08. 0 Critical · 1 High · 3 Medium ·
   1 Security; full contract walk with a verdict per constraint. Gate verified independently.
 - [WEAVE_WORK_PLAN.md](WEAVE_WORK_PLAN.md) — 7 phases P0–P6 → M0–M6, **139 checkbox tasks**, each
