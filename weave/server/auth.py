@@ -1,4 +1,17 @@
+"""Token issue and verify — and the one secret everything else rests on.
+
+The JWT signing secret is the root of the whole trust model: a token carries the
+`role` claim that RBAC enforces against, so whoever can sign a token can *be*
+anybody. A6 requires the principal to come from the authenticated identity, and
+a forged token is, by construction, an authenticated identity.
+"""
+
+from __future__ import annotations
+
+import os
+import secrets
 from datetime import datetime, timedelta
+from typing import Optional
 
 import jwt
 from dotenv import load_dotenv
@@ -13,6 +26,59 @@ from weave.server.config import global_args
 load_dotenv(dotenv_path=".env", override=False)
 
 
+#: The shipped placeholder. It is written in this file, in the repository, on the
+#: internet — so it is not a secret, it is a published constant that happens to
+#: sit where a secret belongs.
+DEFAULT_TOKEN_SECRET = "weave_core-jwt-default-secret"
+
+#: The only way to run on the placeholder: say so, explicitly, per process.
+INSECURE_OVERRIDE_VAR = "WEAVE_ALLOW_INSECURE_JWT_SECRET"
+
+
+class InsecureSigningSecret(RuntimeError):
+    """Raised at startup when the signing secret is the published default."""
+
+
+def assert_signing_secret_is_safe(
+    secret: str, env: Optional[dict] = None
+) -> None:
+    """Refuse to start on the published default secret (S1, A6, A14).
+
+    The server used to *warn* about this and carry on. A warning that can be
+    ignored is not a control — and this one was worse than ignorable: until the
+    M0 review it named the wrong environment variable, so an operator who acted
+    on it changed nothing and had every reason to believe they were done.
+
+    Before P1 the exposure was theoretical: nothing was deployed and there were
+    no users to impersonate. With a persisted user store it is a complete RBAC
+    bypass, because anybody who has read this repository can mint a token
+    claiming any role in any workspace.
+
+    The escape hatch is deliberately loud and deliberately per-process: an
+    environment variable that has to be set on purpose, never a config default,
+    so it cannot be inherited from a template someone copied for production.
+    """
+    env = os.environ if env is None else env
+    if secret != DEFAULT_TOKEN_SECRET:
+        return
+    if str(env.get(INSECURE_OVERRIDE_VAR, "")).strip().lower() in {"1", "true", "yes", "on"}:
+        return
+    raise InsecureSigningSecret(
+        "Refusing to start: WEAVE_TOKEN_SECRET is still the published default.\n"
+        "\n"
+        "  Every token this server issues carries the role RBAC enforces against,\n"
+        "  so anyone who has read this repository could sign one claiming any role.\n"
+        "\n"
+        "  Set a real secret:\n"
+        f"      export WEAVE_TOKEN_SECRET='{secrets.token_urlsafe(48)}'\n"
+        "\n"
+        "  (that value was generated just now, for you — or use any 32+ byte random string)\n"
+        "\n"
+        f"  For local development only, you may instead set {INSECURE_OVERRIDE_VAR}=true.\n"
+        "  Do not put that in a deployment template."
+    )
+
+
 class TokenPayload(BaseModel):
     sub: str  # Username
     exp: datetime  # Expiration time
@@ -21,34 +87,69 @@ class TokenPayload(BaseModel):
 
 
 class AuthHandler:
+    """Issues and validates tokens; the account source is the user store (A14).
+
+    The source parsed accounts out of an environment string once, at import.
+    Now they come from :class:`weave.server.users.UserService`, which is bound
+    at application startup. Two consequences worth stating:
+
+    * ``auth_configured`` is a **live** question, not a boot-time snapshot.
+      An admin creating the first user from the UI must take effect on the next
+      request, or "add a user without restarting" is not true (R13, R39).
+    * the role still comes from the server side of the wire, never from the
+      client — now from the user's stored record rather than a second
+      environment variable (A6, R15).
+    """
+
     def __init__(self):
         self.secret = global_args.token_secret
         self.algorithm = global_args.jwt_algorithm
         self.expire_hours = global_args.token_expire_hours
         self.guest_expire_hours = global_args.guest_token_expire_hours
-        self.accounts = {}
-        auth_accounts = global_args.auth_accounts
-        if auth_accounts:
-            for account in auth_accounts.split(","):
-                username, password = account.split(":", 1)
-                self.accounts[username] = password
-        self.roles = {}
-        for entry in (getattr(global_args, "auth_roles", "") or "").split(","):
-            if ":" in entry:
-                username, role = entry.split(":", 1)
-                self.roles[username.strip()] = role.strip()
+        self._users = None
+
+    # -- binding ------------------------------------------------------------
+
+    def bind_user_service(self, service) -> None:
+        """Attach the store. Called once, at application startup."""
+        self._users = service
+
+    @property
+    def users(self):
+        return self._users
+
+    @property
+    def auth_configured(self) -> bool:
+        """Whether anyone can sign in. Asked per request, answered from the store."""
+        if self._users is None:
+            return False
+        return self._users.any_user_exists
+
+    # -- credentials --------------------------------------------------------
+
+    def authenticate(self, username: str, password: str):
+        """Return the authenticated :class:`~weave.server.users.User`, or None."""
+        if self._users is None:
+            return None
+        user = self._users.authenticate(username, password)
+        if user is not None:
+            self._users.record_login(user)
+        return user
 
     def role_for(self, username: str) -> str:
         """The role this account logs in as.
 
         Governance asks what someone *is* — a workspace grants `architect` the
         right to steer a fleet, not "whoever is signed in". Logging everyone in
-        as a generic `user` therefore left the boards read-only for real people
-        while service tokens minted their own roles, so the role is configured
-        here, on the server, and never taken from the client (D5: attribution is
+        as a generic `user` left boards read-only for real people while service
+        tokens minted their own roles, so the role is resolved here, on the
+        server, and never taken from the client (A6: attribution is
         authenticated, not self-stamped).
         """
-        return self.roles.get(username, "user")
+        if self._users is None:
+            return "user"
+        user = self._users.by_username(username)
+        return user.role if user is not None else "user"
 
     def create_token(
         self,

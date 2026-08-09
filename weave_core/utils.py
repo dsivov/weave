@@ -328,7 +328,7 @@ def setup_logger(
         logger_name: Name of the logger to set up
         level: Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
         add_filter: Whether to add WeavePathFilter to the logger
-        log_file_path: Path to the log file. If None and file logging is enabled, defaults to weave_core.log in LOG_DIR or cwd
+        log_file_path: Path to the log file. If None and file logging is enabled, defaults to weave_core.log in WEAVE_LOG_DIR or cwd
         enable_file_logging: Whether to enable logging to a file (defaults to True)
     """
     # Configure formatters
@@ -2860,7 +2860,7 @@ def normalize_source_ids_limit_method(method: str | None) -> str:
     normalized = method.upper()
     if normalized not in VALID_SOURCE_IDS_LIMIT_METHODS:
         logger.warning(
-            "Unknown SOURCE_IDS_LIMIT_METHOD '%s', falling back to %s",
+            "Unknown WEAVE_SOURCE_IDS_LIMIT_METHOD '%s', falling back to %s",
             method,
             DEFAULT_SOURCE_IDS_LIMIT_METHOD,
         )

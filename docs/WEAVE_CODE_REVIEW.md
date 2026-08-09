@@ -53,7 +53,7 @@ None.
 ### S1 — The JWT signing secret has a publicly-known default and the server only warns
 - **Where:** `weave/server/config.py:417` · `weave/server/app.py:557-561`
 - **Risk:** `WEAVE_TOKEN_SECRET` defaults to the literal `weave_core-jwt-default-secret`. Anyone who reads this repository can mint a token carrying any `role` claim. Today that is contained — nothing is deployed and there is no user store. From **P1** it is a full RBAC bypass: A6 requires the principal to come from the authenticated identity, and a forged token *is* an authenticated identity. Compounded by H1, an operator who tried to fix it may have failed silently.
-- **Inherited, not introduced:** the source carries the same pattern (`TOKEN_SECRET` → `lightrag-jwt-default-secret`), so the fork faithfully copied it. In scope for P1, not a P0 regression.
+- **Inherited, not introduced:** the source carries the same pattern — an unprefixed `TOKEN_SECRET` defaulting to a hard-coded literal of its own — so the fork copied it faithfully. In scope for P1, not a P0 regression. *(The source's literal is deliberately not quoted here: a review is not one of the seven artifacts A3 v3 puts out of scope, and the name-guard caught the quotation on the first run after this file landed — which is the carve-out behaving exactly as specified.)*
 - **Fix:** in P1, refuse to start when the default is in use unless an explicit development flag is set. A warning that can be ignored is not a control.
 
 ## Contract check (methodology R11)

@@ -1,0 +1,120 @@
+# Weave — the server and its database (P1).
+#
+# Deployable #1 of three (A1): the Weave server, which also serves the built UI
+# as static assets. The dev-host daemon and the dev-agent image are separate and
+# land in P6 (`deploy/compose.devhost.yml`, `deploy/dev-agent.Dockerfile`) —
+# a dev host is deployed *per developer machine*, often behind NAT, and is not
+# part of the hub's compose file (A15).
+#
+#   docker compose -f deploy/compose.yml up -d
+#
+# Neo4j is optional and off by default. Bring it up only if you want the
+# dedicated graph engine:
+#
+#   docker compose -f deploy/compose.yml --profile neo4j up -d
+#
+# EVERY VARIABLE WEAVE READS IS `WEAVE_`-PREFIXED (D-024). The ones without a
+# prefix below belong to the database images themselves, and prefixing those
+# would simply break them.
+
+name: weave
+
+services:
+  server:
+    build:
+      context: ..
+      dockerfile: deploy/server.Dockerfile
+    ports:
+      # 0.0.0.0 so the server is reachable from another machine — a human role
+      # runs Claude Code against `<server>/mcp` from wherever they work (A10, R53).
+      - "0.0.0.0:${WEAVE_PORT:-9800}:9800"
+    environment:
+      WEAVE_HOST: "0.0.0.0"
+      WEAVE_PORT: "9800"
+
+      # THE SIGNING SECRET IS REQUIRED AND HAS NO DEFAULT HERE, DELIBERATELY.
+      # Every token carries the role RBAC enforces against, so a shipped default
+      # would be an open door in every deployment that copied this file. The
+      # server refuses to start without one (S1). Generate with:
+      #     python -c "import secrets; print(secrets.token_urlsafe(48))"
+      WEAVE_TOKEN_SECRET: "${WEAVE_TOKEN_SECRET:?set WEAVE_TOKEN_SECRET — the server will not start on the default}"
+
+      # The multi-user production path (D-007). File-based storage is the
+      # zero-install default for a single operator; it is the wrong choice here,
+      # because its writes are whole-file read-modify-write and concurrent
+      # writers lose each other's work (A4, R10).
+      WEAVE_KV_STORAGE: PGKVStorage
+      WEAVE_VECTOR_STORAGE: PGVectorStorage
+      WEAVE_GRAPH_STORAGE: PGGraphStorage
+      WEAVE_DOC_STATUS_STORAGE: PGDocStatusStorage
+
+      WEAVE_POSTGRES_HOST: postgres
+      WEAVE_POSTGRES_PORT: "5432"
+      WEAVE_POSTGRES_USER: "${WEAVE_POSTGRES_USER:-weave}"
+      WEAVE_POSTGRES_PASSWORD: "${WEAVE_POSTGRES_PASSWORD:?set WEAVE_POSTGRES_PASSWORD}"
+      WEAVE_POSTGRES_DATABASE: "${WEAVE_POSTGRES_DATABASE:-weave}"
+
+      # The server's own model backend — metered, repointable, and the ONLY
+      # place in this system a model credential exists (A13). No Claude Code
+      # seat, human or agent, ever sees one.
+      WEAVE_LLM_BINDING: "${WEAVE_LLM_BINDING:-openai}"
+      WEAVE_LLM_MODEL: "${WEAVE_LLM_MODEL:-gpt-4o-mini}"
+      WEAVE_EMBEDDING_BINDING: "${WEAVE_EMBEDDING_BINDING:-openai}"
+      WEAVE_EMBEDDING_MODEL: "${WEAVE_EMBEDDING_MODEL:-text-embedding-3-small}"
+      OPENAI_API_KEY: "${OPENAI_API_KEY:-}"   # read by the vendor SDK; never prefixed
+
+      WEAVE_ENABLE_TEAM: "true"
+      WEAVE_ENABLE_QUADRUPLE: "true"
+      WEAVE_ENABLE_MCP: "true"
+
+      # A7: one worker, because this file ships the in-process event bus. The
+      # PostgreSQL LISTEN/NOTIFY adapter — and with it multi-worker serving —
+      # lands in P3. Raising this now would silently break SSE fan-out: a client
+      # on worker 2 would never see an event published on worker 1, with no
+      # error and no log.
+      WEAVE_WORKERS: "1"
+    volumes:
+      - weave-data:/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      # The image's own variables. Not Weave's, so not prefixed.
+      POSTGRES_USER: "${WEAVE_POSTGRES_USER:-weave}"
+      POSTGRES_PASSWORD: "${WEAVE_POSTGRES_PASSWORD:?set WEAVE_POSTGRES_PASSWORD}"
+      POSTGRES_DB: "${WEAVE_POSTGRES_DATABASE:-weave}"
+    volumes:
+      - weave-postgres:/var/lib/postgresql/data
+    healthcheck:
+      # The server must not start before the database can answer, or the first
+      # boot fails on a connection error that looks like a misconfiguration.
+      test: ["CMD-SHELL", "pg_isready -U ${WEAVE_POSTGRES_USER:-weave} -d ${WEAVE_POSTGRES_DATABASE:-weave}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  neo4j:
+    profiles: ["neo4j"]
+    image: neo4j:5
+    environment:
+      NEO4J_AUTH: "neo4j/${WEAVE_NEO4J_PASSWORD:?set WEAVE_NEO4J_PASSWORD}"
+    ports:
+      - "0.0.0.0:7474:7474"
+      - "0.0.0.0:7687:7687"
+    volumes:
+      - weave-neo4j:/data
+    restart: unless-stopped
+    # NOTE (R11): Community Edition cannot create a database per workspace —
+    # multi-database is an Enterprise feature — so every workspace shares the
+    # default database. Fine for one workspace, wrong for several. Verified at
+    # M1; see tests/test_storage_paths.py.
+
+volumes:
+  weave-data:
+  weave-postgres:
+  weave-neo4j:

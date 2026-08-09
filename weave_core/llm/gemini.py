@@ -111,7 +111,7 @@ def _ensure_api_key(api_key: str | None) -> str:
     if not key:
         raise ValueError(
             "Gemini API key not provided. "
-            "Set LLM_BINDING_API_KEY or GEMINI_API_KEY in the environment."
+            "Set WEAVE_LLM_BINDING_API_KEY or GEMINI_API_KEY in the environment."
         )
     return key
 
@@ -504,7 +504,7 @@ async def gemini_embed(
             **IMPORTANT**: This parameter is automatically injected by the EmbeddingFunc wrapper.
             Do NOT manually pass this parameter when calling the function directly.
             The dimension is controlled by the @wrap_embedding_func_with_attrs decorator
-            or the EMBEDDING_DIM environment variable.
+            or the WEAVE_EMBEDDING_DIM environment variable.
             Supported range: 128-3072. Recommended values: 768, 1536, 3072.
         max_token_size: Maximum tokens per text. This parameter is automatically
             injected by the EmbeddingFunc wrapper when the underlying function

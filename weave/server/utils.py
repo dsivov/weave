@@ -73,8 +73,26 @@ for path in whitelist_paths:
         else:
             whitelist_patterns.append((path, False))  # (exact_path, is_prefix_match)
 
-# Global authentication configuration
-auth_configured = bool(auth_handler.accounts)
+# Whether anybody can sign in is a LIVE question, not a boot-time snapshot.
+#
+# It used to be `bool(auth_handler.accounts)` evaluated at import, which was
+# correct when accounts came from an environment string that could not change
+# while the process ran. With a persisted user store it would be wrong within
+# minutes: an admin creates the first user in the UI and the server goes on
+# handing out guest tokens until someone restarts it (R13, R39).
+def _auth_configured() -> bool:
+    return auth_handler.auth_configured
+
+
+
+def authenticated_principal(request) -> dict:
+    """The identity the current request authenticated as (A6).
+
+    ``{}`` when the request arrived on a whitelisted path or an API key rather
+    than a user token. Callers that require a person must treat empty as
+    unauthenticated — never as "anonymous is fine".
+    """
+    return getattr(request.state, "token_info", None) or {}
 
 
 def get_combined_auth_dependency(api_key: Optional[str] = None):
@@ -88,8 +106,8 @@ def get_combined_auth_dependency(api_key: Optional[str] = None):
     Returns:
         Callable: A dependency function that implements the authentication logic
     """
-    # Use global whitelist_patterns and auth_configured variables
-    # whitelist_patterns and auth_configured are already initialized at module level
+    # whitelist_patterns is module-level; whether auth is configured is asked
+    # per request via _auth_configured(), because the user store can change it.
 
     # Only calculate api_key_configured as it depends on the function parameter
     api_key_configured = bool(api_key)
@@ -126,6 +144,17 @@ def get_combined_auth_dependency(api_key: Optional[str] = None):
         if token:
             try:
                 token_info = auth_handler.validate_token(token)
+
+                # Publish the *validated* identity for the routers.
+                #
+                # A6 requires the principal an action is enforced against to come
+                # from the authenticated identity and never from a client-supplied
+                # field. Until now nothing carried it past this dependency, so a
+                # route that needed to know who was calling had only the request
+                # body to ask — which is precisely the self-stamped principal A6
+                # exists to forbid. Set after validation, so what lands here has
+                # been through signature and expiry checks.
+                request.state.token_info = token_info
 
                 # ========== Token Auto-Renewal Logic ==========
                 from weave.server.config import global_args
@@ -201,10 +230,10 @@ def get_combined_auth_dependency(api_key: Optional[str] = None):
                 # ========== End of Token Auto-Renewal Logic ==========
 
                 # Accept guest token if no auth is configured
-                if not auth_configured and token_info.get("role") == "guest":
+                if not _auth_configured() and token_info.get("role") == "guest":
                     return
                 # Accept non-guest token if auth is configured
-                if auth_configured and token_info.get("role") != "guest":
+                if _auth_configured() and token_info.get("role") != "guest":
                     return
 
                 # Token validation failed, immediately return 401 error
@@ -219,7 +248,7 @@ def get_combined_auth_dependency(api_key: Optional[str] = None):
                 # For other exceptions, continue processing
 
         # 3. Acept all request if no API protection needed
-        if not auth_configured and not api_key_configured:
+        if not _auth_configured() and not api_key_configured:
             return
 
         # 4. Validate API key if provided and API-Key authentication is configured
@@ -233,7 +262,7 @@ def get_combined_auth_dependency(api_key: Optional[str] = None):
         ### Authentication failed ####
 
         # if password authentication is configured but not provided, ensure 401 error if auth_configured
-        if auth_configured and not token:
+        if _auth_configured() and not token:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="No credentials provided. Please login.",
@@ -339,7 +368,7 @@ def display_splash_screen(args: argparse.Namespace) -> None:
     ASCIIColors.white("    ├─ API Key: ", end="")
     ASCIIColors.yellow("Set" if args.key else "Not Set")
     ASCIIColors.white("    └─ JWT Auth: ", end="")
-    ASCIIColors.yellow("Enabled" if args.auth_accounts else "Disabled")
+    ASCIIColors.yellow("Enabled" if auth_handler.auth_configured else "No users yet")
 
     # Directory Configuration
     ASCIIColors.magenta("\n📂 Directory Configuration:")
@@ -450,10 +479,15 @@ def display_splash_screen(args: argparse.Namespace) -> None:
         ASCIIColors.white("""    API Key authentication is enabled.
     Make sure to include the X-API-Key header in all your requests.
     """)
-    if args.auth_accounts:
+    if auth_handler.auth_configured:
         ASCIIColors.yellow("\n⚠️  Security Notice:")
         ASCIIColors.white("""    JWT authentication is enabled.
-    Make sure to login before making the request, and include the 'Authorization' in the header.
+    Sign in before making a request, and include 'Authorization' in the header.
+    """)
+    else:
+        ASCIIColors.yellow("\n⚠️  No users exist yet:")
+        ASCIIColors.white("""    Every request is served with a guest token until the first user is
+    created. Create one with `weave user add`, or in Admin ▸ Users.
     """)
 
     # Ensure splash output flush to system log

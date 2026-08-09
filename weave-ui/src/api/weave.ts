@@ -1609,3 +1609,66 @@ export const saveDiagram = async (body: {
   reason?: string
 }): Promise<{ status: string; version: number; id: string }> =>
   (await axiosInstance.post('/diagrams', body)).data
+
+/* ── users (Admin ▸ Users) ──────────────────────────────────────────────────
+ *
+ * The screens the source never had (R13, D-009). Adding a person used to mean
+ * editing an environment variable and restarting the server.
+ *
+ * No response on this surface carries a password hash — the server has no field
+ * for one (R17), and nothing here should ever try to render it.
+ */
+
+export type WeaveUser = {
+  id: string
+  username: string
+  role: string
+  display_name: string
+  email: string
+  status: 'active' | 'disabled'
+  created_at: string
+  updated_at: string
+  last_login_at: string
+  workspaces: string[]
+}
+
+export const listUsers = async (): Promise<WeaveUser[]> => {
+  const response = await axiosInstance.get('/users')
+  return response.data
+}
+
+export const createUser = async (body: {
+  username: string
+  password: string
+  role?: string
+  display_name?: string
+  email?: string
+  workspaces?: string[]
+}): Promise<WeaveUser> => {
+  const response = await axiosInstance.post('/users', body)
+  return response.data
+}
+
+export const updateUser = async (
+  id: string,
+  body: { display_name?: string; email?: string; role?: string; status?: string }
+): Promise<WeaveUser> => {
+  const response = await axiosInstance.patch(`/users/${id}`, body)
+  return response.data
+}
+
+export const deleteUser = async (id: string): Promise<void> => {
+  await axiosInstance.delete(`/users/${id}`)
+}
+
+export const setUserPassword = async (id: string, password: string): Promise<void> => {
+  await axiosInstance.post(`/users/${id}/password`, { password })
+}
+
+export const setUserWorkspaces = async (
+  id: string,
+  workspaces: string[]
+): Promise<{ workspaces: string[] }> => {
+  const response = await axiosInstance.put(`/users/${id}/workspaces`, { workspaces })
+  return response.data
+}

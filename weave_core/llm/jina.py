@@ -91,7 +91,7 @@ async def jina_embed(
             When provided (by EmbeddingFunc), it will be passed to the Jina API for dimension reduction.
         late_chunking: Whether to use late chunking.
         base_url: Optional base URL for the Jina API.
-        api_key: Optional Jina API key. If None, uses the JINA_API_KEY environment variable.
+        api_key: Optional Jina API key. If None, uses the WEAVE_JINA_API_KEY environment variable.
 
     Returns:
         A numpy array of embeddings, one per input text.
@@ -104,7 +104,7 @@ async def jina_embed(
         os.environ["WEAVE_JINA_API_KEY"] = api_key
 
     if "WEAVE_JINA_API_KEY" not in os.environ:
-        raise ValueError("JINA_API_KEY environment variable is required")
+        raise ValueError("WEAVE_JINA_API_KEY environment variable is required")
 
     url = base_url or "https://api.jina.ai/v1/embeddings"
     headers = {

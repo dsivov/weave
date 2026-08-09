@@ -332,10 +332,10 @@ def parse_args() -> argparse.Namespace:
         "WEAVE_VECTOR_STORAGE", DefaultRAGStorageConfig.VECTOR_STORAGE
     )
 
-    # Get MAX_PARALLEL_INSERT from environment
+    # Get WEAVE_MAX_PARALLEL_INSERT from environment
     args.max_parallel_insert = get_env_value("WEAVE_MAX_PARALLEL_INSERT", 2, int)
 
-    # Get MAX_GRAPH_NODES from environment
+    # Get WEAVE_MAX_GRAPH_NODES from environment
     args.max_graph_nodes = get_env_value("WEAVE_MAX_GRAPH_NODES", 1000, int)
 
     # Handle openai-ollama special case
@@ -372,10 +372,10 @@ def parse_args() -> argparse.Namespace:
 
     args.llm_role_extract = _role_llm("EXTRACT")
     args.llm_role_query = _role_llm("QUERY")
-    # EMBEDDING_MODEL defaults to None - each binding will use its own default model
+    # WEAVE_EMBEDDING_MODEL defaults to None - each binding will use its own default model
     # e.g., OpenAI uses "text-embedding-3-small", Jina uses "jina-embeddings-v4"
     args.embedding_model = get_env_value("WEAVE_EMBEDDING_MODEL", None, special_none=True)
-    # EMBEDDING_DIM defaults to None - each binding will use its own default dimension
+    # WEAVE_EMBEDDING_DIM defaults to None - each binding will use its own default dimension
     # Value is inherited from provider defaults via wrap_embedding_func_with_attrs decorator
     args.embedding_dim = get_env_value("WEAVE_EMBEDDING_DIM", None, int, special_none=True)
     args.embedding_send_dim = get_env_value("WEAVE_EMBEDDING_SEND_DIM", False, bool)
@@ -407,13 +407,14 @@ def parse_args() -> argparse.Namespace:
     args.entity_types = get_env_value("WEAVE_ENTITY_TYPES", DEFAULT_ENTITY_TYPES, list)
     args.whitelist_paths = get_env_value("WEAVE_WHITELIST_PATHS", "/health,/api/*")
 
-    # For JWT Auth
-    args.auth_accounts = get_env_value("WEAVE_AUTH_ACCOUNTS", "")
-    # Which role each account logs in as, e.g. "alice:architect,bob:manager".
-    # Kept apart from AUTH_ACCOUNTS on purpose: a password there is everything
-    # after the first colon, so a third field would break any password
-    # containing one. Unlisted accounts stay "user", as before.
-    args.auth_roles = get_env_value("WEAVE_AUTH_ROLES", "")
+    # For JWT Auth.
+    #
+    # Accounts are NOT read here. They are persisted records in the user store
+    # (A14, D-009), and the only thing that still looks at the old environment
+    # variables is weave/server/migrate_accounts.py, which moves them into the
+    # store once and never again. Reading them here as well would recreate the
+    # exact failure R16 exists to prevent: two sources of truth for a password,
+    # disagreeing the moment somebody changes one in the Admin UI.
     args.token_secret = get_env_value("WEAVE_TOKEN_SECRET", "weave_core-jwt-default-secret")
     args.token_expire_hours = get_env_value("WEAVE_TOKEN_EXPIRE_HOURS", 48, float)
     args.guest_token_expire_hours = get_env_value("WEAVE_GUEST_TOKEN_EXPIRE_HOURS", 24, float)

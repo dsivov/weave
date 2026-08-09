@@ -71,7 +71,7 @@ def main():
         print("  1. Use single worker mode:")
         print("     --workers 1")
         print("\n  2. Change document loading engine in .env:")
-        print("     DOCUMENT_LOADING_ENGINE=DEFAULT")
+        print("     WEAVE_DOCUMENT_LOADING_ENGINE=DEFAULT")
         print("\n  3. Deploy on Linux where multi-worker mode is fully supported")
         print("=" * 80 + "\n")
         sys.exit(1)

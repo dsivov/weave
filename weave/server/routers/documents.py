@@ -2097,7 +2097,7 @@ def create_document_routes(
         indexes it for retrieval, and returns a success status with relevant details.
 
         **File Size Limit:**
-        - Configurable via `MAX_UPLOAD_SIZE` environment variable (default: 100MB)
+        - Configurable via `WEAVE_MAX_UPLOAD_SIZE` environment variable (default: 100MB)
         - Set to `None` or `0` for unlimited upload size
         - Returns HTTP 413 (Request Entity Too Large) if file exceeds limit
 

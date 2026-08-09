@@ -1266,7 +1266,7 @@ async def _rebuild_single_entity(
                 file_paths_list.append(file_path)
                 seen_paths.add(file_path)
 
-    # Apply MAX_FILE_PATHS limit
+    # Apply WEAVE_MAX_FILE_PATHS limit
     max_file_paths = global_config.get("max_file_paths", DEFAULT_MAX_FILE_PATHS)
     file_path_placeholder = global_config.get(
         "file_path_more_placeholder", DEFAULT_FILE_PATH_MORE_PLACEHOLDER
@@ -1768,7 +1768,7 @@ async def _merge_nodes_then_upsert(
         llm_response_cache,
     )
 
-    # 9. Build file_path within MAX_FILE_PATHS
+    # 9. Build file_path within WEAVE_MAX_FILE_PATHS
     file_paths_list = []
     seen_paths = set()
     has_placeholder = False  # Indicating file_path has been truncated before
@@ -2178,7 +2178,7 @@ async def _merge_edges_then_upsert(
         llm_response_cache,
     )
 
-    # 9. Build file_path within MAX_FILE_PATHS limit
+    # 9. Build file_path within WEAVE_MAX_FILE_PATHS limit
     file_paths_list = []
     seen_paths = set()
     has_placeholder = False  # Track if already_file_paths contains placeholder

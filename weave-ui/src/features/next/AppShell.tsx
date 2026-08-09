@@ -2,7 +2,8 @@ import { useState, useMemo } from 'react'
 import {
   LayoutDashboardIcon, ScaleIcon, FilesIcon, NetworkIcon, SearchIcon,
   GavelIcon, BoxesIcon, SparklesIcon, Code2Icon, RocketIcon,
-  BellIcon, SunIcon, MoonIcon, PanelLeftIcon, LayersIcon, PencilRulerIcon, UsersIcon, ShapesIcon
+  BellIcon, SunIcon, MoonIcon, PanelLeftIcon, LayersIcon, PencilRulerIcon, UsersIcon, ShapesIcon,
+  UserCogIcon
 } from 'lucide-react'
 import { useSettingsStore } from '@/stores/settings'
 import { setUiMode } from '@/lib/uiMode'
@@ -11,6 +12,7 @@ import './next.css'
 
 import Dashboard from '@/features/next/pages/Dashboard'
 import Decisions from '@/features/next/pages/Decisions'
+import AdminUsers from '@/features/next/pages/AdminUsers'
 import GraphQualityNext from '@/features/next/pages/GraphQualityNext'
 import OntologyNext from '@/features/next/pages/OntologyNext'
 import RulesNext from '@/features/next/pages/RulesNext'
@@ -27,6 +29,7 @@ import ApiSite from '@/features/ApiSite'
 type ViewId =
   | 'dashboard' | 'decisions' | 'documents' | 'graph' | 'retrieval' | 'chunks'
   | 'rules' | 'ontology' | 'quality' | 'studio' | 'diagrams' | 'weave' | 'getstarted' | 'api'
+  | 'users'
 
 type NavItem = {
   id: ViewId
@@ -50,6 +53,7 @@ const NAV: NavItem[] = [
   { id: 'studio', label: 'Studio', icon: PencilRulerIcon, group: 'Governance' },
   { id: 'diagrams', label: 'Diagrams', icon: ShapesIcon, group: 'Knowledge', flush: true },
   { id: 'weave', label: 'Weave', icon: UsersIcon, group: 'Team' },
+  { id: 'users', label: 'Users', icon: UserCogIcon, group: 'Admin' },
   { id: 'getstarted', label: 'Get Started', icon: RocketIcon, group: 'Setup' },
   { id: 'api', label: 'API', icon: Code2Icon, group: 'Setup' }
 ]
@@ -93,7 +97,7 @@ export default function AppShell() {
   }
 
   const groups = useMemo(() => {
-    const order = ['Overview', 'Knowledge', 'Governance', 'Team', 'Setup']
+    const order = ['Overview', 'Knowledge', 'Governance', 'Team', 'Admin', 'Setup']
     return order.map((g) => ({ group: g, items: NAV.filter((n) => n.group === g) }))
   }, [])
 
@@ -113,6 +117,7 @@ export default function AppShell() {
       case 'studio': return <Studio />
       case 'diagrams': return <DiagramsPage />
       case 'weave': return <WeaveBoard />
+      case 'users': return <AdminUsers />
       case 'getstarted': return <GetStarted />
       case 'api': return <ApiSite />
       default: return null

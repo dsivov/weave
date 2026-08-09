@@ -842,7 +842,7 @@ class WeaveGraph(WeaveEngine):
 
     def _node_filter(self):
         """Build (and cache) the workspace NodeFilter: its saved ontology if any,
-        else DEFAULT_ENTITY_TYPES (D11); open-world unless GARBAGE_CLOSED_WORLD=true (D10)."""
+        else DEFAULT_ENTITY_TYPES (D11); open-world unless WEAVE_GARBAGE_CLOSED_WORLD=true (D10)."""
         if self._node_filter_cache is not None:
             return self._node_filter_cache
         import os
@@ -862,7 +862,7 @@ class WeaveGraph(WeaveEngine):
     def _filter_extracted(self, chunk_results: list) -> list:
         """Quarantine low-quality / off-schema nodes across chunk results, dropping
         them and any edges that touch them. Rejects go to the quarantine store
-        (restorable). No-op when GARBAGE_FILTER_ENABLED=false."""
+        (restorable). No-op when WEAVE_GARBAGE_FILTER_ENABLED=false."""
         if not self._garbage_filter_enabled():
             return chunk_results
         nf = self._node_filter()

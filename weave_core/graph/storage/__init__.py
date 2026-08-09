@@ -55,6 +55,13 @@ STORAGE_IMPLEMENTATIONS = {
 
 # Environment a storage implementation needs before it can be selected.
 # The file-based path needs nothing, which is what makes first run trivial.
+#
+# THESE ARE LOOKUPS, NOT LABELS. `check_storage_env_vars()` reads each name out
+# of `os.environ` at engine start and refuses to start when one is missing, so a
+# name here that configuration does not actually write is not a cosmetic slip:
+# it rejects a correctly configured deployment and tells the operator to set a
+# variable nothing reads. They must stay in step with `weave/server/config.py`,
+# which `tests/test_storage_registry.py` asserts.
 STORAGE_ENV_REQUIREMENTS: dict[str, list[str]] = {
     # file-based
     "JsonKVStorage": [],
@@ -62,12 +69,12 @@ STORAGE_ENV_REQUIREMENTS: dict[str, list[str]] = {
     "NanoVectorDBStorage": [],
     "NetworkXStorage": [],
     # PostgreSQL
-    "PGKVStorage": ["POSTGRES_USER", "POSTGRES_PASSWORD", "POSTGRES_DATABASE"],
-    "PGVectorStorage": ["POSTGRES_USER", "POSTGRES_PASSWORD", "POSTGRES_DATABASE"],
-    "PGGraphStorage": ["POSTGRES_USER", "POSTGRES_PASSWORD", "POSTGRES_DATABASE"],
-    "PGDocStatusStorage": ["POSTGRES_USER", "POSTGRES_PASSWORD", "POSTGRES_DATABASE"],
+    "PGKVStorage": ["WEAVE_POSTGRES_USER", "WEAVE_POSTGRES_PASSWORD", "WEAVE_POSTGRES_DATABASE"],
+    "PGVectorStorage": ["WEAVE_POSTGRES_USER", "WEAVE_POSTGRES_PASSWORD", "WEAVE_POSTGRES_DATABASE"],
+    "PGGraphStorage": ["WEAVE_POSTGRES_USER", "WEAVE_POSTGRES_PASSWORD", "WEAVE_POSTGRES_DATABASE"],
+    "PGDocStatusStorage": ["WEAVE_POSTGRES_USER", "WEAVE_POSTGRES_PASSWORD", "WEAVE_POSTGRES_DATABASE"],
     # Neo4j
-    "Neo4JStorage": ["NEO4J_URI", "NEO4J_USERNAME", "NEO4J_PASSWORD"],
+    "Neo4JStorage": ["WEAVE_NEO4J_URI", "WEAVE_NEO4J_USERNAME", "WEAVE_NEO4J_PASSWORD"],
 }
 
 # Implementation name -> module, relative to ``weave_core``.
