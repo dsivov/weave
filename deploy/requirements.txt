@@ -1,0 +1,59 @@
+# Generated from environment.yml — DO NOT EDIT BY HAND.
+#
+# environment.yml is the single dependency manifest (D-006, A11). This file
+# exists only because conda buys nothing inside a container: the image *is* the
+# environment. It carries the same pins, and tests/test_dependency_parity.py
+# fails if the two ever disagree.
+#
+# Regenerate with:  python scripts/sync_requirements.py
+
+
+# native / binary-heavy (conda-forge in environment.yml)
+numpy>=1.24,<3
+pandas>=2.0,<2.4
+networkx
+psutil
+
+# the rest
+fastapi
+uvicorn
+gunicorn
+python-multipart
+aiofiles
+httpx>=0.28.1
+httpcore
+aiohttp
+pydantic
+PyJWT>=2.8.0,<3.0.0
+bcrypt>=4.0.0
+python-dotenv
+configparser
+pytz
+mcp>=1.26.0,<2.0
+nano-vectordb
+tiktoken
+tenacity
+json_repair
+pypinyin
+xlsxwriter>=3.1.0
+ascii_colors
+distro
+jiter
+pipmaster
+setuptools
+asyncpg>=0.31.0,<1.0.0
+pgvector>=0.4.2,<1.0.0
+neo4j>=5.0.0,<7.0.0
+openai>=2.0.0,<3.0.0
+google-genai>=1.0.0,<2.0.0
+google-api-core>=2.0.0,<3.0.0
+model2vec>=0.3.0
+business_rule_engine>=1.0.0
+pypdf>=6.1.0
+python-docx>=0.8.11,<2.0.0
+python-pptx>=0.6.21,<2.0.0
+openpyxl>=3.0.0,<4.0.0
+pycryptodome>=3.0.0,<4.0.0
+pytest>=8.4.2
+pytest-asyncio>=1.2.0
+ruff

@@ -5,7 +5,7 @@
 
 - **Sources:** [WEAVE_DRP.md](WEAVE_DRP.md) · [WEAVE_ARCHITECTURE.html](WEAVE_ARCHITECTURE.html) · [WEAVE_RFC.html](WEAVE_RFC.html)
 - **Contract:** [CONSTRAINTS.md](CONSTRAINTS.md) **v2** — every phase opens with a contract check (R11)
-- **Branch:** `main` — Weave is its own repository with one developer and no release yet, so work commits directly (D-025; R5 waived, see the revert trigger there). · **Status:** P0 complete — M0 gate met except the documentation question (see the M0 review); P1 not started
+- **Branch:** `main` — Weave is its own repository with one developer and no release yet, so work commits directly (D-025; R5 waived, see the revert trigger there). · **Status:** P1 complete — M1 gate met, awaiting review; P2 not started
 - **Owner:** dsivov
 
 > **This plan builds on working code, not a blank page.** Every task below that moves code names its
@@ -174,21 +174,21 @@ flowchart LR
 
 ## P1 · Standalone server & the user store → **M1**
 
-- [ ] **Contract check (R11)** — touches **A4** (three paths + ports), **A6** (governance + authenticated principal), **A11** (no new library), **A14** (persisted users, no env accounts).
-- [ ] **H1 (M0 review)** `weave/server/app.py:561` — the default-JWT-secret warning says `TOKEN_SECRET`; the variable is `WEAVE_TOKEN_SECRET`. An operator following it fixes nothing and believes otherwise. One string.
-- [ ] **S1 (M0 review)** `weave/server/config.py:417` — `WEAVE_TOKEN_SECRET` defaults to the published constant `weave_core-jwt-default-secret`. Refuse to start on the default unless an explicit development flag is set; with the user store live, a forged token is a full RBAC bypass (A6, A14). A warning that can be ignored is not a control.
-- [ ] `tests/test_jwt_secret_required.py` `[new]` — the server refuses to start on the default secret without the dev flag, and the warning names the variable that actually exists.
-- [ ] `weave/server/users.py` `[new]` — `User` + `WorkspaceMembership` records **written against `weave_core/store/record.py`**, not a new persistence layer (A4, D-020)
-- [ ] `weave_core/store/postgres.py` `[new]` — the Postgres `RecordStore` adapter (memory + json come from the copied port)
-- [ ] `weave/server/routers/users.py` `[new]` — `GET/POST /users`, `GET/PATCH/DELETE /users/{id}`, `POST /users/{id}/password`, `GET/PUT /users/{id}/workspaces`
-- [ ] `weave/server/auth.py` — source accounts from the store instead of `AUTH_ACCOUNTS`; principal still derived from the authenticated identity (A6, R15)
-- [ ] `weave/server/migrate_accounts.py` `[new]` — one-time boot migration of `AUTH_ACCOUNTS`/`AUTH_ROLES`, then both **removed** from the config surface (R16)
-- [ ] **UI:** `weave-ui/src/pages/AdminUsers.tsx` `[new]` — create / edit / disable / reset password / grant workspaces, using the frontend-kit tokens
-- [ ] `deploy/compose.yml` `[new]` — server + PostgreSQL (+ optional Neo4j)
-- [ ] `tests/test_users.py` `[new]` — CRUD, bcrypt hashing, **no endpoint ever returns a hash**
-- [ ] `tests/test_membership.py` `[new]` — a user sees only granted workspaces; `developer` gets 403 on an architect-only action
-- [ ] `tests/test_account_migration.py` `[new]` — env-configured install migrates on boot, then serves with the variable unset; idempotent
-- [ ] `tests/test_storage_paths.py` `[new]` — the suite runs green on file-based, Postgres and Neo4j (AS2, AS3 — first real exercise of both)
+- [x] **Contract check (R11)** — touches **A4** (three paths + ports), **A6** (governance + authenticated principal), **A11** (no new library), **A14** (persisted users, no env accounts).
+- [x] **H1 (M0 review)** `weave/server/app.py:561` — the default-JWT-secret warning says `TOKEN_SECRET`; the variable is `WEAVE_TOKEN_SECRET`. An operator following it fixes nothing and believes otherwise. One string.
+- [x] **S1 (M0 review)** `weave/server/config.py:417` — `WEAVE_TOKEN_SECRET` defaults to the published constant `weave_core-jwt-default-secret`. Refuse to start on the default unless an explicit development flag is set; with the user store live, a forged token is a full RBAC bypass (A6, A14). A warning that can be ignored is not a control.
+- [x] `tests/test_jwt_secret_required.py` `[new]` — the server refuses to start on the default secret without the dev flag, and the warning names the variable that actually exists.
+- [x] `weave/server/users.py` `[new]` — `User` + `WorkspaceMembership` records **written against `weave_core/store/record.py`**, not a new persistence layer (A4, D-020)
+- [x] `weave_core/store/postgres.py` `[new]` — the Postgres `RecordStore` adapter (memory + json come from the copied port)
+- [x] `weave/server/routers/users.py` `[new]` — `GET/POST /users`, `GET/PATCH/DELETE /users/{id}`, `POST /users/{id}/password`, `GET/PUT /users/{id}/workspaces`
+- [x] `weave/server/auth.py` — source accounts from the store instead of `AUTH_ACCOUNTS`; principal still derived from the authenticated identity (A6, R15)
+- [x] `weave/server/migrate_accounts.py` `[new]` — one-time boot migration of `AUTH_ACCOUNTS`/`AUTH_ROLES`, then both **removed** from the config surface (R16)
+- [x] **UI:** `weave-ui/src/pages/AdminUsers.tsx` `[new]` — create / edit / disable / reset password / grant workspaces, using the frontend-kit tokens
+- [x] `deploy/compose.yml` `[new]` — server + PostgreSQL (+ optional Neo4j)
+- [x] `tests/test_users.py` `[new]` — CRUD, bcrypt hashing, **no endpoint ever returns a hash**
+- [x] `tests/test_membership.py` `[new]` — a user sees only granted workspaces; `developer` gets 403 on an architect-only action
+- [x] `tests/test_account_migration.py` `[new]` — env-configured install migrates on boot, then serves with the variable unset; idempotent
+- [x] `tests/test_storage_paths.py` `[new]` — the suite runs green on file-based, Postgres and Neo4j (AS2, AS3 — first real exercise of both)
 
 **Gate (M1):** an admin creates a user in the UI → that user signs in → sees **only** granted
 workspaces (asserted); `developer` receives **403** on an architect-only governed action; an

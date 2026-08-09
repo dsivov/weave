@@ -86,7 +86,6 @@ config = configparser.ConfigParser()
 config.read("config.ini")
 
 # Global authentication configuration
-auth_configured = bool(auth_handler.accounts)
 
 
 class LLMConfigCache:
@@ -338,6 +337,15 @@ async def _dedup_sweep_loop(workspace_pool, args) -> None:
 
 
 def create_app(args):
+    # The signing secret is checked before anything else exists.
+    #
+    # Every token this server issues carries the role RBAC enforces against, so
+    # a known secret is not a weak default — it is an open door with a sign on
+    # it. Failing here, loudly, beats starting and warning into a log (S1, A6).
+    from weave.server.auth import assert_signing_secret_is_safe
+
+    assert_signing_secret_is_safe(args.token_secret)
+
     # Check frontend build first and get status
     webui_assets_exist, is_frontend_outdated = check_frontend_build()
 
@@ -1532,6 +1540,26 @@ def create_app(args):
         except Exception as e:  # pragma: no cover - never block server start
             logger.warning(f"Workspace manifest API unavailable: {e}")
 
+    # ── the user store (A14, D-009) ──────────────────────────────────────────
+    # The gap this project exists to close. Accounts are persisted records with
+    # bcrypt hashes and explicit per-workspace grants — no environment accounts,
+    # and no second persistence layer: this is the same RecordStore port the
+    # fleet registries use (A4, D-020).
+    from weave.server.migrate_accounts import migrate_env_accounts
+    from weave.server.routers.users import create_user_routes
+    from weave.server.users import JsonUserStore, UserService
+
+    user_service = UserService(JsonUserStore(str(args.working_dir)))
+    auth_handler.bind_user_service(user_service)
+    app.state.user_service = user_service
+
+    # Any account still configured as an environment string is moved into the
+    # store once, on this boot, and then that variable is dead: nothing else in
+    # the repository reads it, so the two can never disagree (R16).
+    migrate_env_accounts(user_service)
+
+    app.include_router(create_user_routes(user_service, api_key=api_key))
+
     # Two route groups the source mounted here are deliberately absent, and their
     # absence is the point rather than an omission:
     #
@@ -1635,8 +1663,9 @@ def create_app(args):
     async def get_auth_status():
         """Get authentication status and guest token if auth is not configured"""
 
-        if not auth_handler.accounts:
-            # Authentication not configured, return guest token
+        if not auth_handler.auth_configured:
+            # No users exist yet: hand out a guest token so a fresh install is
+            # reachable, and say so plainly rather than implying it is secured.
             guest_token = auth_handler.create_token(
                 username="guest", role="guest", metadata={"auth_mode": "disabled"}
             )
@@ -1663,7 +1692,7 @@ def create_app(args):
 
     @app.post("/login")
     async def login(form_data: OAuth2PasswordRequestForm = Depends()):
-        if not auth_handler.accounts:
+        if not auth_handler.auth_configured:
             # Authentication not configured, return guest token
             guest_token = auth_handler.create_token(
                 username="guest", role="guest", metadata={"auth_mode": "disabled"}
@@ -1678,15 +1707,20 @@ def create_app(args):
                 "webui_title": webui_title,
                 "webui_description": webui_description,
             }
-        username = form_data.username
-        if auth_handler.accounts.get(username) != form_data.password:
+        # The credential check is the store's, and it answers with the user or
+        # with nothing. A disabled account and a wrong password are the same
+        # 401 on purpose: distinguishing them tells an attacker which half they
+        # already have.
+        user = auth_handler.authenticate(form_data.username, form_data.password)
+        if user is None:
             raise HTTPException(status_code=401, detail="Incorrect credentials")
 
-        # Regular user login
+        # The role travels in the token, resolved server-side from the stored
+        # record — never read from the request (A6, R15).
         user_token = auth_handler.create_token(
-            username=username,
-            role=auth_handler.role_for(username),
-            metadata={"auth_mode": "enabled"},
+            username=user.username,
+            role=user.role,
+            metadata={"auth_mode": "enabled", "workspaces": user.workspaces},
         )
         return {
             "access_token": user_token,
@@ -1742,7 +1776,7 @@ def create_app(args):
                 "pipeline_status", workspace=workspace
             )
 
-            if not auth_configured:
+            if not auth_handler.auth_configured:
                 auth_mode = "disabled"
             else:
                 auth_mode = "enabled"
