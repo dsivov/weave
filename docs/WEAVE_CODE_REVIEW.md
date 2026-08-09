@@ -3,7 +3,7 @@
 # Weave — Code Review (M0, 2026-08-08)
 
 - **Scope:** `main` — `8610914` (the fork: 404 files, 111,017 insertions) and `fd68d4e` (the A3 v3 amendment). 62,259 LOC Python + 27,248 LOC UI carried from the pinned source commit `608401b8`.
-- **Reviewer:** weave-manager · **Result:** **approved — one High to fix before P1 ships**
+- **Reviewer:** weave-manager · **Result:** **approved — one High to fix before P1 ships** · *H1 fixed in `9d17e4e`; see the correction under H1 — its scope was larger than this review found.*
 
 ## Summary
 
@@ -32,7 +32,9 @@ None.
 - **Where:** `weave/server/app.py:561`
 - **Failure:** The server warns `"Using default JWT secret — set TOKEN_SECRET env var for production"`. After D-024 the variable is `WEAVE_TOKEN_SECRET` (`weave/server/config.py:417`). An operator who follows the instruction exactly sets `TOKEN_SECRET`, which nothing reads; the server keeps signing with the known constant `weave_core-jwt-default-secret` while the operator believes it is fixed. The warning still fires, but by then it reads as noise they have already actioned.
 - **Why both guards missed it:** the string contains no banned token — it is a *correct-looking old variable name*. A3 v3's widening catches brand leakage into generated contracts; stale variable names inside human-readable strings are a second class neither guard covers.
-- **Fix:** one string → `WEAVE_TOKEN_SECRET`. **Verified not systemic** — every message naming an environment variable was swept; this is the only instance.
+- **Fix:** one string → `WEAVE_TOKEN_SECRET`.
+- **Correction (2026-08-08, after the fix landed):** this review originally recorded H1 as *"verified not systemic — the only instance"*. **That was wrong.** The developer's sweep found six more, and one was worse than H1 itself: `weave_core/graph/storage/__init__.py` listed `POSTGRES_*` and `NEO4J_*` unprefixed in `STORAGE_ENV_REQUIREMENTS`, which `check_storage_env_vars()` **reads from the environment at engine start and raises on**. A correctly configured PostgreSQL or Neo4j deployment would have been *refused at startup*, citing variables nothing reads — and it would have surfaced at M1 as a mystery, because the file-based path the suite runs on needs no environment at all.
+- **Why the reviewer's sweep missed it:** the greps looked for *prose instructions* — `set X env var` shaped strings. `STORAGE_ENV_REQUIREMENTS` is a **declarative table of variable names consumed at runtime**, not prose. The generalisation was drawn from the one instance found rather than from the mechanism. The real class is *any string literal naming an environment variable* — prose, dict value or list entry alike, whether a human or the runtime reads it. `tests/test_config_surface.py` now asserts the class, which is the durable fix; a sharper grep would only have shifted where the blind spot sat.
 
 ## Medium
 
