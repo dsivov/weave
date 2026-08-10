@@ -4,9 +4,9 @@
 # Weave — Work Plan
 
 - **Sources:** [WEAVE_DRP.md](WEAVE_DRP.md) · [WEAVE_ARCHITECTURE.html](WEAVE_ARCHITECTURE.html) · [WEAVE_RFC.html](WEAVE_RFC.html)
-- **Contract:** [CONSTRAINTS.md](CONSTRAINTS.md) **v2** — every phase opens with a contract check (R11)
-- **Branch:** `main` — Weave is its own repository with one developer and no release yet, so work commits directly (D-025; R5 waived, see the revert trigger there). · **Status:** P1 complete — M1 gate met, awaiting review; P2 not started
-- **Owner:** dsivov
+- **Contract:** [CONSTRAINTS.md](CONSTRAINTS.md) **v3** — every phase opens with a contract check (R11)
+- **Branch:** `main` — Weave is its own repository with one developer and no release yet, so work commits directly (D-025; R5 waived, see the revert trigger there). · **Status:** **P2 is the active phase, cleared to start.** P0 and P1 complete and reviewed (M0 and M1 both 0 Critical); one High is open from M1 and is **manager-owned, not a blocker** — see the P2 preamble.
+- **Owner:** dsivov · **Roles:** *manager* owns this plan, the contract, the reviews, git and server startup; *developer* implements the tasks and runs the gate. A task marked **[manager]** is not the developer's to do.
 
 > **This plan builds on working code, not a blank page.** Every task below that moves code names its
 > **source path in the parent tree and its destination here**, with the line count, so "copy, rename,
@@ -202,22 +202,42 @@ returns 0 outside the migration path; no endpoint returns a password hash; the s
 
 ## P2 · Data model & the answer surface → **M2**
 
-- [ ] **Contract check (R11)** — touches **A5** (artifact nodes reference, never embed), **A6**, **A9** (one handler for REST and MCP), **A14** (per-workspace membership — the locator resolver must not sit outside it).
-- [ ] `weave/team/preset/ontology.json` — add object types `Feature`, `Review`, `Insight`, `Question` and link types `implemented_by`, `specified_by`, `depicted_by`, `answered_by` (R19)
+> **Read before starting.** This phase creates a **new top-level package, `weave/model/`** — that is a
+> named tripwire, so the contract check below is done in writing before the first file, not after.
+> Run the phase end to end and **stop at the gate** for review (R3, R4); do not begin P3.
+>
+> **Carried in from the M1 review** ([WEAVE_CODE_REVIEW_M1.md](WEAVE_CODE_REVIEW_M1.md)):
+> **H1 is open and is the manager's, not yours** — Neo4j Community has no per-workspace database, so
+> A4's three paths are not equal on the property tenancy rests on. It awaits an A4 amendment from
+> dsivov. It does **not** block P2: P2 scopes the resolver to a workspace in *application* code
+> (D-028), which is correct on all three paths regardless of how A4 is worded. If you find yourself
+> relying on the *database* as the tenant boundary, stop and report — that is the drift H1 predicts.
+
+- [ ] **Contract check (R11)** — touches **A5** (artifact nodes reference, never embed), **A6**, **A9** (one handler for REST and MCP), **A14** (per-workspace membership — the locator resolver must not sit outside it). Also **A2** (`weave/model/` is a new top-level package — it holds no HTTP and `weave_core/` must not import it) and **A4** (persistence through the store ports only; no new client). Write the check into the commit message, naming each ID and its verdict.
+
+### P2.0 · Carry-over from P1 *(added by the M1 review — do these first, they are small and they close M3)*
 - [ ] `weave/cli/users.py` — fold `python -m weave.server.users` (list/add/promote/passwd) into `weave user add`; it exists because M1 found that a migrated install has users but **no admin**, the HTTP bootstrap window having closed on the first user. *(Added from P1 implementation — R1. Seed of R44; do not let P6 rebuild it.)*
 - [ ] `deploy/server.Dockerfile` · `deploy/requirements.txt` — recorded as layout; the latter is a **generated projection** of `environment.yml` (`scripts/sync_requirements.py`) with `tests/test_dependency_parity.py` failing on drift, so A11 still has one manifest. *(Added from P1 implementation.)*
+- [ ] **[manager]** `WEAVE_ARCHITECTURE.html` — say that the Postgres `RecordStore` adapter owns a daemon loop thread; the document still calls the store a plain port. *(M1 review, Medium M1 — document fix, no code change.)*
+
+### P2.1 · The ontology and the locator *(everything below depends on these two)*
+- [ ] `weave/team/preset/ontology.json` — add object types `Feature`, `Review`, `Insight`, `Question` and link types `implemented_by`, `specified_by`, `depicted_by`, `answered_by` (R19). **Adding an object or link type is a tripwire** — confirm A5 holds (these nodes reference a source, they never carry a body).
 - [ ] `weave/model/locator.py` `[new]` — `Locator{repo, path, rev, anchor}`; `sha` added to `Commit` (R21)
-- [ ] `weave/model/project_layout.py` `[new]` — `ProjectLayout` registry + `resolve()` → URL for a human, file content for an agent (R22); resolves against the recorded `rev`, never `HEAD` (R23). **Workspace-scoped, stored through `weave_core/store/record.py`** so the workspace argument is required by signature, not by convention (R22a/R22b)
+- [ ] `weave/model/project_layout.py` `[new]` — `ProjectLayout` registry + `resolve()` → URL for a human, file content for an agent (R22); resolves against the recorded `rev`, never `HEAD` (R23). **Workspace-scoped, stored through `weave_core/store/record.py`** so the workspace argument is required by signature, not by convention (R22a/R22b, D-028)
 - [ ] `tests/test_project_layout_tenancy.py` `[new]` — two workspaces, one repo registered in one of them: the other gets **404** from `/projects/resolve`, not content and not a distinguishable error (R22a)
+- [ ] `tests/test_locator_resolve.py` `[new]` — resolution at a pinned `rev`; a moved file at `HEAD` still resolves
+
+### P2.2 · The answer surface *(A9: one handler, two adapters — write the service function first, then both adapters over it)*
 - [ ] `weave/model/answers.py` `[new]` — the four canonical traversals; **one service function each**
 - [ ] `weave/server/routers/ask.py` `[new]` — `/ask/{changes,why,features,learnings}` as thin adapters
 - [ ] `weave/server/mcp.py` — the four MCP tools call **the same functions** as the routers (A9, R26)
 - [ ] `weave/server/routers/projects.py` `[new]` — `POST/GET /projects`, `GET /projects/resolve` — all three scoped to the caller's workspace
+- [ ] `tests/test_answers.py` `[new]` — each of the four questions is one traversal returning nodes
+- [ ] `tests/test_mcp_rest_parity.py` `[new]` — the same question via MCP and REST returns **the same node set**. Assert parity by **calling both surfaces**, not by asserting they share a symbol — a shared call site is the implementation, node-set equality is the contract.
+
+### P2.3 · Migration and verification
 - [ ] `weave/model/migrate_reviews.py` `[new]` — lift task `reviews` / `learnings` into `Review` / `Insight` nodes; idempotent. **Must cover entries written by `release()`** if that work is in the pinned sha (D-022)
 - [ ] `scripts/check_locators.py` `[new]` — report every artifact node whose locator does not resolve (R24)
-- [ ] `tests/test_answers.py` `[new]` — each of the four questions is one traversal returning nodes
-- [ ] `tests/test_locator_resolve.py` `[new]` — resolution at a pinned `rev`; a moved file at `HEAD` still resolves
-- [ ] `tests/test_mcp_rest_parity.py` `[new]` — the same question via MCP and REST returns **the same node set**
 - [ ] `tests/test_migrate_reviews.py` `[new]` — 100% moved by count and content; second run is a no-op
 
 **Gate (M2):** each of the four question classes is answered by a single traversal returning nodes,
@@ -225,6 +245,15 @@ not a text blob; the resolver reports **0** dangling locators; MCP and REST retu
 the migration moves 100% of existing `reviews`/`learnings` (count **and** content) and is idempotent;
 `reviewed_in` terminates on a `Review` node; `Commit` nodes carry a resolving `sha`.
 Source fields are removed **only after** this gate is signed off (R25).
+
+**Running the gate (M1 review, and it is not a formality).** Run it **by hand on a live server**, not
+only in the suite — M0's and M1's gates each found a defect no unit test would have. The full run is
+`/storage/conda/envs/weave/bin/python -m pytest tests/ -q --run-integration` with both databases
+reachable; the M1 baseline is **679 passed / 0 failed / 0 skipped**, and M2 must not fall below it.
+**The AS2/AS3 containers no longer exist** — `weave-m1-pg` (pgvector:pg16, port 5442) and
+`weave-m1-neo4j` (neo4j:5, bolt 7688) must be recreated before the gate, or the two production
+storage paths go unverified again and the skip count will hide it. Check skip **reasons**, never the
+count.
 
 **Review:** code review; update the checkpoint.
 
@@ -329,7 +358,7 @@ dev-agent image builds from the rebranded packages carrying no git credentials a
 ## Definition of Done (every task)
 
 - Code + tests committed on `main` (D-025).
-- **No constraint in `CONSTRAINTS.md` v2 was made false** — or the drift was reported, approved, and
+- **No constraint in `CONSTRAINTS.md` v3 was made false** — or the drift was reported, approved, and
   the contract amended (version bump + amendment row + `D-NN`) **before** the code landed (R11).
 - Milestone **gate passes**; **code review** clean (no open Critical/High).
 - Any measured claim has a reproducible harness in `scripts/` (R2).
@@ -340,6 +369,17 @@ dev-agent image builds from the rebranded packages carrying no git credentials a
 
 The checkboxes above are the trace — keep them current as work lands. Milestone reviews and
 checkpoints record the rest; there is no separate status document.
+
+### Standing watch items
+
+Recorded so they are deliberate rather than rediscovered. None is a task yet; each names the
+milestone that would turn it into one.
+
+| # | Watch | Raised | Turns into work when |
+|---|-------|--------|----------------------|
+| W1 | **A4 does not say the three storage paths differ on tenancy.** Neo4j Community shares one database across workspaces. | M1 review H1 | dsivov answers — then A4 is amended (v4 + row) and a `D-NN` logged **before** any code. **[manager]** |
+| W2 | **Membership is indexed only by user**, so "who can reach workspace X" is a full scan. Correct at this scale. | M1 review M2 | an audit view needs the reverse question, or user counts grow — earliest is P4. |
+| W3 | **Nothing refuses multi-worker startup on the in-process bus** (A7). A client on one worker would silently never receive events published on another. | M0 + M1 contract checks | **P3** — the Postgres `LISTEN/NOTIFY` adapter ships with the refusal, not after it. |
 
 **Traceability:** every task here maps to a numbered requirement in
 [WEAVE_DRP.md](WEAVE_DRP.md) §3 or a gate criterion in §5. New work gets a task here **first**
