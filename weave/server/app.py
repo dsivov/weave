@@ -1755,9 +1755,18 @@ def create_app(args):
 
     @app.get("/")
     async def redirect_to_webui():
-        """Redirect root path based on WebUI availability"""
+        """Redirect root path based on WebUI availability.
+
+        The trailing slash is load-bearing (W10). The UI is a Starlette mount at
+        ``/webui``, and a mount answers its directory index at ``/webui/`` — a
+        request for ``/webui`` with no slash 404s. Redirecting root to the
+        slashless form therefore lands a browser on a 404 at the first URL a
+        human types. It survived five milestones because ``webui_assets_exist``
+        is false wherever the UI has not been built, so this branch had never
+        run.
+        """
         if webui_assets_exist:
-            return RedirectResponse(url="/webui")
+            return RedirectResponse(url="/webui/")
         else:
             return RedirectResponse(url="/docs")
 
