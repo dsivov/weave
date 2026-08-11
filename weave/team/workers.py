@@ -176,6 +176,28 @@ class WorkerRegistry:
         logger.info(f"Weave: worker '{worker_id}' → {action} in '{workspace}'")
         return w
 
+    def set_goal(self, workspace: str, worker_id: str, goal: str) -> WeaveWorker:
+        """Redirect a worker: change what it is *for*, without stopping it.
+
+        Not a control state — the loop keeps running and picks the new goal up on
+        its next heartbeat, between steps, exactly as it picks up a pause. That
+        is what makes a redirect safe mid-run: the worker finishes the step it is
+        on and reads its new instructions before starting the next.
+
+        A stopped worker is not redirected. `stop` is terminal, and quietly
+        giving a stopped worker a new goal would leave a record implying it went
+        and did something.
+        """
+        w = self._workers.get(workspace, worker_id)
+        if w is None:
+            raise KeyError(worker_id)
+        if w.control == "stop":
+            raise ValueError(f"worker '{worker_id}' is stopped (terminal)")
+        w.goal = goal
+        self._workers.save(workspace, w)
+        logger.info(f"Weave: worker '{worker_id}' redirected in '{workspace}'")
+        return w
+
     def get(self, workspace: str, worker_id: str) -> Optional[Dict[str, Any]]:
         w = self._workers.get(workspace, worker_id)
         return self._view(w) if w is not None else None

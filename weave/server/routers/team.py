@@ -175,7 +175,22 @@ class HeartbeatRequest(BaseModel):
 
 
 class ControlRequest(BaseModel):
-    action: str = Field(description="pause · resume · stop")
+    action: str = Field(description="pause · resume · stop · redirect")
+    goal: str = Field(
+        "", description="For `redirect`: what the worker should work on instead."
+    )
+    # No `actor` field, deliberately. Who performed a supervisory act comes from
+    # the authenticated identity — a supervisor who could name themselves is not
+    # one (A6).
+
+
+class DispatchRequest(BaseModel):
+    workers_per_host: int = Field(
+        1, ge=0, description="How many developers each host should run."
+    )
+    hosts: Optional[List[str]] = Field(
+        None, description="Which hosts; omit for every running host."
+    )
 
 
 # Supervisors may steer the fleet; a worker may not stop its peers.
@@ -658,14 +673,28 @@ def create_weave_routes(
                 raise HTTPException(
                     status_code=403,
                     detail=f"role '{role}' may not steer the fleet (supervisors only)")
-            if body.action not in ("pause", "resume", "stop"):
-                raise HTTPException(status_code=400, detail=f"unknown action '{body.action}'")
+            # Through the supervisor, so the act carries **who** did it, not only
+            # that someone with the right role did (A6, P5). `redirect` is new:
+            # it changes what a worker is for without stopping it.
+            from weave.team.supervisor import (
+                NotAuthenticated, Supervisor, SupervisorError,
+            )
+
+            seat = Supervisor(registry, host_registry, coordinator)
             try:
-                return registry.set_control(_ws(), worker_id, body.action).to_dict()
+                act = await seat.control_worker(
+                    _ws(), worker_id, body.action,
+                    by=_principal_id(request) or "", goal=getattr(body, "goal", "") or "",
+                )
+            except NotAuthenticated as e:
+                raise HTTPException(status_code=401, detail=str(e))
+            except SupervisorError as e:
+                raise HTTPException(status_code=400, detail=str(e))
             except KeyError:
                 raise HTTPException(status_code=404, detail=f"no worker '{worker_id}'")
             except ValueError as e:                       # terminal stop
                 raise HTTPException(status_code=409, detail=str(e))
+            return {**registry.get(_ws(), worker_id), "act": act.to_dict()}
 
     # ── the project (P8) — what this workspace's developers work on ────────
     if project_service is not None:
@@ -761,12 +790,60 @@ def create_weave_routes(
                 raise HTTPException(
                     status_code=403,
                     detail=f"role '{role}' may not size the fleet (supervisors only)")
+            from weave.team.supervisor import (
+                NotAuthenticated, Supervisor, SupervisorError,
+            )
+
+            seat = Supervisor(registry, host_registry, coordinator)
             try:
-                return host_registry.scale(_ws(), host_id, body.desired_workers).to_dict()
+                act = await seat.scale_host(
+                    _ws(), host_id, body.desired_workers,
+                    by=_principal_id(request) or "")
+            except NotAuthenticated as e:
+                raise HTTPException(status_code=401, detail=str(e))
+            except SupervisorError as e:
+                raise HTTPException(status_code=400, detail=str(e))
             except KeyError:
                 raise HTTPException(status_code=404, detail=f"no dev host '{host_id}'")
-            except ValueError as e:
+            return {**host_registry.get(_ws(), host_id), "act": act.to_dict()}
+
+        # ── the senior-developer seat (P5) ────────────────────────────────
+        #
+        # Dispatch is scaling plus ordering, and **neither half reaches out**
+        # (A15). The machines are asked — by state they read back on their next
+        # heartbeat — to run more developers; the queue is ordered so that when
+        # those developers wake and claim, they claim the right thing. Nothing
+        # is started here, and the response says so.
+
+        @router.post("/weave/team/dispatch", dependencies=[Depends(combined_auth)],
+                     summary="Put N developers to work across the fleet")
+        async def dispatch(body: DispatchRequest, request: Request):
+            role = _role(request)
+            if role not in SUPERVISOR_ROLES:
+                raise HTTPException(
+                    status_code=403,
+                    detail=f"role '{role}' may not dispatch the fleet (supervisors only)")
+
+            from weave.team.supervisor import (
+                NotAuthenticated, Supervisor, SupervisorError,
+            )
+
+            seat = Supervisor(registry, host_registry, coordinator)
+            try:
+                return await seat.dispatch(
+                    _ws(), by=_principal_id(request) or "",
+                    hosts=body.hosts, workers_per_host=body.workers_per_host)
+            except NotAuthenticated as e:
+                raise HTTPException(status_code=401, detail=str(e))
+            except SupervisorError as e:
                 raise HTTPException(status_code=400, detail=str(e))
+
+        @router.get("/weave/team/fleet", dependencies=[Depends(combined_auth)],
+                    summary="Hosts and workers, with desired vs running per host")
+        async def fleet():
+            from weave.team.supervisor import Supervisor
+
+            return Supervisor(registry, host_registry, coordinator).fleet(_ws())
 
     logger.info("Weave API routes registered")
     return router
