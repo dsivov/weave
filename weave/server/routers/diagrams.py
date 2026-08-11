@@ -21,11 +21,11 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Request, Query
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
 
-from weave.server.utils import get_combined_auth_dependency
+from weave.server.utils import authenticated_principal, get_combined_auth_dependency
 from weave_core.utils import logger
 
 
@@ -168,12 +168,32 @@ def create_diagram_routes(rag, engine, diagram_store, *, api_key: Optional[str] 
 
     @router.delete("/diagrams/{diagram_id}", dependencies=[Depends(combined_auth)],
                    summary="Remove a diagram from the workspace")
-    async def delete_diagram(diagram_id: str):
+    async def delete_diagram(diagram_id: str, http_request: Request):
+        """Remove a diagram — signed, like every save on this router already was.
+
+        The save path has always gone propose → assess → sign → apply. **The
+        delete did not** (W12, found by matching on shape rather than name): it
+        called the store directly, so a signed artifact could be removed with no
+        version recording the removal and nothing to revert to. A history that
+        records every change except the one that ends it is not a history.
+        """
         _require_cg(rag)
         ws = _ws()
-        if not diagram_store.delete(ws, diagram_id):
+        principal = authenticated_principal(http_request)
+        approver = str(principal.get("sub") or principal.get("username") or "")
+        if not approver:
+            raise HTTPException(
+                status_code=401,
+                detail="Removing a diagram requires an authenticated identity.")
+
+        result = await engine.sign_removal(
+            ws, "diagram", approver=approver,
+            reason=f"diagram '{diagram_id}' removed by {approver}",
+            role=str(principal.get("role") or ""), artifact_id=diagram_id)
+        if result is None:
             raise HTTPException(status_code=404, detail=f"no diagram '{diagram_id}'")
-        return {"status": "deleted", "workspace": ws, "id": diagram_id}
+        return {"status": "deleted", "workspace": ws, "id": diagram_id,
+                "recorded": result}
 
     logger.info("Diagram API routes registered")
     return router

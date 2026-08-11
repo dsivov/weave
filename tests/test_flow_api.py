@@ -24,6 +24,22 @@ from weave_core.flows import (
 from weave_core.flows.trigger import FlowTrigger
 
 
+def _signed_in(app, user="tester", role="architect"):
+    """Give the app an authenticated principal.
+
+    Signing an artifact — including **removing** one (W12) — records who did it,
+    so these endpoints 401 without an identity. The tests exercise the artifact
+    contract, so they sign in.
+    """
+    @app.middleware("http")
+    async def _principal(request, call_next):
+        request.state.token_info = {"sub": user, "username": user, "role": role}
+        return await call_next(request)
+
+    return app
+
+
+
 class _FakeGraph:
     def __init__(self):
         self.nodes = {}
@@ -139,9 +155,18 @@ def _client():
     rag = _FakeRag()
     ex = _executor(store, rag)
     app = FastAPI()
+    # W12: flows are signed into the ledger, so the router needs one. A flow is
+    # executed — a `task` step dispatches to `ActionService.invoke` — so an
+    # unsigned flow is an automation nobody approved.
+    from weave_core.studio.service import DiffEngine
+    from weave_core.studio.store import InMemoryStudioStore
+
+    engine = DiffEngine(studio_store=InMemoryStudioStore(), flow_store=store,
+                        now=lambda: 1.0)
     app.include_router(create_flow_routes(
-        rag, store, ex, api_key=None, workspace_resolver=lambda: "w"))
-    return TestClient(app), store
+        rag, store, ex, studio_engine=engine, api_key=None,
+        workspace_resolver=lambda: "w"))
+    return TestClient(_signed_in(app)), store
 
 
 @pytest.mark.offline

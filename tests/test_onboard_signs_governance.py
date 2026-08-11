@@ -157,8 +157,18 @@ LEDGER_OWNED = {
 }
 
 #: Routers allowed to call `save()`/`delete()` on a bare `service`, because what
-#: they hold is **not** a ledger-owned artifact. Each entry is a claim someone
-#: made deliberately, and the comment is the claim.
+#: they hold is **not** a ledger-owned artifact.
+#:
+#: **Every entry is a claim, and a claim needs checking rather than stating**
+#: (W12). The first version of this list asserted that `flows.py` held "flow
+#: definitions — versioned by the flow store, not the ledger". That was simply
+#: untrue: `flow` is a `DIFF_KINDS` member and the engine persists it. The
+#: exemption was written confidently and never verified, so it read as diligence
+#: while being the hole.
+#:
+#: Before adding a line here, check the kind against `DIFF_KINDS` — the comment
+#: is load-bearing, and a wrong one is worse than none because it stops the next
+#: reader looking.
 #:
 #: The rule runs the other way round on purpose (M5 review). An earlier version
 #: listed the four *governance* editors and treated everything else as innocent —
@@ -170,13 +180,24 @@ LEDGER_OWNED = {
 #: This is the third layer of the same lesson: the exclusion list hid the hole,
 #: the matcher could not see what it excluded, and the *reach* was a hand-kept
 #: list that a new file would not be on.
+def _looks_like_a_backing_store(owner: str) -> bool:
+    """Does this name look like the thing that persists an artifact?
+
+    Matching by **shape** rather than by enumeration (W12, fifth layer). Removing
+    the false `flows.py` exemption changed nothing on its own, because the guard
+    only knew `service` and four `*_service` names — and flows are written
+    through `flow_store`. A list of names cannot catch the name nobody listed.
+    """
+    return owner == "service" or owner.endswith(("_service", "_store", "_registry"))
+
+
+#: file → the owner names in it that are **not** ledger-owned, with the reason.
 NON_LEDGER_SERVICE_ROUTERS = {
-    "flows.py": "flow definitions — versioned by the flow store, not the ledger",
-    "diagrams.py": "diagrams — the Studio owns their versioning directly",
-    "users.py": "user accounts — A14 records, not governed artifacts",
-    "projects.py": "ProjectLayout registrations — not a governance artifact",
-    "studio.py": "the Studio itself — it *is* the ledger writer",
-    "workspaces.py": "signs through the engine; asserted separately by D-032",
+    "diagrams.py": (),  # diagrams — the Studio owns their versioning directly
+    "users.py": (),  # user accounts — A14 records, not governed artifacts
+    "projects.py": (),  # ProjectLayout registrations — not a governance artifact
+    "studio.py": (),  # the Studio itself — it *is* the ledger writer
+    "workspaces.py": (),  # signs through the engine; asserted separately by D-032
 }
 
 
@@ -199,7 +220,7 @@ def test_no_router_writes_a_ledger_owned_artifact_directly():
     offenders = []
 
     for path in sorted(_ROUTERS.glob("*.py")):
-        exempt = path.name in NON_LEDGER_SERVICE_ROUTERS
+        exemptions = NON_LEDGER_SERVICE_ROUTERS.get(path.name, ())
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
         for node in ast.walk(tree):
             if not isinstance(node, ast.Call):
@@ -208,6 +229,8 @@ def test_no_router_writes_a_ledger_owned_artifact_directly():
             if not isinstance(func, ast.Attribute) or func.attr not in ("save", "delete"):
                 continue
             owner = getattr(func.value, "id", None)
+            if owner is None or not _looks_like_a_backing_store(owner):
+                continue
 
             named = LEDGER_OWNED.get(owner)
             if named is not None:
@@ -215,14 +238,12 @@ def test_no_router_writes_a_ledger_owned_artifact_directly():
                     f"{path.name}:{node.lineno} — {owner}.{func.attr}() changes "
                     f"'{named}' without a ledger version"
                 )
-            elif owner == "service" and not exempt:
-                # Unknown by default. A router holding a bare `service` it writes
-                # through is presumed to be editing a governed artifact until
-                # someone says otherwise in NON_LEDGER_SERVICE_ROUTERS.
+            elif owner not in exemptions:
                 offenders.append(
-                    f"{path.name}:{node.lineno} — service.{func.attr}() writes "
-                    "directly; if this is not a ledger-owned artifact, add the "
-                    "file to NON_LEDGER_SERVICE_ROUTERS with the reason"
+                    f"{path.name}:{node.lineno} — {owner}.{func.attr}() writes "
+                    f"directly; if '{owner}' does not back a DIFF_KINDS artifact, "
+                    f"exempt it in NON_LEDGER_SERVICE_ROUTERS['{path.name}'] "
+                    "with a reason you have checked"
                 )
 
     assert not offenders, (

@@ -16,6 +16,22 @@ from fastapi.testclient import TestClient
 from weave_core.studio.diagrams import InMemoryDiagramStore
 from weave_core.studio import DiffEngine, InMemoryStudioStore
 
+
+def _signed_in(app, user="tester", role="architect"):
+    """Give the app an authenticated principal.
+
+    Signing an artifact — including **removing** one (W12) — records who did it,
+    so these endpoints 401 without an identity. The tests exercise the artifact
+    contract, so they sign in.
+    """
+    @app.middleware("http")
+    async def _principal(request, call_next):
+        request.state.token_info = {"sub": user, "username": user, "role": role}
+        return await call_next(request)
+
+    return app
+
+
 BASE = "flowchart LR\n  a[Architect] -->|publishes| q[Queue]\n  q --> d[Developer]\n"
 RELABELLED = "flowchart LR\n  a[Chief Architect] -->|signs| q[Work Queue]\n  q --> d[Dev]\n"
 GROWN = BASE + "  d --> a\n"
@@ -49,7 +65,7 @@ def _client(llm=None):
     app = FastAPI()
     app.include_router(create_diagram_routes(
         rag, engine, store, api_key=None, workspace_resolver=lambda: "w"))
-    return TestClient(app), rag, store
+    return TestClient(_signed_in(app)), rag, store
 
 
 def _save(client, **kw):

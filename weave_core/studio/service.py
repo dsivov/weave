@@ -423,6 +423,12 @@ class DiffEngine:
             return bool(self._rules.delete(ws))
         if kind == "action" and self._actions is not None:
             return bool(self._actions.delete(ws))
+        if kind == "diagram" and self._diagrams is not None:
+            return bool(self._diagrams.delete(ws, artifact_id))
+        if kind == "flow" and self._flows is not None:
+            # Flows are the one per-id kind here; the rest are singletons per
+            # workspace, so this is the only branch that uses `artifact_id`.
+            return bool(self._flows.delete(ws, artifact_id))
         raise ValueError(f"cannot remove kind '{kind}'")
 
     # -- revert --------------------------------------------------------------

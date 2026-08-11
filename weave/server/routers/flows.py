@@ -21,10 +21,10 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from weave.server.utils import get_combined_auth_dependency
+from weave.server.utils import authenticated_principal, get_combined_auth_dependency
 from weave_core.utils import logger
 
 
@@ -50,7 +50,8 @@ def _require_cg(rag) -> None:
         )
 
 
-def create_flow_routes(rag, flow_store, executor, *, api_key: Optional[str] = None,
+def create_flow_routes(rag, flow_store, executor, *, studio_engine=None,
+                       api_key: Optional[str] = None,
                        workspace_resolver=None):
     """Build the /flows + /runs router bound to *rag*, a FlowStore, and a
     FlowExecutor."""
@@ -62,6 +63,34 @@ def create_flow_routes(rag, flow_store, executor, *, api_key: Optional[str] = No
 
     from weave_core.events.schema import Event
     from weave_core.flows.schema import FlowDefinition
+
+    # ── flows are signed into the ledger (A8, W12) ──────────────────────────
+    #
+    # A flow is **executed**, not descriptive: a `task` step dispatches to
+    # `ActionService.invoke` — the same RBAC → lifecycle → rules-gate chain any
+    # action passes — and `FlowTrigger` runs flows automatically on events. So an
+    # unsigned flow is an automation that invokes governed actions with nobody's
+    # name on it, and without a human in the loop at the moment it fires.
+    #
+    # `flow` has been a `DIFF_KINDS` member since P3 and the engine already
+    # persists it. This router was writing round the side of that.
+
+    def _require_ledger():
+        if studio_engine is None:
+            raise HTTPException(
+                status_code=503,
+                detail=("A flow must be signed into the ledger, and the Studio "
+                        "engine is unavailable (A8, W12)."))
+        return studio_engine
+
+    def _signer(request: Request):
+        principal = authenticated_principal(request)
+        approver = str(principal.get("sub") or principal.get("username") or "")
+        if not approver:
+            raise HTTPException(
+                status_code=401,
+                detail="Saving a flow requires an authenticated identity.")
+        return approver, str(principal.get("role") or "")
 
     router = APIRouter(tags=["flows"])
     combined_auth = get_combined_auth_dependency(api_key)
@@ -81,14 +110,21 @@ def create_flow_routes(rag, flow_store, executor, *, api_key: Optional[str] = No
 
     @router.post("/flows", dependencies=[Depends(combined_auth)],
                  summary="Save a flow (validated); assigns the next version")
-    async def save_flow(body: FlowRequest):
+    async def save_flow(body: FlowRequest, http_request: Request):
         _require_cg(rag)
         ws = _ws()
+        engine = _require_ledger()
+        approver, role = _signer(http_request)
         try:
+            # Validated here so a malformed flow is a 400 rather than surfacing
+            # from inside the engine as a sign-off failure.
             flow = FlowDefinition.from_dict(body.flow)
-            stored = flow_store.save(ws, flow)
+            await engine.sign(ws, "flow", flow.to_dict(), approver=approver,
+                              reason=f"flow '{flow.id}' saved by {approver}",
+                              role=role, artifact_id=flow.id)
         except (KeyError, ValueError) as e:
             raise HTTPException(status_code=400, detail=str(e))
+        stored = flow_store.get(ws, flow.id)
         return {"workspace": ws, "saved": True, "flow": stored.to_dict()}
 
     @router.get("/flows/{flow_id}", dependencies=[Depends(combined_auth)],
@@ -103,9 +139,20 @@ def create_flow_routes(rag, flow_store, executor, *, api_key: Optional[str] = No
 
     @router.delete("/flows/{flow_id}", dependencies=[Depends(combined_auth)],
                    summary="Delete a flow (all versions)")
-    async def delete_flow(flow_id: str):
+    async def delete_flow(flow_id: str, http_request: Request):
         _require_cg(rag)
-        return {"deleted": flow_store.delete(_ws(), flow_id)}
+        ws = _ws()
+        engine = _require_ledger()
+        approver, role = _signer(http_request)
+        # Removing an automation is a governance change, and it carries the same
+        # ambiguity every other removal did: an empty snapshot alone cannot say
+        # whether the flow was deleted or authored empty. `origin='removal'`
+        # carries it.
+        result = await engine.sign_removal(
+            ws, "flow", approver=approver,
+            reason=f"flow '{flow_id}' removed by {approver}", role=role,
+            artifact_id=flow_id)
+        return {"deleted": result is not None, "recorded": result}
 
     @router.post("/flows/{flow_id}/dry-run", dependencies=[Depends(combined_auth)],
                  summary="Start a run from a synthetic event")

@@ -1503,7 +1503,8 @@ def create_app(args):
         from weave.server.routers.flows import create_flow_routes
 
         app.include_router(create_flow_routes(
-            rag, flow_store, flow_executor, api_key=api_key))
+            rag, flow_store, flow_executor, studio_engine=studio_engine,
+            api_key=api_key))
 
     # Studio API (diff-and-approve authoring + signed version ledger).
     if studio_engine is not None:
