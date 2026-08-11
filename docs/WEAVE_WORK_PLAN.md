@@ -5,7 +5,7 @@
 
 - **Sources:** [WEAVE_DRP.md](WEAVE_DRP.md) · [WEAVE_ARCHITECTURE.html](WEAVE_ARCHITECTURE.html) · [WEAVE_RFC.html](WEAVE_RFC.html)
 - **Contract:** [CONSTRAINTS.md](CONSTRAINTS.md) **v4** — every phase opens with a contract check (R11)
-- **Branch:** work rides a `feature/` branch and the manager merges at each gate — two sessions now share one checkout (D-025's direct-to-`main` waiver superseded in practice; R5 observed). · **Status:** **P0–P5 complete and reviewed. M5 approved 2026-08-11 — 0 Critical, 0 High, merged to `main`. P6 is the active phase — the last one.** D-032 and D-033 both closed: every governance write now goes through the ledger.
+- **Branch:** work rides a `feature/` branch and the manager merges at each gate — two sessions now share one checkout (D-025's direct-to-`main` waiver superseded in practice; R5 observed). · **Status:** **COMPLETE — P0–P6 built, M0–M6 all reviewed and merged.** M6 approved 2026-08-11: 0 Critical, 0 High, suite 1083 / 0 / 0, all three deployables built and A1/A10/A13/A15 verified against the built images. D-032 and D-033 both closed: every governance write now goes through the ledger.
 - **Owner:** dsivov · **Roles:** *manager* owns this plan, the contract, the reviews, git and server startup; *developer* implements the tasks and runs the gate. A task marked **[manager]** is not the developer's to do.
 
 > **This plan builds on working code, not a blank page.** Every task below that moves code names its
@@ -588,7 +588,7 @@ onboarding time is **measured and published**, compared against the parent's bas
 alone with the reason (AS7); no document in `docs/` references the parent's product names; the
 dev-agent image builds from the rebranded packages carrying no git credentials and no metered keys.
 
-**Review:** `/milestone-review` → final code review + checkpoint.
+**Review:** ✅ **M6 reviewed 2026-08-11** → [WEAVE_CODE_REVIEW_M6.md](WEAVE_CODE_REVIEW_M6.md) — **0 Critical, 0 High**, 2 Medium. **Merged.** Suite **1083 / 0 / 0** reproduced independently. The Docker half, which the developer's container could not run, was run by the reviewer: **all three deployables build**, and **A13** (no `anthropic` in the dev-agent image), **A10** (`/usr/local/bin/claude` present), **A15** (no git credentials; `compose.devhost.yml` publishes no ports) verified **against the built artifacts** for the first time. D-034 ratified on evidence. **The build is complete.**
 
 ---
 

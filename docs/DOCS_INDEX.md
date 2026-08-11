@@ -60,6 +60,11 @@ multi-role support.
   added constraint A7.
 
 ## Plan & progress
+- [WEAVE_CODE_REVIEW_M6.md](WEAVE_CODE_REVIEW_M6.md) — **M6**, 2026-08-11, **the final milestone**. 0 Critical ·
+  0 High · 2 Medium. Suite **1083 / 0 / 0**. The Docker half the developer's container could not run was run by the
+  reviewer: **all three deployables build**, and **A13** (no `anthropic` in the dev-agent image), **A10** (Claude Code
+  present), **A15** (no git credentials, no published ports) verified **against the built artifacts**. D-034 closed
+  A8's last unsigned write path. **Merged — the build is complete.**
 - [WEAVE_CODE_REVIEW_M5.md](WEAVE_CODE_REVIEW_M5.md) — **M5**, 2026-08-11. **0 Critical · 0 High** · 2 Medium.
   Suite 974 / 0 / 0. The gate's own wording checked rather than believed: the three claim-test files hash
   **byte-identical to the P0 fork commit**. A15 verified structurally — the seat holds no transport and a

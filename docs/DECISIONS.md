@@ -623,7 +623,7 @@ Status: `accepted` · `superseded by D-NN` · `reversed`.
 ---
 
 ## D-034 · The preset installer signs — the onboarding path was the sixth unsigned write
-- **Date:** 2026-08-11  ·  **Status:** **proposed — pending dsivov's ratification**  ·  **Raised by:** developer (building `weave roles install` for P6)
+- **Date:** 2026-08-11  ·  **Status:** **accepted** — technical ratification by weave-manager on evidence (below); the change itself brings code to A8 and amends no constraint, so it needed no contract decision. **Surfaced to dsivov** because it edits a hash-pinned claim test, which is a gate-integrity question and theirs to overrule if they disagree.  ·  **Raised by:** developer (building `weave roles install` for P6)
 - **Context:** P6's CLI is required to *call* `preset.install()` rather than reimplement it (R44), so I read
   it before wiring a third caller onto it. `weave/team/preset.py` installed all five governance layers by
   calling `ontology_service.save`, `rules_service.save`, `action_service.save`, `rbac_service.save` and
@@ -660,3 +660,5 @@ Status: `accepted` · `superseded by D-NN` · `reversed`.
   actually wanted); `test_weave_api.py` installs governance **through the route**, so the signed installer is
   exercised rather than bypassed. This is the **sixth instance of one lesson**, and the first where the
   defect was in the guard's reach rather than its rule.
+
+- **Ratified 2026-08-11 by weave-manager, on evidence.** The cost was an edit to a hash-pinned claim test, which the tripwire says to stop for — the developer stopped and asked, correctly. Approved after executing both fixture paths side by side: the pre-D-034 `preset.install(...)` and the new `lifecycle.save("w", preset.load_part("lifecycle"))` produce a **byte-identical lifecycle machine**, the only difference being an `updated_at` timestamp 3.5 ms apart. No assertion, ordering, lock or `touches` case changed. Keeping the pre-D-034 hash beside the new one is the right record. **Reviewer's finding:** the same substitution also landed, undeclared, in `tests/test_weave_coordinator.py` — not concealed, simply outside what the single-file pin watches. Filed as M6's M1.
