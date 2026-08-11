@@ -4,8 +4,8 @@
 # Weave — Work Plan
 
 - **Sources:** [WEAVE_DRP.md](WEAVE_DRP.md) · [WEAVE_ARCHITECTURE.html](WEAVE_ARCHITECTURE.html) · [WEAVE_RFC.html](WEAVE_RFC.html)
-- **Contract:** [CONSTRAINTS.md](CONSTRAINTS.md) **v3** — every phase opens with a contract check (R11)
-- **Branch:** `main` — Weave is its own repository with one developer and no release yet, so work commits directly (D-025; R5 waived, see the revert trigger there). · **Status:** **P2 is the active phase, cleared to start.** P0 and P1 complete and reviewed (M0 and M1 both 0 Critical); one High is open from M1 and is **manager-owned, not a blocker** — see the P2 preamble.
+- **Contract:** [CONSTRAINTS.md](CONSTRAINTS.md) **v4** — every phase opens with a contract check (R11)
+- **Branch:** `feature/p2-data-model` — two sessions now share one checkout, so work rides a branch and the manager merges at each gate (D-025's direct-to-`main` waiver superseded in practice; R5 observed). · **Status:** **P2 complete, M2 gate met and reviewed — 0 Critical, 1 High (H1) open.** P3 does not start and nothing merges to `main` until H1 is closed (R4, R5).
 - **Owner:** dsivov · **Roles:** *manager* owns this plan, the contract, the reviews, git and server startup; *developer* implements the tasks and runs the gate. A task marked **[manager]** is not the developer's to do.
 
 > **This plan builds on working code, not a blank page.** Every task below that moves code names its
@@ -292,7 +292,9 @@ here*, not verified. (2) The suite ran under a `.venv` built from `deploy/requir
 parity-tested projection), because this machine has no conda; the manager reproduces the gate in the
 declared environment.
 
-**Review:** code review; update the checkpoint.
+**Review:** ✅ **M2 reviewed 2026-08-11** → [WEAVE_CODE_REVIEW_M2.md](WEAVE_CODE_REVIEW_M2.md) — 0 Critical, **1 High (H1, open)**, 3 Medium. Gate reproduced independently: **848 passed / 0 failed / 0 skipped** in the conda env against live PostgreSQL and Neo4j, and the criteria driven by hand on a live server — tenant boundary confirmed (cross-tenant `resolve` returns a 404 byte-identical to a nonexistent repo), governance confirmed (401 on all four `/ask` routes once auth is configured), parent tree verified intact. **H1 must be fixed before P3 starts or anything merges to `main`** (R4, R5).
+
+- [ ] **H1 (developer)** — the D-029 admission check fails open: the Neo4j occupancy probe returns an empty set on *any* error, which `check_admission` cannot tell from "no workspaces", and `known_workspaces` is empty on a fresh boot. A restart while Neo4j is briefly unreachable admits a second workspace permanently and silently — the exact mode D-029 chose code over prose to prevent. Distinguish *undetermined* from *unoccupied* and refuse a **new** workspace when occupancy cannot be verified; add the test that fails against today's code.
 
 ---
 
@@ -417,6 +419,8 @@ milestone that would turn it into one.
 | ~~W1~~ | ~~**A4 does not say the three storage paths differ on tenancy.**~~ **Closed 2026-08-11** — dsivov chose *experimental, single-workspace*; A4 is at **v4**, logged as **D-029**, and the refusal is now a P2.1 task with a test. | M1 review H1 | — |
 | W2 | **Membership is indexed only by user**, so "who can reach workspace X" is a full scan. Correct at this scale. | M1 review M2 | an audit view needs the reverse question, or user counts grow — earliest is P4. |
 | W3 | **Nothing refuses multi-worker startup on the in-process bus** (A7). A client on one worker would silently never receive events published on another. | M0 + M1 contract checks | **P3** — the Postgres `LISTEN/NOTIFY` adapter ships with the refusal, not after it. |
+| W4 | **A rule enforced in an adapter protects only the callers who arrive through that adapter.** Three instances: the last-admin guard lived in the HTTP router, so `weave user promote` could brick the install the CLI exists to rescue (P2.0); the workspace header was honoured by one of two resolution paths (D-030); M1's finding M3 was the same shape. | Developer, P2 | Every milestone — when a guard is added, ask which callers *bypass* it. The fix is always the same: move it to the service the adapters share. |
+| W5 | **The migration has never run on real data** — 15 tests, an empty live store. "Moves 100% of existing reviews/learnings" is a claim about existing data. | M2 review M1 | The first time a populated store exists — likely P3. Re-run and record. |
 | W4 | **A rule enforced in an adapter protects only the callers who arrive through that adapter.** Three instances now, not a coincidence: the last-administrator guard lived in the HTTP router, so the local console could brick the install (P2.0); the workspace header was read in one middleware, so nothing else could set the tenant (D-030); and M1's own finding M3 was the same shape — a lockout fix that reopened the lockout by another door. Each was found by a *second* surface arriving later. **Open question for the manager:** does this belong in `DECISIONS.md` as a stated rule, or in the M2 review as an observation? Raised twice by message; both sends were denied delivery, so it is recorded here instead. | P2.0 · P2.1c | a fourth instance, or the M2 review — whichever comes first. The test that catches the class is "enforce in the service, assert on every surface". |
 
 **Traceability:** every task here maps to a numbered requirement in

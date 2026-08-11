@@ -491,7 +491,13 @@ Weave/
 ├── weave/                          # the product                             [new — copied + renamed]
 │   ├── team/                       # coordinator, claim, fleet, dev hosts, integration gate
 │   ├── model/                      # Feature · Review · Insight · Question · locator · ProjectLayout  [NEW code]
+│   │   ├── answers.py              #   the four canonical traversals — the one handler REST and MCP share (A9)
+│   │   └── migrate_reviews.py      #   task reviews/learnings → Review/Insight nodes, idempotent
+│   ├── cli/                        # `weave` — administer from the machine the server runs on  [NEW code]
+│   │   └── users.py                #   user list/add/promote/passwd; the seat of R44. Exists because a
+│   │                               #   migrated install has users but no admin (M1 finding M3)
 │   ├── server/                     # FastAPI app, routers, config, auth, users  [users = NEW code]
+│   │   └── workspace_admission.py  #   which workspaces a storage path may hold — enforces A4 v4 / D-029
 │   ├── live/                       # SSE transport, presence                  [NEW code]
 │   ├── wizards/                    # team-vocabulary setup + templates        [NEW code]
 │   ├── devhost/                    # THE DEV-HOST BUNDLE — deployable #3      [copied + renamed]

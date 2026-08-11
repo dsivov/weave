@@ -60,6 +60,10 @@ multi-role support.
   added constraint A7.
 
 ## Plan & progress
+- [WEAVE_CODE_REVIEW_M2.md](WEAVE_CODE_REVIEW_M2.md) — **M2**, 2026-08-11. 0 Critical · **1 High (H1, open —
+  the D-029 admission check fails open)** · 3 Medium. Gate reproduced independently at **848 passed / 0 failed /
+  0 skipped** and driven by hand on a live server: tenant boundary confirmed (cross-tenant `resolve` returns a
+  404 byte-identical to a nonexistent repo), governance confirmed, parent tree verified intact. **Not merged.**
 - [WEAVE_CODE_REVIEW_M1.md](WEAVE_CODE_REVIEW_M1.md) — **M1**, 2026-08-09. 0 Critical · 1 High (an A4
   decision, not a defect) · 3 Medium. Gate reproduced independently at 679 passed / 0 failed against live
   PostgreSQL and Neo4j; **AS2 and AS3 verified**.
