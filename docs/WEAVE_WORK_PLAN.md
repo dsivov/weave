@@ -334,6 +334,33 @@ asserts **exactly one winner** per task at N=20 on **every** storage path, JSON 
 multi-worker SSE test passes on the Postgres adapter and is **expected to fail** on the in-process
 one — that asymmetry is the point.
 
+**Gate run by hand, 2026-08-11 — developer's evidence, for the manager to reproduce.**
+Live server on `0.0.0.0:9800`, measured on **both** bus adapters; PostgreSQL 5442, Neo4j bolt 7688.
+
+| Gate criterion | Result |
+|---|---|
+| **Measured:** claimed in one session → visible in another, **< 1s at p95 over 100 trials** | ✅ **p95 2.52 ms** on the PostgreSQL bus, **3.35 ms** in-process. 2 authenticated SSE clients, 100 trials, 200 samples, **0 missed**. Harness `scripts/measure_live_latency.py`, which prints its own driver caveat. |
+| Two sessions editing one artifact → second gets **409 + merge view**; a silent overwrite **fails** the gate | ✅ live: Alice applied from v1 → 200; Bob applied from the same v1 → **409** carrying `base`/`theirs`/`mine`, `expected_version 1` / `current_version 2`. Read back: `AliceType` present, `BobType` absent — **no silent overwrite**, asserted rather than inferred from the status code. |
+| `grep -r setInterval` in board sources → **0** | ✅ `WeaveBoard.tsx` (was 4s) and `WeaveProjectPanel.tsx` (was 5s) both clean. Remaining `setInterval`s in the tree are enumerated in P3.4's task note so the zero is not read as a wider claim. |
+| **Measured:** exactly **one winner** per task at N=20, **every** storage path, JSON included | ✅ `memory`, `file` and `postgres` each: `winners=1 conflicts=19 errors=0 lost_writes=0`. Harness `scripts/measure_claim_concurrency.py --json`. |
+| Multi-worker SSE passes on the Postgres adapter, **expected to fail** on the in-process one | ✅ both halves asserted, across **real** process boundaries (`multiprocessing` `spawn`): worker 1 publishes → worker 2 receives on PostgreSQL; the same test on the in-process bus receives nothing, written as a positive assertion of absence rather than a skip. |
+| A7 refusal ships with the adapter (**W3**) | ✅ same commit, `4af22da`. Refused at `create_app`, which every server entry path goes through. |
+| Suite | ✅ **897 passed / 0 failed / 0 skipped** with `--run-integration`. |
+
+**Four limits, declared rather than buried.** (1) The multi-worker property is proven at the **bus
+level across real processes**, not end-to-end through two gunicorn workers each holding live SSE
+clients — the fan-out that A7 is about is covered; the gunicorn wiring around it is not. (2) The
+latency figure is driven by `POST /live/presence`, the event-publishing endpoint this build mounts;
+a task claim travels the identical transport but the routes that emit one are not mounted, so the
+claim-specific leg is uncovered. (3) The **UI is not built** — no `bun` in this container; `tsc
+--noEmit` is clean for the three files P3 touched, and three pre-existing type errors elsewhere are
+untouched. (4) Both figures come from a local bridge to a local database and would look different
+across a real network; what they establish is that nothing in the path is accidentally synchronous.
+
+**W5 was not triggered:** P3 produced no populated task store carrying `reviews`/`learnings` (the
+claim harness writes throwaway tasks with neither), so the P2 migration has still never run on real
+data. It stays open.
+
 **Review:** code review; update the checkpoint.
 
 ---
