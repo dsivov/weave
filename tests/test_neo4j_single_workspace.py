@@ -241,12 +241,94 @@ async def test_a_fresh_process_still_refuses_a_workspace_the_database_holds():
 
 @pytest.mark.offline
 @pytest.mark.asyncio
-async def test_an_unreachable_database_does_not_take_the_server_down():
-    """The probe returning nothing means "could not verify", and an admission
-    check must not be the thing that stops a server serving. Refusing to start
-    because a limit could not be confirmed is worse than the limit."""
+async def test_a_verified_empty_backend_admits_the_first_workspace():
+    """An empty *set* means "asked, and it holds nothing" — quite different from
+    the undetermined case below. The first workspace is admitted."""
     pool = _pool(NEO4J, probe=_empty_probe)
     assert (await pool.get_rag("alpha")).workspace == "alpha"
+
+
+# ── undetermined occupancy fails CLOSED (M2 review, H1) ──────────────────────
+
+
+async def _undetermined_probe() -> None:
+    """The probe could not answer — unreachable database, auth failure, a query
+    error. Distinct from "the backend holds nothing"."""
+    return None
+
+
+@pytest.mark.offline
+@pytest.mark.asyncio
+async def test_a_new_workspace_is_refused_when_occupancy_cannot_be_verified():
+    """The H1 failure sequence, exactly as the M2 review reasoned it.
+
+    Neo4j backend · server restarts while Neo4j is briefly unreachable (a
+    container restart, a network blip, a database still starting — ordinary, not
+    exotic) · an operator creates a second workspace. The probe fails, and if it
+    reports "nothing here" the workspace is admitted. Neo4j returns, and two
+    workspaces now share one database separated only by labels — permanently,
+    silently, with nothing that re-checks.
+
+    That is precisely the failure D-029 chose code over prose to prevent, so the
+    enforcement must not reproduce the weakness of the documentation it replaced.
+    Fail-open is right for reads; it is wrong for an irreversible creation.
+    """
+    fresh = _pool(NEO4J, probe=_undetermined_probe)
+    assert fresh.workspaces == [], "the scenario needs a process that knows nothing"
+
+    with pytest.raises(WorkspaceNotAdmitted) as exc:
+        await fresh.get_rag("beta")
+
+    assert fresh.workspaces == [], "the unverifiable workspace was created anyway"
+    assert "could not be verified" in str(exc.value), (
+        "the refusal must say the occupancy is unknown, not imply the backend "
+        "is full — they are different problems with different fixes"
+    )
+
+
+@pytest.mark.offline
+@pytest.mark.asyncio
+async def test_the_undetermined_refusal_reads_differently_from_a_full_backend():
+    """"Could not verify" is a different operator instruction from "this backend
+    already holds a workspace" — one says fix your connection, the other says
+    move to PostgreSQL. A shared message would send half of them the wrong way.
+    """
+    with pytest.raises(WorkspaceNotAdmitted) as undetermined:
+        await check_admission("beta", NEO4J, probe=_undetermined_probe)
+    with pytest.raises(WorkspaceNotAdmitted) as occupied:
+        await check_admission("beta", NEO4J, probe=_probe("alpha"))
+
+    assert str(undetermined.value) != str(occupied.value)
+    assert "alpha" not in str(undetermined.value), (
+        "the undetermined message must not name a holder it did not observe"
+    )
+    assert "alpha" in str(occupied.value)
+
+
+@pytest.mark.offline
+@pytest.mark.asyncio
+async def test_a_workspace_this_process_already_holds_survives_an_undetermined_probe():
+    """Failing closed applies to *creating* a workspace, not to continuing to
+    serve one. A blip must not evict the workspace already running."""
+    pool = _pool(NEO4J, probe=_empty_probe)
+    await pool.get_rag("alpha")
+
+    pool._admission_probe = _undetermined_probe
+    assert (await pool.get_rag("alpha")).workspace == "alpha"
+
+    with pytest.raises(WorkspaceNotAdmitted):
+        await pool.get_rag("beta")
+
+
+@pytest.mark.offline
+@pytest.mark.asyncio
+async def test_an_undetermined_probe_does_not_affect_multi_workspace_backends():
+    """The backends without the limit are never probed at all, so an unreachable
+    Neo4j cannot refuse a workspace on a deployment that does not use Neo4j."""
+    pool = _pool("PGGraphStorage", probe=_undetermined_probe)
+    await pool.get_rag("alpha")
+    await pool.get_rag("beta")
+    assert sorted(pool.workspaces) == ["alpha", "beta"]
 
 
 # ── the policy is declared, not scattered ────────────────────────────────────

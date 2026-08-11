@@ -65,8 +65,14 @@ READ_RETRY = retry(
 _RESERVED_LABELS = frozenset({"base"})
 
 
-async def occupied_workspaces() -> "set[str]":
+async def occupied_workspaces() -> "set[str] | None":
     """Workspace labels that already hold data in the configured Neo4j database.
+
+    Returns the set of labels, or **`None` when occupancy could not be
+    determined** — unreachable database, auth failure, a query that errored.
+    That distinction is the whole contract of this function: an empty set means
+    *asked, and it holds nothing*, which is a fact the caller may act on. `None`
+    means *do not know*, which is not.
 
     **Why this exists here and not in the caller.** Neo4j Community has no
     multi-database support — that is an Enterprise feature — so every workspace
@@ -80,10 +86,11 @@ async def occupied_workspaces() -> "set[str]":
     admission policy calls this — which is also what makes the refusal survive a
     restart, since it reads the database rather than in-process bookkeeping.
 
-    Returns an empty set when Neo4j is not configured or cannot be reached: this
-    is an admission check, and it must not be the thing that takes the server
-    down. Refusing to start because we could not verify a limit would be worse
-    than the limit.
+    An earlier version returned an empty set on every failure. That made "the
+    database is unreachable" indistinguishable from "the database is empty", and
+    the caller admitted a second workspace on a transient blip — reproducing, in
+    code, exactly the silent co-tenancy D-029 replaced prose with code to
+    prevent (M2 review, H1).
     """
     uri = os.environ.get("WEAVE_NEO4J_URI", config.get("neo4j", "uri", fallback=None))
     username = os.environ.get(
@@ -93,6 +100,8 @@ async def occupied_workspaces() -> "set[str]":
         "WEAVE_NEO4J_PASSWORD", config.get("neo4j", "password", fallback=None)
     )
     if not (uri and username and password):
+        # Not configured is a determinate answer: this deployment has no Neo4j
+        # to be co-tenanted in. It is not the same as "configured but silent".
         return set()
 
     database = os.environ.get("WEAVE_NEO4J_DATABASE") or None
@@ -102,9 +111,9 @@ async def occupied_workspaces() -> "set[str]":
         async with driver.session(database=database) as session:
             result = await session.run("CALL db.labels() YIELD label RETURN label")
             labels = {record["label"] async for record in result}
-    except Exception as e:  # noqa: BLE001 - see docstring: never fatal
+    except Exception as e:  # noqa: BLE001 - any failure is "undetermined"
         logger.warning(f"could not read Neo4j workspace labels for admission: {e}")
-        return set()
+        return None
     finally:
         if driver is not None:
             try:

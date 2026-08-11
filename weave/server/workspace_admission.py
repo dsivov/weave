@@ -54,11 +54,15 @@ class WorkspaceNotAdmitted(Exception):
     """
 
 
-async def occupied_workspaces(graph_storage: str) -> Set[str]:
+async def occupied_workspaces(graph_storage: str) -> Optional[Set[str]]:
     """Workspaces the configured graph backend already holds.
 
     Delegates to the adapter — see the module docstring on A4. Backends with no
-    single-workspace limit are never asked.
+    single-workspace limit are never asked, so an unreachable Neo4j cannot
+    refuse anything on a deployment that does not use Neo4j.
+
+    **`None` means occupancy could not be determined** and is not the same
+    answer as an empty set.
     """
     if graph_storage not in SINGLE_WORKSPACE_GRAPH_BACKENDS:
         return set()
@@ -74,7 +78,7 @@ async def check_admission(
     graph_storage: str,
     *,
     known_workspaces: Iterable[str] = (),
-    probe: Optional[Callable[[], Awaitable[Set[str]]]] = None,
+    probe: Optional[Callable[[], Awaitable[Optional[Set[str]]]]] = None,
 ) -> None:
     """Raise :class:`WorkspaceNotAdmitted` if *workspace* may not be created.
 
@@ -85,18 +89,48 @@ async def check_admission(
 
     A workspace that is *already* occupying the backend is always admitted:
     re-opening the workspace you have is not creating a second one.
+
+    **Undetermined occupancy fails closed** (M2 review, H1). When the probe
+    cannot answer — unreachable database, auth failure, a query error — a *new*
+    workspace is refused. The earlier version admitted it, because a failed
+    probe returned an empty set and "could not ask" was indistinguishable from
+    "holds nothing"; a restart during a momentary Neo4j outage would then admit
+    a second workspace permanently and silently, which is the exact failure
+    D-029 replaced prose with code to prevent.
+
+    The trade is deliberate and narrow: what is refused is the one irreversible
+    act. A workspace already being served keeps being served, every current
+    caller is unaffected, and nothing about reads changes. Fail-open is right
+    for reads and wrong for admission.
     """
     reason = SINGLE_WORKSPACE_GRAPH_BACKENDS.get(graph_storage)
     if reason is None:
         return
 
     occupied = {w for w in known_workspaces if w}
-    if probe is None:
-        occupied |= await occupied_workspaces(graph_storage)
-    else:
-        occupied |= await probe()
+    probed = await (probe() if probe is not None else occupied_workspaces(graph_storage))
 
-    if not occupied or workspace in occupied:
+    undetermined = probed is None
+    if not undetermined:
+        occupied |= probed
+
+    # Re-opening a workspace we know about is never "creating a second one",
+    # so it is admitted even when the database could not be reached.
+    if workspace in occupied:
+        return
+
+    if undetermined:
+        raise WorkspaceNotAdmitted(
+            f"Cannot create workspace '{workspace}': this deployment uses "
+            f"{graph_storage}, and its current occupancy could not be verified "
+            "— the database could not be reached or did not answer. "
+            f"{reason} Admitting a workspace without checking is how two of them "
+            "end up sharing one database silently, so this is refused rather "
+            "than guessed. Restore connectivity and retry; workspaces already "
+            "running are unaffected."
+        )
+
+    if not occupied:
         return
 
     holder = sorted(occupied)[0]
