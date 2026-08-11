@@ -589,3 +589,33 @@ Status: `accepted` · `superseded by D-NN` · `reversed`.
   same fix as P3.3's and the same lesson as W4: the guard belongs in the engine both paths share, not in
   one adapter. P6's onboarding bundle is where an unsigned governance write would have hurt most, which
   is why this is scheduled now rather than deferred again.
+
+## D-033 · The direct artifact editors route through the ledger too — A8 gets no carve-out
+- **Date:** 2026-08-11  ·  **Status:** accepted  ·  **Raised by:** weave-manager (verifying D-032's fix)  ·  **Approved by:** dsivov
+- **Context:** D-032 converted `/onboard/apply` and — because the developer asserted the **class** rather
+  than the instance — caught `/onboard` as a third unsigned write path. The new guard,
+  `test_no_router_saves_a_ledger_owned_artifact_directly`, is a genuine AST walk over every router. But it
+  **excludes five files** as "the artifact editors themselves", and all four of the governance ones call
+  `service.save(...)` directly with no ledger version: `routers/rbac.py:94`, `ontology.py:128,157`,
+  `lifecycle.py:86`, `rules.py:153,227`. `POST /rbac` changes what the runtime enforces with no signature;
+  **`DELETE /rbac` returns a workspace to permissive with no record at all.** All are mounted in Weave mode
+  behind `combined_auth`, and all are pre-existing, carried from the fork at P0.
+- **Why the exclusion did not hold.** The rationale — *they are the direct surface, and the Studio composes
+  them* — is a statement of intent, not of what A8 says. A8 says *"What the runtime enforces is the signed
+  ledger version."* These endpoints change what the runtime enforces and leave no version, so A8 is false
+  for them by exactly the reasoning that re-graded D-032. **A guard whose exclusion list contains the
+  largest hole is worse than no guard, because it reads as coverage.**
+- **Options:** comply — route them through `DiffEngine.apply` / amend A8 to carve out the direct editors /
+  defer as a watch item
+- **Decision:** **Comply.** The four editor routers write through `DiffEngine.apply` like onboarding now
+  does, and the class assertion **drops its exclusion list** so the rule is uniform. A8 is unchanged and
+  gains no carve-out.
+- **Why not amend:** the amendment would have had to say that an authenticated caller may set or delete
+  enforced policy with no audit trail — which is a plain description of the gap rather than a design, and
+  P4 already proved the signed path is comfortable to use. Deferring was rejected for the reason above: the
+  guard would keep passing while the biggest doors stayed open.
+- **Consequences:** Scheduled in **P5**, immediately after the senior-seat work, while the D-032 pattern is
+  fresh — it is the same fix a second time. `DELETE` needs thought as well as `POST`: removing a policy is a
+  governance change and needs a version, not just an absence. **This is the fourth instance of one lesson** —
+  header literals, the ingress bus, the two admission doors, and now this — that asserting the class beats
+  asserting the instance, and that the *exclusions* in a class assertion deserve the same scrutiny as the rule.

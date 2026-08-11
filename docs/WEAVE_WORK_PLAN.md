@@ -444,6 +444,16 @@ the P2 migration has still never run on real data.
 >   *old* behaviour before proving the new. 6 tests. Suite **931 / 0 / 0**; server booted and `/onboard*` still
 >   mounted (W6).
 >
+> - [ ] **D-033 — the same fix again, on the four doors the guard excludes.** Verifying D-032 I checked its
+>   exclusion list rather than its rule, and it does not hold: `routers/rbac.py:94`, `ontology.py:128,157`,
+>   `lifecycle.py:86` and `rules.py:153,227` all call `service.save(...)` directly, mounted in Weave mode
+>   behind `combined_auth`. `POST /rbac` changes what the runtime enforces with no signature, and
+>   **`DELETE /rbac` returns a workspace to permissive with no record at all.** dsivov ruled **comply**:
+>   route all four through `DiffEngine.apply` and **drop the exclusion list** so the class assertion is
+>   uniform. A8 gains no carve-out. Do it **after** the senior-seat work, while the D-032 pattern is fresh.
+>   `DELETE` needs its own thought — removing a policy is a governance change and needs a *version*, not an
+>   absence. **A guard whose exclusion list contains the largest hole reads as coverage it does not give.**
+>
 > - [x] ~~**H1 from M4 (D-032) — `/onboard/apply` must route through `DiffEngine.apply`.**~~ Today it calls
 >   `ontology_service.save()` / `rules_service.save()` directly, so a rule installed through onboarding is
 >   **enforced by the runtime** (`actions.py`: `RBAC → lifecycle → rules gate → side effect`) while carrying
