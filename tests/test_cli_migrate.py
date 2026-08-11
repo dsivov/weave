@@ -43,7 +43,8 @@ def store_dir(tmp_path, monkeypatch):
 
 
 def _run(*argv) -> int:
-    return main(["migrate", "--workspace", WORKSPACE, "--json", *argv])
+    # The natural order — flags after the subcommand, as the guide writes it.
+    return main(["migrate", "reviews", "--workspace", WORKSPACE, "--json", *argv])
 
 
 # ── the command reaches the migration ────────────────────────────────────────
@@ -52,7 +53,7 @@ def _run(*argv) -> int:
 def test_a_dry_run_reports_without_writing(store_dir, capsys):
     """The documented first step, and the number it prints is the number a real
     run will create — otherwise a dry run is decoration."""
-    assert _run("reviews", "--dry-run") == 0
+    assert _run("--dry-run") == 0
 
     report = json.loads(capsys.readouterr().out)
     assert report["dry_run"] is True
@@ -63,12 +64,11 @@ def test_a_dry_run_reports_without_writing(store_dir, capsys):
     # an empty graph file where a workspace had none — so the claim is "no nodes
     # were written", not "nothing touched the disk". Asserted as the former,
     # because the latter is not true and a test should not pretend otherwise.
-    assert main(["migrate", "--workspace", WORKSPACE, "--json", "reviews",
-                 "--verify"]) == 1, "a dry run created nodes"
+    assert _run("--verify") == 1, "a dry run created nodes"
 
 
 def test_applying_creates_the_nodes(store_dir, capsys):
-    assert _run("reviews") == 0
+    assert _run() == 0
 
     report = json.loads(capsys.readouterr().out)
     assert report["dry_run"] is False
@@ -78,20 +78,20 @@ def test_applying_creates_the_nodes(store_dir, capsys):
 def test_a_second_run_creates_nothing(store_dir, capsys):
     """Idempotence through the command, not just the function — an operator who
     is unsure whether it ran should be able to simply run it again."""
-    _run("reviews")
+    _run()
     capsys.readouterr()
 
-    assert _run("reviews") == 0
+    assert _run() == 0
     report = json.loads(capsys.readouterr().out)
     assert report["nodes_created"] == 0
     assert report["nodes_already_present"] == 5
 
 
 def test_verify_reports_complete_after_a_run(store_dir, capsys):
-    _run("reviews")
+    _run()
     capsys.readouterr()
 
-    assert _run("reviews", "--verify") == 0
+    assert _run("--verify") == 0
     report = json.loads(capsys.readouterr().out)
     assert report["complete"] is True
     assert report["checked"] == 5
@@ -101,7 +101,7 @@ def test_verify_reports_complete_after_a_run(store_dir, capsys):
 def test_verify_before_migrating_reports_incomplete_and_exits_nonzero(store_dir, capsys):
     """The honest answer to "has this run?" — and a non-zero exit so a script can
     ask it without parsing prose."""
-    assert _run("reviews", "--verify") == 1
+    assert _run("--verify") == 1
 
     report = json.loads(capsys.readouterr().out)
     assert report["complete"] is False
@@ -111,7 +111,7 @@ def test_verify_before_migrating_reports_incomplete_and_exits_nonzero(store_dir,
 def test_the_migration_survives_being_reached_across_workspaces(store_dir, capsys):
     """A workspace with nothing to migrate is a no-op, not an error — an operator
     sweeping several should not have to know which ones have data."""
-    assert main(["migrate", "--workspace", "empty", "--json", "reviews"]) == 0
+    assert main(["migrate", "reviews", "--workspace", "empty", "--json"]) == 0
 
     report = json.loads(capsys.readouterr().out)
     assert report["nodes_created"] == 0 and report["tasks"] == 0
@@ -134,7 +134,7 @@ def test_migrate_is_a_documented_subcommand():
 def test_human_output_names_what_to_do_next(store_dir, capsys):
     """The non-JSON path is what a person sees, and it should end with the next
     step rather than a bare count."""
-    main(["migrate", "--workspace", WORKSPACE, "reviews", "--dry-run"])
+    main(["migrate", "reviews", "--workspace", WORKSPACE, "--dry-run"])
     out = capsys.readouterr().out
 
     assert "would create" in out

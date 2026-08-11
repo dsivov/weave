@@ -34,18 +34,24 @@ DEFAULT_WORKING_DIR = "./weave_storage"
 def register(groups) -> None:
     """Attach `weave migrate` and its subcommands."""
     parser = groups.add_parser("migrate", help="one-off data migrations")
-    parser.add_argument(
-        "--working-dir", default="",
-        help="where the store lives (default: $WEAVE_WORKING_DIR, then ./weave_storage)",
-    )
-    parser.add_argument("--workspace", default="default")
-    parser.add_argument("--json", action="store_true", help="machine-readable output")
     sub = parser.add_subparsers(dest="action", required=True, metavar="<action>")
 
     reviews = sub.add_parser(
         "reviews",
         help="task reviews/learnings → Review/Insight nodes (R25); idempotent",
     )
+    # On the **subcommand**, not the group. `weave migrate reviews --workspace X`
+    # is how anyone would write it, and argparse only accepts group-level flags
+    # *before* the subcommand — so putting them on the group made the documented
+    # form fail to parse. Caught by `tests/test_cli_covers_docs.py`, which is
+    # exactly what that test is for.
+    reviews.add_argument(
+        "--working-dir", default="",
+        help="where the store lives (default: $WEAVE_WORKING_DIR, then ./weave_storage)",
+    )
+    reviews.add_argument("--workspace", default="default")
+    reviews.add_argument("--json", action="store_true",
+                         help="machine-readable output")
     reviews.add_argument(
         "--dry-run", action="store_true",
         help="report what would be created; creates no nodes",
