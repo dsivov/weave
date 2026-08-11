@@ -329,3 +329,29 @@ def test_the_cli_and_the_server_lay_out_storage_the_same_way(tmp_path):
 
     assert f'working_dir), "{_local.TEAM_DIR}"' in app.replace("str(args.", "").replace(
         "args.", ""), "the CLI and the server disagree on where team state lives"
+
+
+def test_the_role_init_tells_you_to_create_can_do_something(tmp_path, capsys):
+    """`init` prints the next command, and that hint is what gets copied.
+
+    It said `--role admin`, which the governance preset grants nothing to — the
+    same trap as the guide's, in the tool's own output where a documentation fix
+    could not reach it. Asserted against the preset rather than against the
+    string 'manager', so changing either side without the other fails here.
+    """
+    import re
+
+    from weave.team import preset
+
+    _run("init", "--working-dir", str(tmp_path))
+    out = capsys.readouterr().out
+
+    suggested = re.findall(r"weave user add \S+ --role (\S+)", out)
+    assert suggested, "init no longer suggests how to create the first user"
+
+    granted = set((preset.load_part("rbac") or {}).get("roles", {}))
+    for role in suggested:
+        assert role in granted, (
+            f"`weave init` suggests creating the first user as '{role}', which "
+            f"the preset grants nothing to (it grants: {', '.join(sorted(granted))})"
+        )

@@ -115,7 +115,50 @@ def _add(args: argparse.Namespace) -> int:
     except UserError as e:
         raise SystemExit(str(e))
     print(f"Created '{user.username}' with role '{user.role}'.")
+    _warn_if_the_role_can_do_nothing(args, user)
     return 0
+
+
+def _warn_if_the_role_can_do_nothing(args: argparse.Namespace, user) -> None:
+    """Say so when the new account's role has no grants where it was granted.
+
+    Found by running the published steps end to end: they created the first user
+    as `admin`, and the preset installed a moment later grants
+    manager/architect/developer/integrator — **not** `admin`. Every governed call
+    came back `403 role 'admin' has no grants`, and nothing along the way had
+    said anything. The two role vocabularies are both real and deliberately
+    separate — `admin` administers *accounts* (A14), the four govern *work* — but
+    a first administrator who cannot register a dev host is a dead end an
+    operator has no way to diagnose from the messages they were given.
+
+    **Reports; never refuses.** An `admin` who only administers accounts is a
+    legitimate thing to create, and a warning that blocked it would be wrong.
+    """
+    try:
+        from weave.cli import _local
+
+        rbac = _local.governance_services(args)["rbac_service"]
+    except Exception:      # pragma: no cover - never block account creation
+        return
+
+    for workspace in user.workspaces:
+        try:
+            policy = rbac.store.load(workspace)
+        except Exception:  # pragma: no cover - defensive
+            continue
+        if policy is None:
+            continue                      # governance not installed yet — fine
+        roles = getattr(policy, "roles", None) or {}
+        if user.role in roles:
+            continue
+        print(
+            f"\n  Note: workspace '{workspace}' has a governance policy, and it "
+            f"grants nothing to '{user.role}'.\n"
+            f"  '{user.role}' administers accounts; governed work is done by "
+            f"{', '.join(sorted(roles)) or '(no roles)'}.\n"
+            f"  Governed calls will answer 403. To give this person a seat too:\n"
+            f"    weave user promote {user.username} --role manager"
+        )
 
 
 def _promote(args: argparse.Namespace) -> int:

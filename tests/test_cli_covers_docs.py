@@ -294,3 +294,53 @@ def test_the_guide_does_not_promise_that_dispatch_starts_anything():
     text = "\n".join(p.read_text(encoding="utf-8") for p in _guides()).lower()
     assert "heartbeat" in text
     assert "nothing starts immediately" in text or "pulls, not a command" in text
+
+
+# ── the steps must work *together*, not only individually ────────────────────
+
+
+def test_the_first_user_the_guide_creates_can_actually_do_something():
+    """Two published steps that are each correct and wrong in combination.
+
+    The guide created the first user as `--role admin`, and the very next step
+    installs a governance preset that grants work to `manager`, `architect`,
+    `developer` and `integrator`. Everything the operator then tried came back
+    `403 role 'admin' has no grants`, from an account the guide had just told
+    them to make. Found by running the steps end to end against a live server —
+    no test could have caught it, because each step passes on its own.
+
+    Asserted as the class: **whatever role the guide's `weave user add` names
+    must appear in the preset's RBAC policy.** Changing either side without the
+    other fails here.
+    """
+    from weave.team import preset
+
+    granted = set((preset.load_part("rbac") or {}).get("roles", {}))
+    assert granted, "the preset grants nothing to anyone — check load_part('rbac')"
+
+    named = []
+    for path in _guides():
+        for line in path.read_text(encoding="utf-8").splitlines():
+            stripped = line.strip()
+            if not stripped.startswith("weave user add"):
+                continue
+            tokens = stripped.split()
+            if "--role" in tokens:
+                named.append((path.name, tokens[tokens.index("--role") + 1]))
+
+    assert named, "no guide creates a user — step 3 is the first administrator"
+    for filename, role in named:
+        assert role in granted, (
+            f"{filename} creates the first user as '{role}', and the preset it "
+            f"installs next grants nothing to '{role}' (it grants: "
+            f"{', '.join(sorted(granted))}). Every governed call will 403."
+        )
+
+
+def test_the_guide_explains_the_two_role_vocabularies():
+    """The trap survives the fix unless the reason is written down: `admin` is a
+    real role that administers accounts, and somebody will reach for it."""
+    text = "\n".join(p.read_text(encoding="utf-8") for p in _guides())
+    assert "weave user promote" in text, (
+        "the recovery from picking the wrong first role should be in the guide"
+    )

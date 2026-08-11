@@ -89,7 +89,7 @@ def _steps(working_dir: str, token_secret: str) -> List[Step]:
     """
     env = {"WEAVE_WORKING_DIR": working_dir}
     return [
-        Step("check the machine", "1 · Check the machine before you configure it",
+        Step("check the machine", "1 · Install Weave, then check the machine",
              [PYTHON, "-m", "weave.cli", "doctor"],
              # A machine with no seat is a real answer, not a harness failure —
              # the number still means "how long did the published step take".
@@ -103,7 +103,7 @@ def _steps(working_dir: str, token_secret: str) -> List[Step]:
                     "reported separately rather than folded into their total"),
         Step("create the first administrator", "3 · Create the first administrator",
              [PYTHON, "-m", "weave.cli", "user", "add", "onboard-admin",
-              "--role", "admin", "--workspaces", "team",
+              "--role", "manager", "--workspaces", "team",
               "--password", "a-good-password-123"],
              env=env),
         Step("sign the team vocabulary", "4 · Give the workspace its vocabulary",

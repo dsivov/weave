@@ -105,7 +105,13 @@ def _init(args: argparse.Namespace) -> int:
     print("\nNext:")
     print(f"  source {path}")
     print("  weave up")
-    print("  weave user add <name> --role admin --workspaces <workspace>")
+    # `manager`, not `admin`, and the same reason as the guide's step 3: `admin`
+    # administers accounts, while the governance preset grants work to manager /
+    # architect / developer / integrator. A first user created as `admin` gets
+    # 403 on everything governed. Printed here as well as written in the guide,
+    # because this hint is what somebody actually copies.
+    print("  weave user add <name> --role manager --workspaces <workspace>")
+    print("  weave roles install --workspace <workspace> --approver <name>")
     return 0
 
 
@@ -154,16 +160,23 @@ def _up(args: argparse.Namespace) -> int:
     if loaded:
         print(f"loaded {loaded} setting(s) from {ENV_FILENAME}")
 
-    from weave.server import app as server_app
-
     # Hand over to the module the guide also names, with the arguments it
     # parses. One server, one code path — `up` is a shorter way to type it, not
     # a different way to run it.
+    #
+    # **Before the import, and that is not stylistic.** `weave.server.app` builds
+    # its configuration at module scope, so importing it first meant the server
+    # parsed the *CLI's* argv and died on `weave: error: unrecognized arguments:
+    # up`. Found by running the published step rather than by reading it — the
+    # import sat two lines above and looked completely inert.
     sys.argv = [
         "weave.server.app",
         "--host", args.host,
         "--port", str(args.port),
         "--working-dir", root,
     ]
+
+    from weave.server import app as server_app
+
     server_app.main()
     return 0

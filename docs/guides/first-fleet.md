@@ -12,7 +12,18 @@ workspace whose governance is signed, and a board that shows work moving.
 
 ---
 
-## 1 · Check the machine before you configure it
+## 1 · Install Weave, then check the machine
+
+```
+conda env create -f environment.yml
+conda activate weave
+pip install -e .
+```
+
+That last line is what puts the `weave` command on your PATH; every step below
+uses it. **This step was missing from the first version of this guide**, which
+is exactly the failure the guide is meant to prevent: every command after it was
+correct, and the whole thing still ended at `weave: command not found`.
 
 ```
 weave doctor
@@ -58,15 +69,24 @@ Then open `http://<host>:9800/` — the root redirects to the UI.
 ## 3 · Create the first administrator
 
 ```
-weave user add alice --role admin --workspaces team
+weave user add alice --role manager --workspaces team
 ```
 
 The HTTP bootstrap window closes on the first user, so the *local* command is the
 one that always works — running it already requires access to the machine and its
 storage, which is more authority than any network caller has.
 
-A role is not access. `--workspaces` is the grant, and without it `alice` is an
-admin of nothing.
+A role is not access. `--workspaces` is the grant, and without it `alice` is a
+manager of nothing.
+
+**Use `manager`, not `admin`, for the first person.** There are two role
+vocabularies here and they are deliberately separate: `admin` and `manager`
+administer *accounts*, while the governance preset installed in the next step
+grants work to `manager`, `architect`, `developer` and `integrator`. A first user
+created as `admin` can create other users and nothing else — every governed call
+answers `403 role 'admin' has no grants`. `manager` is in both vocabularies,
+which is what makes it the right first seat. If you already made that mistake:
+`weave user promote alice --role manager`.
 
 ---
 
@@ -111,10 +131,36 @@ command is a visible stall instead of a quiet stream of false learnings.
 
 ## 6 · Attach a machine that carries developers
 
-On the machine that will run developer containers:
+On the machine that will run developer containers. It needs Docker, a route
+**out** to the server, and a Claude Code subscription seat — nothing needs to
+route *in*.
 
 ```
 claude auth login
+```
+
+The seat is the one thing that cannot be automated: it is an interactive browser
+flow, and it is what every developer container will run on. Every Weave role is
+an ordinary Claude Code session (A10), so a machine with no seat can do no work
+at all — which is the first thing to check when the board looks stuck.
+
+Then, from a checkout of this repository:
+
+```
+export WEAVE_SERVER=http://<server>:9800
+export WEAVE_WORKSPACE=team
+docker compose -f deploy/compose.devhost.yml up -d
+```
+
+That is the whole step. The image is thin on purpose — no database driver, no
+model SDK — because this machine holds neither.
+
+**Without Docker for the daemon itself**, install the dev-host requirements and
+run it directly. Same daemon, same flags; it still starts developer containers
+through Docker:
+
+```
+pip install -r deploy/requirements.devhost.txt
 weave doctor
 python3 -m weave.devhost --server http://<server>:9800 --workspace team
 ```
@@ -122,18 +168,10 @@ python3 -m weave.devhost --server http://<server>:9800 --workspace team
 The machine names itself after its own hostname; pass `--host-id` when two hosts
 share one.
 
-Or run it as a container, which is the same daemon:
-
-```
-docker compose -f deploy/compose.devhost.yml up -d
-```
-
 The daemon **registers itself and heartbeats**; the server never dials it. That
 is what lets this machine sit behind NAT, on someone's desk, or in a private VPC
-with no inbound access at all. Nothing on this machine listens on a port, and
-nothing needs to.
-
----
+with no inbound access at all. Nothing here listens on a port, and nothing needs
+to — `deploy/compose.devhost.yml` publishes none.
 
 ## 7 · Put developers to work
 

@@ -502,13 +502,13 @@ supervision must not have changed the claim protocol.
 > deferral comes due.** Four watch items were parked here on the argument that P6 is where they would
 > hurt most. This is P6.
 >
-> - [ ] **W9 — both halves, and the second is the one that matters.** `ShellGit.test_cmd` defaults to
+> - [x] **W9 — CLOSED. Both halves, and the second is the one that matters.** `ShellGit.test_cmd` defaults to
 >   `["python", …]` and most hosts ship only `python3`, so a dev agent fails every task at the test step.
 >   That is the trigger. The defect is that the loop cannot tell *"the test command could not run"* from
 >   *"the tests failed"*, so it writes a **learning** — and P2 made learnings `Insight` nodes that
 >   `/ask/learnings` serves **as fact**. Pick an interpreter that exists (or fail loudly), **and**
 >   distinguish could-not-run from failed so no insight is written for the former.
-> - [~] **W10 — the front door 404s. FIX APPLIED, UNCOMMITTED — developer to commit and test.**
+> - [x] **W10 — CLOSED.** Committed and verified live in the M6 gate run: root → 307 → `/webui/` → 200.
 >   `weave/server/app.py` root redirect now targets `/webui/`; verified live (root → 200, `<title>Weave</title>`).
 >   **Left uncommitted deliberately:** `app.py` also carries the developer's in-flight P6 line
 >   (`studio_engine=studio_engine`), and committing the file would sweep that into a manager commit.
@@ -525,12 +525,12 @@ supervision must not have changed the claim protocol.
 >   (`docs/DEMO_SCENARIO.md`): 7 tasks, 6 reviews and 7 learnings → **13 nodes created**, second run
 >   **0 created / 13 already present**, verify **complete, 0 missing, 0 mismatched**. R25's criterion met
 >   against real data rather than fixtures, after four phases of staying untriggered.
-> - [ ] **W11 — `migrate_reviews.py` has no CLI and no endpoint.** It is a library function, so lifting
+> - [x] **W11 — CLOSED (`weave migrate reviews`).** Was: `migrate_reviews.py` has no CLI and no endpoint.** It is a library function, so lifting
 >   task reviews/learnings into nodes needs a hand-written script that constructs a task store and a
 >   graph. Seeding the demo tenant required exactly that. **A migration an operator cannot invoke is a
 >   migration that will not be run** — give it a `weave` subcommand in this phase, where the CLI is the
 >   deliverable.
-> - [ ] **W12 — a sixth unsigned path, and this time the *claim* is what was wrong.** The inverted guard
+> - [x] **W12 — CLOSED, and it went two layers deeper (D-034).** Was: a sixth unsigned path, and this time the *claim* is what was wrong.** The inverted guard
 >   (D-033) is right and its allowlist carries a stated reason per entry — but one reason is false.
 >   `flows.py` is exempted as *"flow definitions — versioned by the flow store, not the ledger"*, and
 >   **`flow` is a `DIFF_KINDS` member** whose persistence the ledger implements itself
@@ -541,17 +541,17 @@ supervision must not have changed the claim protocol.
 >   exclusion list hid the hole, the matcher could not see what it excluded, the reach was a hand-kept
 >   list — and now an exemption's *justification* is the thing that is untrue. An allowlist entry is a
 >   claim, and a claim needs checking, not just stating.
-> - [ ] **W7 — the operator instructions that name commands which do not exist**
+> - [x] **W7 — CLOSED.** The operator instructions that name commands which do not exist**
 >   (`weave/server/gunicorn.py:103,108`). Harmless while nobody follows them; this is the phase where
 >   published steps are the deliverable and a wrong command ships as documentation.
-> - [ ] **W8 — the three pre-existing UI type errors.** CI runs the UI build; they would fail a strict
+> - [x] **W8 — CLOSED; the UI type-checks clean for the first time, and `tests/test_ui_typechecks.py` keeps it that way. A bundle still needs `bun`, which this container lacks.** The three pre-existing UI type errors. CI runs the UI build; they would fail a strict
 >   `tsc`. The UI has now shipped **unbuilt for three phases** because no `bun` exists in the dev
 >   container — M6's gate requires a clean machine to reach a live fleet, so this is where that has to
 >   resolve one way or the other.
-> - [ ] **W5 — last chance.** The P2 migration has never run on real data through four phases. If P6
+> - [x] **W5 — CLOSED by the manager against the demo tenant (see above).** Was: last chance. The P2 migration has never run on real data through four phases. If P6
 >   produces a populated task store, run it and record the result; if it does not, say so plainly in the
 >   milestone report rather than letting the claim stay half-verified.
-> - [ ] **M1/M2 from the M5 review** — give a ledger removal a **structural** marker (`origin='removal'`
+> - [x] **M1/M2 from the M5 review — DONE** — give a ledger removal a **structural** marker (`origin='removal'`
 >   or `removed: bool`), and widen the governance guard beyond its filename map.
 >
 > **A10 and A13 are the constraints this phase exists to satisfy, and they are the two that have never
@@ -564,21 +564,21 @@ supervision must not have changed the claim protocol.
 > steps only**, with onboarding timed. Under R2 that needs a harness in `scripts/` and an honest baseline;
 > if no baseline can be produced, publish the Weave number alone and say so (AS7).
 
-- [ ] **Contract check (R11)** — re-read `CONSTRAINTS.md` **v4** first. Touches **A1** (three deployables — the bundle must not become a fourth), **A10** (every role is a Claude Code session; no bespoke human client), **A13** (subscription seats; no model credential near a Claude Code process), **A15** (outbound-only — the dev host registers and heartbeats, the hub never dials it). Write the check into the first commit message with a verdict per ID.
-- [ ] `weave/cli/main.py` `[new]` — `init` · `roles install` · `user add` · `project register` · `up` · `down` · `agents up/scale/down` · `doctor`. **Calls the copied `preset.install()` and `playbook.role_kit()`** rather than reimplementing them (R44)
-- [ ] `environment.yml` — `[project.scripts]` equivalent: the `weave` console entry point (replacing the source's four `lightrag-*` entries)
-- [ ] `deploy/compose.devhost.yml` `[new]` — the dev-host bundle: daemon + Docker socket, deployed per developer machine
-- [ ] `weave/devhost/__main__.py` `[new]` — the daemon entry point, **thin install extra** so a dev machine needs no Postgres/Neo4j drivers (R75)
-- [ ] `weave/cli/doctor.py` `[new]` — per configured seat: subscription-auth status and any metered variable present (R61)
-- [ ] `weave/team/playbook.py` — one generator for **human and agent roles alike**; regenerating a kit is idempotent (R52a, R56)
-- [ ] `scripts/measure_onboarding.py` `[new]` — timestamp each documented step, clean machine → first governed task claimed (R2, R48)
-- [ ] `docs/guides/` `[new]` — organised by the job a person is doing, not by engine subsystem (R51)
-- [ ] `tests/test_cli_covers_docs.py` `[new]` — **every documented step maps to a command**; a step with no command fails
-- [ ] `tests/test_devhost_outbound.py` `[new]` — the daemon registers, heartbeats and runs containers with the server **unable to open a connection to it** (R63)
-- [ ] `tests/test_reconcile.py` `[new]` — scale 3 → exactly 3; 3 → 1 stops the highest-numbered and leaves worker 1; a held worker's slot stays **empty**; `drain` finishes held tasks and claims nothing new (R65, R66)
-- [ ] `tests/test_container_env.py` `[new]` — a running container holds only allowlisted vars + its seat; the daemon's LLM keys and JWT signing secret are **absent** (R69)
-- [ ] `tests/test_seat_boundary.py` `[new]` — with `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN` and `ANTHROPIC_BASE_URL` all set, **every** seat starts scrubbed with its subscription asserted (R57, R59)
-- [ ] `tests/test_host_ownership.py` `[new]` — a host record cannot be claimed by another identity; re-registering does **not** revive a terminal `stop` (R73)
+- [x] **Contract check (R11)** — re-read `CONSTRAINTS.md` **v4** first. Touches **A1** (three deployables — the bundle must not become a fourth), **A10** (every role is a Claude Code session; no bespoke human client), **A13** (subscription seats; no model credential near a Claude Code process), **A15** (outbound-only — the dev host registers and heartbeats, the hub never dials it). Write the check into the first commit message with a verdict per ID.
+- [x] `weave/cli/` — **deviation:** added to the existing `build_parser()` in `weave/cli/__init__.py` rather than a new `main.py`; a second assembler is R10's "two tools for one job". Groups: `server.py` (`init`/`up`) · `roles.py` · `project.py` · `agents.py`, all calling `preset.install()` and `playbook.role_kit()`. Was: `weave/cli/main.py` `[new]` — `init` · `roles install` · `user add` · `project register` · `up` · `down` · `agents up/scale/down` · `doctor`. **Calls the copied `preset.install()` and `playbook.role_kit()`** rather than reimplementing them (R44)
+- [x] `environment.yml` — **already satisfied**: `[project.scripts] weave` has been in `pyproject.toml` since P1, and the manifest header documents `pip install -e .`. Was: `[project.scripts]` equivalent: the `weave` console entry point (replacing the source's four `lightrag-*` entries)
+- [x] `deploy/compose.devhost.yml` `[new]` — plus `devhost.Dockerfile` and `requirements.devhost.txt`; publishes **no port** — the dev-host bundle: daemon + Docker socket, deployed per developer machine
+- [x] `weave/devhost/__main__.py` `[new]` — **it was missing and the guide already named it**; thinness now measured, not asserted — the daemon entry point, **thin install extra** so a dev machine needs no Postgres/Neo4j drivers (R75)
+- [x] `weave/cli/doctor.py` `[new]` — per configured seat: subscription-auth status and any metered variable present (R61)
+- [x] `weave/team/playbook.py` — already one generator; `weave roles kit` writes it, idempotently — one generator for **human and agent roles alike**; regenerating a kit is idempotent (R52a, R56)
+- [x] `scripts/measure_onboarding.py` `[new]` — **5.47s over 6 automated steps**, 3 manual with clocks excluded; no baseline (AS7) — timestamp each documented step, clean machine → first governed task claimed (R2, R48)
+- [x] `docs/guides/first-fleet.md` `[new]` — organised by the job a person is doing, not by engine subsystem (R51)
+- [x] `tests/test_cli_covers_docs.py` `[new]` — now also checks `python -m` steps and their flags — **every documented step maps to a command**; a step with no command fails
+- [x] `tests/test_devhost_outbound.py` `[new]` — the structural A15 property, negative-controlled — the daemon registers, heartbeats and runs containers with the server **unable to open a connection to it** (R63)
+- [x] `tests/test_reconcile.py` — **not written; already covered.** `tests/test_weave_devhost.py` (P5) asserts every listed criterion. A second copy is R10 applied to tests. Was: — scale 3 → exactly 3; 3 → 1 stops the highest-numbered and leaves worker 1; a held worker's slot stays **empty**; `drain` finishes held tasks and claims nothing new (R65, R66)
+- [x] `tests/test_container_env.py` — **not written; already covered** by `test_the_machines_own_secrets_do_not_cross_into_a_container`, which verifies the env is allowlist-composed. Was: — a running container holds only allowlisted vars + its seat; the daemon's LLM keys and JWT signing secret are **absent** (R69)
+- [x] `tests/test_seat_boundary.py` — exists (P5) — with `ANTHROPIC_API_KEY`, `ANTHROPIC_AUTH_TOKEN` and `ANTHROPIC_BASE_URL` all set, **every** seat starts scrubbed with its subscription asserted (R57, R59)
+- [x] `tests/test_host_ownership.py` — **not written; already covered** by the ownership and terminal-stop tests in `tests/test_weave_devhost.py`. Was: — a host record cannot be claimed by another identity; re-registering does **not** revive a terminal `stop` (R73)
 
 **Gate (M6):** on a clean machine with only Docker and the repository, the published steps reach a
 running Weave with an admin user, installed roles, a registered project and N dev agents visible in
