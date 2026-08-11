@@ -1515,6 +1515,50 @@ export const weaveControlHost = async (
 ): Promise<any> =>
   (await axiosInstance.post(`/weave/hosts/${encodeURIComponent(id)}/control`, { action })).data
 
+// ── the senior-developer seat (P5) ───────────────────────────────────────────
+//
+// `dispatch` starts nothing. It records how many developers each machine should
+// run and returns the ordered queue they will claim from; each host reconciles
+// on its next heartbeat (A15). `reaches_fleet_via` is in the response because it
+// is the thing most likely to be misread as "N workers are now running".
+
+export interface DispatchResult {
+  workspace: string
+  by: string
+  hosts: { act: string; target: string; by: string; detail: Record<string, unknown> }[]
+  requested_workers: number
+  queue: { id: string; title: string; priority: string; touches: string[] }[]
+  reaches_fleet_via: string
+  note: string
+}
+
+export interface FleetHost extends WeaveHost {
+  running: number
+  reconciled: boolean
+  workers: any[]
+}
+
+export const weaveDispatch = async (
+  workersPerHost: number,
+  hosts?: string[]
+): Promise<DispatchResult> =>
+  (await axiosInstance.post('/weave/team/dispatch', {
+    workers_per_host: workersPerHost,
+    ...(hosts ? { hosts } : {})
+  })).data
+
+export const weaveFleet = async (): Promise<{ workspace: string; hosts: FleetHost[] }> =>
+  (await axiosInstance.get('/weave/team/fleet')).data
+
+export const weaveControlWorkerAction = async (
+  id: string,
+  action: 'pause' | 'resume' | 'stop' | 'redirect',
+  goal = ''
+): Promise<any> =>
+  (await axiosInstance.post(`/weave/workers/${encodeURIComponent(id)}/control`, {
+    action, goal
+  })).data
+
 export const weaveScaleHost = async (id: string, desired: number): Promise<any> =>
   (await axiosInstance.post(`/weave/hosts/${encodeURIComponent(id)}/scale`,
     { desired_workers: desired })).data

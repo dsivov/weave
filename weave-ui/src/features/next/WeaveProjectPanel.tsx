@@ -19,7 +19,8 @@ import {
 } from 'lucide-react'
 import {
   weaveProject, weaveSetProject, weaveHosts, weaveControlHost, weaveScaleHost,
-  type WeaveProject, type WeaveHost
+  weaveWorkers, weaveDispatch, weaveControlWorkerAction,
+  type WeaveProject, type WeaveHost, type WeaveWorker
 } from '@/api/weave'
 import { useLiveStream } from '@/hooks/useLiveStream'
 
@@ -47,6 +48,11 @@ function seatExplanation(h: WeaveHost): string | null {
 export default function WeaveProjectPanel({ onError }: { onError?: (m: string) => void }) {
   const [project, setProject] = useState<WeaveProject | null>(null)
   const [hosts, setHosts] = useState<WeaveHost[]>([])
+  const [workers, setWorkers] = useState<WeaveWorker[]>([])
+  // What dispatch last recorded. Kept because the honest thing to show after a
+  // dispatch is "asked for N, hosts reconcile on their next heartbeat" — not a
+  // success tick implying N containers exist.
+  const [dispatched, setDispatched] = useState<string | null>(null)
   const [editing, setEditing] = useState(false)
   const [busy, setBusy] = useState(false)
 
@@ -59,9 +65,12 @@ export default function WeaveProjectPanel({ onError }: { onError?: (m: string) =
 
   const load = useCallback(async () => {
     try {
-      const [p, h] = await Promise.all([weaveProject(), weaveHosts()])
+      const [p, h, w] = await Promise.all([
+        weaveProject(), weaveHosts(), weaveWorkers()
+      ])
       setProject(p)
       setHosts(h.hosts ?? [])
+      setWorkers(w.workers ?? [])
       if (!editing) {
         setRepo(p.repo); setBranch(p.base_branch || 'main'); setImage(p.image)
         setTestCmd((p.test_command ?? []).join(' '))
@@ -191,9 +200,34 @@ export default function WeaveProjectPanel({ onError }: { onError?: (m: string) =
       </div>
 
       {/* ── the machines ────────────────────────────────────────────────── */}
-      <div style={{ marginBottom: 8, fontWeight: 700, color: 'var(--text2)' }}>
-        Dev hosts · {hosts.length}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+        <span style={{ fontWeight: 700, color: 'var(--text2)' }}>
+          Dev hosts · {hosts.length}
+        </span>
+        <div style={{ flex: 1 }} />
+        {/* Dispatch records intent across every running host. It deliberately
+            does not say "started" — nothing has, and each machine reconciles on
+            its next heartbeat (A15). */}
+        <button
+          className="btn sm"
+          disabled={busy || hosts.length === 0}
+          title="Ask every running machine to run one more developer"
+          onClick={() => act(async () => {
+            const r = await weaveDispatch(1)
+            setDispatched(
+              `asked ${r.hosts.length} machine(s) for ${r.requested_workers} developer(s)` +
+              ` · ${r.queue.length} task(s) ready · they reconcile on their next heartbeat`
+            )
+          })}
+        >
+          <PlayIcon className="" />Dispatch
+        </button>
       </div>
+      {dispatched && (
+        <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 8 }}>
+          {dispatched}
+        </div>
+      )}
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
         {hosts.length === 0 && (
           <div className="empty" style={{ padding: 12, fontSize: 12 }}>
@@ -243,6 +277,53 @@ export default function WeaveProjectPanel({ onError }: { onError?: (m: string) =
                 </button>
                 <span style={{ fontSize: 11, color: 'var(--muted)' }}>wanted here</span>
               </div>
+
+              {/* Per-worker progress (R76). "desired vs running" says whether a
+                  machine reconciled; this says what each developer is actually
+                  doing, which is the question a supervisor asks next. */}
+              {(() => {
+                const mine = workers.filter((w) => w.host === h.id)
+                if (mine.length === 0) {
+                  return (
+                    <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 8 }}>
+                      {h.desired_workers > 0
+                        ? 'None running yet — the machine starts them on its next heartbeat.'
+                        : 'No developers wanted here.'}
+                    </div>
+                  )
+                }
+                return (
+                  <div style={{ display: 'grid', gap: 4, marginBottom: 8 }}>
+                    {mine.map((w) => (
+                      <div key={w.id} style={{ fontSize: 11, display: 'flex',
+                                               alignItems: 'center', gap: 6 }}>
+                        <span className="dot" style={{
+                          background: w.status === 'offline' ? 'var(--muted)'
+                            : w.control === 'pause' ? 'var(--warn)'
+                            : w.control === 'stop' ? 'var(--crit)' : 'var(--good)'
+                        }} />
+                        <code className="mono">{w.id}</code>
+                        <span style={{ color: 'var(--muted)' }}>
+                          {w.current_task
+                            ? `on ${w.current_task}`
+                            : (w.goal ? `goal: ${w.goal}` : 'idle')}
+                        </span>
+                        <div style={{ flex: 1 }} />
+                        <button className="btn sm ghost"
+                                title={w.control === 'pause'
+                                  ? 'resume after the current step'
+                                  : 'pause between steps — never mid-edit'}
+                                onClick={() => act(() => weaveControlWorkerAction(
+                                  w.id, w.control === 'pause' ? 'resume' : 'pause'))}>
+                          {w.control === 'pause'
+                            ? <PlayIcon className="" />
+                            : <PauseIcon className="" />}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )
+              })()}
 
               <div className="btns">
                 <button className="btn sm" title="finish current work, take nothing new"
