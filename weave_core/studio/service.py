@@ -37,6 +37,52 @@ from weave_core.studio.store import ArtifactVersion, SignOff, StudioStore
 from weave_core.graph.types import RelationContext
 
 
+class StaleWrite(Exception):
+    """A diff was drafted against a version that is no longer current (R31).
+
+    Two people open the same artifact at v3, both edit, both apply. Without this
+    the second write wins silently and the first person's change is gone with no
+    error, no audit line and nothing to notice — the losing author has already
+    seen a success message. That is the failure this exception exists to make
+    impossible: a stale write is refused, and the caller is handed everything it
+    needs to merge rather than a bare rejection.
+
+    Carries the **merge view**: `base` (what the author started from), `theirs`
+    (what is there now) and `mine` (what the author wants). A 409 without those
+    three is just a wall — the person is holding an edit they cannot reconcile.
+    """
+
+    def __init__(
+        self,
+        kind: str,
+        artifact_id: str,
+        *,
+        expected: Optional[int],
+        actual: Optional[int],
+        merge: Dict[str, Any],
+    ) -> None:
+        super().__init__(
+            f"{kind}:{artifact_id} has moved on — this edit was drafted against "
+            f"version {expected}, and the current version is {actual}. Someone "
+            "else saved while you were working. Merge and re-apply."
+        )
+        self.kind = kind
+        self.artifact_id = artifact_id
+        self.expected = expected
+        self.actual = actual
+        self.merge = merge
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "kind": self.kind,
+            "artifact_id": self.artifact_id,
+            "expected_version": self.expected,
+            "current_version": self.actual,
+            "merge": self.merge,
+            "detail": str(self),
+        }
+
+
 class DiffEngine:
     def __init__(
         self,
@@ -196,6 +242,15 @@ class DiffEngine:
 
         after = (diff.delta or {}).get("after") or {}
 
+        # 0) Refuse a stale write (R31). Checked here rather than in the router
+        #    because every caller of `apply` needs it — HTTP, the wizard, and
+        #    anything else that composes the engine. A guard in one adapter
+        #    protects only the callers who arrive through it.
+        #
+        #    Checked *before* the sign-off decision is recorded, so a refused
+        #    write leaves no audit trail of an approval that never happened.
+        self._refuse_stale_write(workspace, diff, after)
+
         # 1) Record the approval as a decision (runs the workspace gate).
         audit = await self._record_signoff(workspace, diff, approver, reason, role)
 
@@ -338,6 +393,64 @@ class DiffEngine:
         return {"nodes": list(nodes.values()), "edges": list(uniq.values())}
 
     # ── per-kind: load current ──────────────────────────────────────────────
+
+    def _refuse_stale_write(
+        self, workspace: str, diff: ArtifactDiff, after: Dict[str, Any]
+    ) -> None:
+        """Raise :class:`StaleWrite` if the artifact moved since the diff was drafted.
+
+        The comparison is between the version the diff recorded when it was
+        proposed and the version that is current *now*. Equal means nobody else
+        wrote in between.
+
+        Two cases are deliberately allowed through:
+
+        * `from_version is None` — the diff creates an artifact that did not
+          exist. If one exists now, someone created it concurrently and that
+          **is** a conflict, so it is reported as one.
+        * the artifact has since been deleted (`current is None`) while the diff
+          expected a version. Re-creating it from an edit is the author's intent
+          and loses nobody's work, so it proceeds.
+        """
+        current = self._load_current(workspace, diff.kind, diff.artifact_id)
+        current_version = current.get("version") if current else None
+
+        if diff.from_version is None:
+            if current is None:
+                return  # creating something that still does not exist
+        elif current is None or current_version == diff.from_version:
+            return  # unchanged since the draft, or since deleted
+
+        raise StaleWrite(
+            diff.kind,
+            diff.artifact_id,
+            expected=diff.from_version,
+            actual=current_version,
+            merge=self._merge_view(workspace, diff, current, after),
+        )
+
+    def _merge_view(
+        self,
+        workspace: str,
+        diff: ArtifactDiff,
+        current: Optional[Dict[str, Any]],
+        after: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """What the author needs to reconcile: where they started, what is there
+        now, and what they wanted.
+
+        `base` comes from the signed ledger when the drafted-from version is
+        still on it. When it is not, `base` is null rather than a guess — an
+        invented base would produce a merge that looks authoritative and is not.
+        """
+        base = None
+        if diff.from_version is not None:
+            recorded = self._studio.get(
+                workspace, diff.kind, diff.artifact_id, diff.from_version
+            )
+            if recorded is not None:
+                base = recorded.snapshot
+        return {"base": base, "theirs": current, "mine": after}
 
     def _load_current(self, ws: str, kind: str, artifact_id: str) -> Optional[Dict[str, Any]]:
         if kind == "rule" and self._rules is not None:

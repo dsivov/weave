@@ -120,11 +120,18 @@ def create_studio_routes(rag, engine, *, api_key: Optional[str] = None,
         ws = _ws()
         from weave_core.governance.rules.gate import RuleViolation
 
+        from weave_core.studio.service import StaleWrite
+
         diff = ArtifactDiff.from_dict(body.diff)
         engine.assess(ws, diff)                     # re-assess server-side (anti-tamper)
         try:
             result = await engine.apply(
                 ws, diff, approver=body.approver, reason=body.reason, role=body.role)
+        except StaleWrite as e:
+            # 409 with the merge view, never a silent overwrite (R31). The body
+            # carries base/theirs/mine so the client can reconcile — a bare 409
+            # leaves someone holding an edit they cannot land.
+            raise HTTPException(status_code=409, detail=e.to_dict())
         except ValueError as e:
             raise HTTPException(status_code=422, detail=str(e))
         except RuleViolation as e:
