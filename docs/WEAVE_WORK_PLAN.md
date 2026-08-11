@@ -530,6 +530,17 @@ supervision must not have changed the claim protocol.
 >   graph. Seeding the demo tenant required exactly that. **A migration an operator cannot invoke is a
 >   migration that will not be run** — give it a `weave` subcommand in this phase, where the CLI is the
 >   deliverable.
+> - [ ] **W12 — a sixth unsigned path, and this time the *claim* is what was wrong.** The inverted guard
+>   (D-033) is right and its allowlist carries a stated reason per entry — but one reason is false.
+>   `flows.py` is exempted as *"flow definitions — versioned by the flow store, not the ledger"*, and
+>   **`flow` is a `DIFF_KINDS` member** whose persistence the ledger implements itself
+>   (`studio/service.py:704`). `POST /flows` calls `flow_store.save()` directly and `DELETE /flows/{id}`
+>   calls `flow_store.delete()` — no signature, no ledger version, and the delete has the very
+>   removal-ambiguity that M5's M1 just made structural. Checked the sibling claim: `diagrams.py` is
+>   **correct** — it genuinely runs propose → assess → sign → apply. **Fourth layer of one lesson:** the
+>   exclusion list hid the hole, the matcher could not see what it excluded, the reach was a hand-kept
+>   list — and now an exemption's *justification* is the thing that is untrue. An allowlist entry is a
+>   claim, and a claim needs checking, not just stating.
 > - [ ] **W7 — the operator instructions that name commands which do not exist**
 >   (`weave/server/gunicorn.py:103,108`). Harmless while nobody follows them; this is the phase where
 >   published steps are the deliverable and a wrong command ships as documentation.
