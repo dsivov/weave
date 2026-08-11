@@ -21,6 +21,7 @@ import {
   weaveProject, weaveSetProject, weaveHosts, weaveControlHost, weaveScaleHost,
   type WeaveProject, type WeaveHost
 } from '@/api/weave'
+import { useLiveStream } from '@/hooks/useLiveStream'
 
 const splitCmd = (s: string) => s.trim().split(/\s+/).filter(Boolean)
 
@@ -72,10 +73,21 @@ export default function WeaveProjectPanel({ onError }: { onError?: (m: string) =
   }, [editing])
 
   useEffect(() => { void load() }, [load])
-  useEffect(() => {
-    const id = setInterval(() => { if (!editing) void load() }, 5000)
-    return () => clearInterval(id)
-  }, [load, editing])
+
+  // Live rather than polled (R32). This panel sits inside the board and used to
+  // reload every 5 seconds; the fleet now says when a host registers, heartbeats
+  // or changes control state, and the panel reloads then.
+  //
+  // `editing` still suppresses the refresh, and it matters more now than it did:
+  // an update arriving mid-edit would overwrite what someone is typing, and a
+  // reload triggered by a *teammate's* action is exactly when that would happen.
+  const onLive = useCallback((event: { type: string }) => {
+    if (editing) return
+    if (event.type === 'live.presence') return
+    void load()
+  }, [editing, load])
+
+  useLiveStream(onLive)
 
   const save = useCallback(async () => {
     setBusy(true)

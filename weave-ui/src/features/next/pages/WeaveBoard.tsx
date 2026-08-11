@@ -6,6 +6,7 @@ import {
   type WeaveTask, type WeaveWorker, type WeaveEnvironment
 } from '@/api/weave'
 import { useSettingsStore } from '@/stores/settings'
+import { useLiveStream } from '@/hooks/useLiveStream'
 import Modal from '@/features/next/Modal'
 import WeaveProjectPanel from '@/features/next/WeaveProjectPanel'
 
@@ -55,11 +56,24 @@ export default function WeaveBoard() {
   }, [])
 
   useEffect(() => { setLoading(true); load() }, [load, workspace])
-  useEffect(() => {
+
+  // Live, not polled (R32). The board used to reload every 4 seconds, which is
+  // not merely wasteful: for up to 4 seconds two people could each act on the
+  // same task believing it was unclaimed. Now the server says when something
+  // changed and the board reloads then.
+  //
+  // `auto` still gates it, so someone reading the board mid-incident can freeze
+  // it — the difference is that pausing now means "stop applying updates"
+  // rather than "stop asking".
+  const onLive = useCallback((event: { type: string }) => {
     if (!auto) return
-    const id = setInterval(load, 4000)
-    return () => clearInterval(id)
+    // Presence is people moving around, not work changing state; reloading the
+    // whole board for it would reintroduce a poll with extra steps.
+    if (event.type === 'live.presence') return
+    void load()
   }, [auto, load])
+
+  const { connected } = useLiveStream(onLive)
 
   const openChain = useCallback(async (id: string) => {
     setOpen(id); setChain(null)
@@ -93,6 +107,18 @@ export default function WeaveBoard() {
             {status.enabled ? (status.installed ? 'installed' : 'not bootstrapped') : 'disabled'}
           </span>
         )}
+        {/* The stream's state, shown rather than assumed. A dropped connection
+            looks exactly like a quiet system — the board just stops changing —
+            so a reader is told when what they see may be stale. */}
+        <span
+          className="badge"
+          title={connected
+            ? 'Live — the server pushes changes as they happen'
+            : 'Reconnecting — this board may be out of date'}
+          style={{ background: connected ? 'var(--good-dim)' : 'var(--warn-dim)' }}
+        >
+          {connected ? 'live' : 'reconnecting…'}
+        </span>
         <label className="chip" style={{ cursor: 'pointer' }}>
           <input type="checkbox" checked={auto} onChange={(e) => setAuto(e.target.checked)} /> auto
         </label>
