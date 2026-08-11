@@ -516,3 +516,48 @@ Status: `accepted` · `superseded by D-NN` · `reversed`.
   variable names. Neither name-guard catches this class: the string is neither the old brand nor
   misspelled. It is the same blind spot that hid the `POSTGRES_*` startup defect at M0 (see the H1
   correction in `WEAVE_CODE_REVIEW.md`), which is twice now, so it is a pattern and not bad luck.
+- **Correction, same day, from the fix (`bd70c36`).** Two things above were sharpened by building it,
+  and the sharpening is the useful part. **(a)** The manager framed the ASGI lowercasing as the trap.
+  It is a trap in the *repair* — `b"WEAVE-WORKSPACE"` fails exactly as silently — but it was **not this
+  defect's class**: `weave_core-workspace` was already lowercase, so a lowercase-literal guard passes
+  against the broken code. A casing rule would have caught the wrong fix and never the bug.
+  **(b)** The manager's "the header sub-class is exhausted at that one raw-ASGI site" held for *raw
+  scope reads* and was false for *copies of the name*: fixing it as duplication — one `WORKSPACE_HEADER`
+  constant, the byte form derived from it, and a test asserting the middleware agrees with the
+  **generated** OpenAPI document — immediately found **five more copies** (`app.py`,
+  `routers/workspaces.py` ×2 including the generated `.mcp.json` kit, `team/playbook.py`,
+  `team/worker.py`). The worker's is the same class as the original defect: a client, sending the
+  header, across a process boundary. **The operative rule is therefore duplication, not spelling** —
+  a name whose counterpart is produced outside this codebase must exist once, and the assertion must
+  compare against the published artifact rather than against another copy of the string.
+
+## D-031 · Retargeting a link type is a declaration change, not a data migration — and `depicted_by` is a view
+- **Date:** 2026-08-11  ·  **Status:** accepted  ·  **Raised by:** developer (P2.1a), ruled by weave-manager
+- **Context:** P2 adds the `Feature` / `Review` / `Insight` / `Question` object types and the R19 link
+  types. Two of them collided with links the fork already carried, and one looked like an R10
+  violation. "Adding an object type or link type to the ontology" is a named tripwire, so all three
+  were held for a ruling rather than settled in the commit.
+- **Decision:**
+  1. **`implemented_by` retargeted** from Task→Commit to **Feature→Task**, per this document's class
+     diagram, with the task-to-commit leg named **`produced`**. Rejected: widening the type to
+     `[Feature,Task] → [Task,Commit]`, a cross-product that would also declare Feature→Commit and
+     Task→Task — links the model does not mean.
+  2. **`reviewed_in` retargeted** from PullRequest→ADR to `[Task,PullRequest]`→**`Review`**, which the
+     M2 gate requires. The ADR leg is what `justified_by` is for, so nothing is lost.
+  3. **`depicted_by` is declared but never stored.** It is a **derived view** over `Diagram.depicts`,
+     read through the reverse lookup that already exists at
+     `weave_core/studio/diagrams/store.py:64` (`depicting()`). `/ask/features` traverses it there.
+  4. **`produced` and `yielded` accepted** as link types beyond R19's sentence — both are in the class
+     diagram, and `/ask/learnings` cannot reach an `Insight` without `yielded`. R19 now carries them.
+- **Why:** On (3), the R10 test is not "are both directions named" — it is **"is there a second write
+  side"**. Two write sides can disagree with nothing to reconcile them; one write side plus a
+  derivation cannot. `Diagram.depicts` is the single stored field, the Studio owns it, and the reverse
+  read was already implemented. So R19's name is satisfied without inventing a second source of truth,
+  and the ontology gains no mechanism the code did not already have.
+- **Consequences:** **Retargeting these links migrates no data**, and that is the part worth recording:
+  ontology link types are *declarations*, edges carry prose relations, and nothing in the tree reads a
+  link-type name — verified, the sole reference was a docstring at `weave/team/coordinator.py:240`,
+  corrected in the same commit. Do not generalise this: the next ontology change may well need a
+  migration, and the reason this one does not is specific and checkable. A test must assert that
+  nothing writes a `depicted_by` edge, so (3) stays true under later edits rather than depending on
+  everyone remembering it.
