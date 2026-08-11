@@ -1339,6 +1339,84 @@ export const onboardChat = async (
 export const onboardApply = async (proposal: OnboardProposal): Promise<OnboardApplyResponse> =>
   (await axiosInstance.post('/onboard/apply', { proposal })).data
 
+// ── Team-vocabulary wizard (P4) ──────────────────────────────────────────────
+//
+// The wizard installs governance by signing ledger versions, so `apply` returns
+// versions and sign-offs rather than a success flag — and `restart_required` is
+// part of the contract because "no restart" is the promise A8 makes.
+
+export interface WizardTemplate {
+  id: string
+  title: string
+  when_to_use: string
+}
+
+export interface WizardQuestion {
+  id: string
+  prompt: string
+  kind: 'one' | 'multi' | 'bool'
+  options?: string[]
+  default?: unknown
+}
+
+export interface WizardPlan {
+  template: string
+  title: string
+  when_to_use: string
+  questions: WizardQuestion[]
+  installs: { rbac: string[]; lifecycle: string[] }
+  kinds: string[]
+}
+
+export interface WizardDiff {
+  kind: string
+  artifact_id: string
+  from_version: number | null
+  to_version: number
+  behaviour_changed: boolean
+  delta: { before: unknown; after: unknown }
+  [key: string]: unknown
+}
+
+export interface WizardProposal {
+  workspace: string
+  template: string
+  diffs: WizardDiff[]
+  count: number
+}
+
+export interface WizardApplied {
+  kind: string
+  artifact_id: string
+  version: number
+  sign_off: { approver: string; reason: string; at: string; role?: string }
+}
+
+export interface WizardApplyResponse {
+  workspace: string
+  applied: WizardApplied[]
+  count: number
+  restart_required: boolean
+}
+
+export const wizardTemplates = async (): Promise<{ templates: WizardTemplate[] }> =>
+  (await axiosInstance.get('/wizard/templates')).data
+
+export const wizardSession = async (template: string): Promise<WizardPlan> =>
+  (await axiosInstance.post('/wizard/session', { template })).data
+
+export const wizardPropose = async (
+  template: string,
+  answers: Record<string, unknown>
+): Promise<WizardProposal> =>
+  (await axiosInstance.post('/wizard/propose', { template, answers })).data
+
+export const wizardApply = async (
+  diffs: WizardDiff[],
+  reason: string
+): Promise<WizardApplyResponse> =>
+  (await axiosInstance.post('/wizard/apply', { diffs, reason })).data
+
 // ── Graph Quality (v-next): dedup · garbage · connectivity · communities ──────
 
 export interface ConnectivityReport {

@@ -388,7 +388,7 @@ data. It stays open.
 - [x] `weave/wizards/session.py` `[new]` — the interview, **built on the copied `GetStarted` / `/onboard/chat` flow** rather than a new mechanism
 - [x] `weave/wizards/templates/` `[new]` — Weave-oriented starting templates for common team shapes (R37)
 - [x] `weave/server/routers/wizard.py` `[new]` — `POST /wizard/{session,propose,apply}`; apply writes **through the ledger**, never to a file (A8, R39)
-- [ ] **UI:** `weave-ui/src/pages/Wizard.tsx` `[new]` — interview → proposal → diff → sign
+- [x] ~~**UI:** `weave-ui/src/pages/Wizard.tsx`~~ `[new]` — interview → proposal → diff → sign. **Deviation:** landed at `weave-ui/src/features/next/pages/Wizard.tsx`, where every other page lives (`src/pages/` does not exist). **Registered in `AppShell` nav + render switch and its `View` union** — an unrouted page is the M2 "written but unreachable" trap, which is what W6 exists for. `tsc --noEmit`: **0 errors** in the files P4 touched.
 - [x] `tests/test_wizard_enforced.py` `[new]` — an RBAC change made in the wizard is a **403 that was a 200** on the next request; a lifecycle change is a **409**
 - [x] `tests/test_wizard_rollback.py` `[new]` — rolling back to the prior ledger version restores prior behaviour, re-asserting both checks
 - [x] `tests/test_no_file_config.py` `[new]` — no wizard path writes a server file or requires a restart

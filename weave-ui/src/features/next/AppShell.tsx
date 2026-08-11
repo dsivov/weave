@@ -3,7 +3,7 @@ import {
   LayoutDashboardIcon, ScaleIcon, FilesIcon, NetworkIcon, SearchIcon,
   GavelIcon, BoxesIcon, SparklesIcon, Code2Icon, RocketIcon,
   BellIcon, SunIcon, MoonIcon, PanelLeftIcon, LayersIcon, PencilRulerIcon, UsersIcon, ShapesIcon,
-  UserCogIcon
+  UserCogIcon, WandSparklesIcon
 } from 'lucide-react'
 import { useSettingsStore } from '@/stores/settings'
 import { setUiMode } from '@/lib/uiMode'
@@ -17,6 +17,7 @@ import GraphQualityNext from '@/features/next/pages/GraphQualityNext'
 import OntologyNext from '@/features/next/pages/OntologyNext'
 import RulesNext from '@/features/next/pages/RulesNext'
 import Studio from '@/features/next/pages/Studio'
+import Wizard from '@/features/next/pages/Wizard'
 import DocumentsNext from '@/features/next/pages/DocumentsNext'
 import ChunkInspector from '@/features/next/pages/ChunkInspector'
 import WeaveBoard from '@/features/next/pages/WeaveBoard'
@@ -28,7 +29,8 @@ import ApiSite from '@/features/ApiSite'
 
 type ViewId =
   | 'dashboard' | 'decisions' | 'documents' | 'graph' | 'retrieval' | 'chunks'
-  | 'rules' | 'ontology' | 'quality' | 'studio' | 'diagrams' | 'weave' | 'getstarted' | 'api'
+  | 'rules' | 'ontology' | 'quality' | 'studio' | 'wizard' | 'diagrams' | 'weave'
+  | 'getstarted' | 'api'
   | 'users'
 
 type NavItem = {
@@ -51,6 +53,7 @@ const NAV: NavItem[] = [
   { id: 'ontology', label: 'Ontology', icon: BoxesIcon, group: 'Governance' },
   { id: 'quality', label: 'Graph Quality', icon: SparklesIcon, group: 'Governance' },
   { id: 'studio', label: 'Studio', icon: PencilRulerIcon, group: 'Governance' },
+  { id: 'wizard', label: 'Team vocabulary', icon: WandSparklesIcon, group: 'Governance' },
   { id: 'diagrams', label: 'Diagrams', icon: ShapesIcon, group: 'Knowledge', flush: true },
   { id: 'weave', label: 'Weave', icon: UsersIcon, group: 'Team' },
   { id: 'users', label: 'Users', icon: UserCogIcon, group: 'Admin' },
@@ -115,6 +118,7 @@ export default function AppShell() {
       case 'ontology': return <OntologyNext />
       case 'quality': return <GraphQualityNext />
       case 'studio': return <Studio />
+      case 'wizard': return <Wizard />
       case 'diagrams': return <DiagramsPage />
       case 'weave': return <WeaveBoard />
       case 'users': return <AdminUsers />
