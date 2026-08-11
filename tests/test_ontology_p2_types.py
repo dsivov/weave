@@ -157,9 +157,17 @@ def test_reviewed_in_terminates_on_a_review_node(link_types):
 
 
 @pytest.mark.offline
-def test_learnings_can_be_traversed_from_a_review(link_types):
-    """`/ask/learnings` walks Review→Insight, so the edge has to be declared."""
-    assert link_types["yielded"]["source_types"] == ["Review"]
+def test_learnings_can_be_traversed_from_a_review_or_a_task(link_types):
+    """`/ask/learnings` walks to Insight, so the edge has to be declared.
+
+    `Task` is a source as well as `Review` because that is what the data does:
+    `coordinator.record_learning(task_id=...)` attaches an insight to a *task*,
+    not to a review, and P2.3's migration therefore has task-anchored insights to
+    move. Declaring only Review→Insight would have left the migration writing an
+    edge the ontology does not admit — or, worse, inventing a review to hang each
+    insight from.
+    """
+    assert link_types["yielded"]["source_types"] == ["Review", "Task"]
     assert link_types["yielded"]["target_types"] == ["Insight"]
 
 

@@ -249,9 +249,11 @@ returns 0 outside the migration path; no endpoint returns a password hash; the s
 - [x] `tests/test_mcp_rest_parity.py` `[new]` — the same question via MCP and REST returns **the same node set**. Assert parity by **calling both surfaces**, not by asserting they share a symbol — a shared call site is the implementation, node-set equality is the contract.
 
 ### P2.3 · Migration and verification
-- [ ] `weave/model/migrate_reviews.py` `[new]` — lift task `reviews` / `learnings` into `Review` / `Insight` nodes; idempotent. **Must cover entries written by `release()`** if that work is in the pinned sha (D-022)
-- [ ] `scripts/check_locators.py` `[new]` — report every artifact node whose locator does not resolve (R24)
-- [ ] `tests/test_migrate_reviews.py` `[new]` — 100% moved by count and content; second run is a no-op
+- [x] `weave/model/migrate_reviews.py` `[new]` — lift task `reviews` / `learnings` into `Review` / `Insight` nodes; idempotent. **Must cover entries written by `release()`** if that work is in the pinned sha (D-022)
+- [x] `scripts/check_locators.py` `[new]` — report every artifact node whose locator does not resolve (R24)
+- [x] `tests/test_migrate_reviews.py` `[new]` — 100% moved by count and content; second run is a no-op
+- [x] **[unplanned]** `tests/test_check_locators.py` `[new]` — the gate's number is produced by a script, so the script is tested: a resolving locator, a dangling one, an unregistered repo and a `rev`-less one are counted separately, and only rot fails the gate. *(Added from P2.3 implementation — R1.)*
+- [x] **[unplanned]** `weave/team/preset/ontology.json` — `yielded` widened to `[Review, Task] → Insight`. `record_learning(task_id=...)` attaches an insight to a **task**, so the migration had task-anchored insights to move; declaring only Review→Insight would have meant writing an edge the ontology does not admit, or inventing a review to hang each insight from. *(Added from P2.3 implementation — R1. Ontology tripwire: additive widening of an existing link type, no retarget.)*
 
 **Gate (M2):** each of the four question classes is answered by a single traversal returning nodes,
 not a text blob; the resolver reports **0** dangling locators; MCP and REST return the same node set;
