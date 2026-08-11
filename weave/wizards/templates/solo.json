@@ -1,0 +1,48 @@
+{
+  "_comment": "One person and their agents. There is no review gate because there is nobody to review — pretending otherwise produces governance that gets bypassed on day two, which teaches the team that governance is decoration. Lifecycle still records the states, so history is intact and the team can adopt `reviewed` later without rewriting anything.",
+  "id": "solo",
+  "title": "Solo — one operator, agents doing the work",
+  "when_to_use": "One human. Governance records what happened rather than gating who may do it.",
+  "questions": [
+    {
+      "id": "operator_role",
+      "prompt": "What do you want your own role called? It is the one unrestricted role.",
+      "kind": "one",
+      "options": ["manager", "architect"],
+      "default": "manager"
+    },
+    {
+      "id": "agents_may_merge",
+      "prompt": "May a dev agent merge to main on its own? A15 keeps agents out of your git credentials either way; this is about whether the graph lets them try.",
+      "kind": "bool",
+      "default": false
+    }
+  ],
+  "rbac": {
+    "name": "solo",
+    "roles": {
+      "manager": ["*"],
+      "developer": [
+        "invoke:ClaimTask", "invoke:AdvanceTask", "invoke:ProposeModule",
+        "invoke:CreateChangeRequest", "invoke:OpenPullRequest",
+        "invoke:RegisterWorker", "invoke:RecordDecision", "invoke:RegisterDevHost"
+      ]
+    }
+  },
+  "lifecycle": {
+    "name": "solo",
+    "machines": {
+      "Task": {
+        "states": ["pending", "in_progress", "review", "done", "blocked"],
+        "initial": "pending",
+        "transitions": [
+          {"from": "pending", "to": "in_progress", "roles": ["developer", "manager"]},
+          {"from": "in_progress", "to": "review", "roles": ["developer", "manager"]},
+          {"from": "review", "to": "done", "roles": ["manager"]},
+          {"from": "in_progress", "to": "blocked"},
+          {"from": "blocked", "to": "in_progress"}
+        ]
+      }
+    }
+  }
+}

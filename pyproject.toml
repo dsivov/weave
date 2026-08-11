@@ -38,6 +38,7 @@ version = { attr = "weave_core.version.__version__" }
 
 [tool.setuptools.package-data]
 "weave.team" = ["preset/*.json"]
+"weave.wizards" = ["templates/*.json"]
 "weave.server" = ["webui/**/*", "static/**/*"]
 
 [tool.pytest.ini_options]

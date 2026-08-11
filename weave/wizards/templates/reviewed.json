@@ -1,0 +1,75 @@
+{
+  "_comment": "Every change is reviewed by someone who did not write it. The house preset, expressed as a wizard template: four roles, a review gate a developer cannot pass alone, and an integrator who owns the merge. Start here when the team has more than two people and the cost of a bad merge is real.",
+  "id": "reviewed",
+  "title": "Reviewed — four roles, nothing merges unreviewed",
+  "when_to_use": "Three or more people, or any team where a bad merge costs more than the review does.",
+  "questions": [
+    {
+      "id": "roles_present",
+      "prompt": "Which of these roles actually exist on your team? Anything you leave out keeps its permissions unassigned rather than granted to someone else.",
+      "kind": "multi",
+      "options": ["manager", "architect", "developer", "integrator"],
+      "default": ["manager", "architect", "developer", "integrator"]
+    },
+    {
+      "id": "who_approves",
+      "prompt": "Who signs off that a change is ready to merge?",
+      "kind": "one",
+      "options": ["architect", "manager"],
+      "default": "architect"
+    },
+    {
+      "id": "who_merges",
+      "prompt": "Who actually merges to main?",
+      "kind": "one",
+      "options": ["integrator", "architect", "manager"],
+      "default": "integrator"
+    },
+    {
+      "id": "developers_self_approve",
+      "prompt": "May a developer approve their own change? Answering yes removes the review gate, which is the whole point of this template.",
+      "kind": "bool",
+      "default": false
+    }
+  ],
+  "rbac": {
+    "name": "reviewed",
+    "roles": {
+      "manager": ["*"],
+      "architect": [
+        "invoke:RecordDecision", "invoke:CreateTask", "invoke:ProposeModule",
+        "invoke:AdvanceTask", "invoke:AdvanceChangeRequest",
+        "invoke:CreateChangeRequest", "invoke:MergeToMain", "invoke:PublishPlan"
+      ],
+      "developer": [
+        "invoke:ClaimTask", "invoke:AdvanceTask", "invoke:ProposeModule",
+        "invoke:CreateChangeRequest", "invoke:OpenPullRequest",
+        "invoke:RegisterWorker", "invoke:RecordDecision", "invoke:RegisterDevHost"
+      ],
+      "integrator": [
+        "invoke:AdvanceTask", "invoke:MergeToMain", "invoke:RunIntegration",
+        "invoke:Deploy", "invoke:Promote"
+      ]
+    }
+  },
+  "lifecycle": {
+    "name": "reviewed",
+    "machines": {
+      "Task": {
+        "states": ["pending", "in_progress", "review", "approved", "testing", "done", "blocked"],
+        "initial": "pending",
+        "transitions": [
+          {"from": "pending", "to": "in_progress", "roles": ["developer", "architect", "integrator"]},
+          {"from": "in_progress", "to": "review", "roles": ["developer", "architect"]},
+          {"from": "review", "to": "approved", "roles": ["architect", "manager"]},
+          {"from": "approved", "to": "testing", "roles": ["integrator"]},
+          {"from": "testing", "to": "done", "roles": ["integrator", "architect"]},
+          {"from": "in_progress", "to": "blocked"},
+          {"from": "review", "to": "blocked"},
+          {"from": "blocked", "to": "in_progress"},
+          {"from": "testing", "to": "in_progress"}
+        ]
+      }
+    }
+  }
+}

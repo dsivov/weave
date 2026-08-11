@@ -385,13 +385,15 @@ data. It stays open.
 - [x] `weave_core/studio/service.py` — register `rbac` and `lifecycle` as ledger artifact kinds (R35); the existing kinds are `rule · ontology · flow · action`
 - [x] **[unplanned]** `tests/test_governance_ledger_kinds.py` `[new]` — the two new kinds behave **exactly like** the established ones: signed into versions, attributed in history with a diff, refusing an unsigned behaviour change, and refusing a stale write through the same P3.3 guard. "Exactly like" is the property that keeps there from being a second path (A8). *(Added from P4.1 implementation — R1.)*
 - [x] **[unplanned]** `weave/server/app.py` — pass `rbac_service` / `lifecycle_service` into `DiffEngine`. Without this the kinds are registered and the engine has nothing to persist them with, which would fail at sign-off rather than at startup. *(Added from P4.1 implementation — R1.)*
-- [ ] `weave/wizards/session.py` `[new]` — the interview, **built on the copied `GetStarted` / `/onboard/chat` flow** rather than a new mechanism
-- [ ] `weave/wizards/templates/` `[new]` — Weave-oriented starting templates for common team shapes (R37)
-- [ ] `weave/server/routers/wizard.py` `[new]` — `POST /wizard/{session,propose,apply}`; apply writes **through the ledger**, never to a file (A8, R39)
+- [x] `weave/wizards/session.py` `[new]` — the interview, **built on the copied `GetStarted` / `/onboard/chat` flow** rather than a new mechanism
+- [x] `weave/wizards/templates/` `[new]` — Weave-oriented starting templates for common team shapes (R37)
+- [x] `weave/server/routers/wizard.py` `[new]` — `POST /wizard/{session,propose,apply}`; apply writes **through the ledger**, never to a file (A8, R39)
 - [ ] **UI:** `weave-ui/src/pages/Wizard.tsx` `[new]` — interview → proposal → diff → sign
-- [ ] `tests/test_wizard_enforced.py` `[new]` — an RBAC change made in the wizard is a **403 that was a 200** on the next request; a lifecycle change is a **409**
-- [ ] `tests/test_wizard_rollback.py` `[new]` — rolling back to the prior ledger version restores prior behaviour, re-asserting both checks
-- [ ] `tests/test_no_file_config.py` `[new]` — no wizard path writes a server file or requires a restart
+- [x] `tests/test_wizard_enforced.py` `[new]` — an RBAC change made in the wizard is a **403 that was a 200** on the next request; a lifecycle change is a **409**
+- [x] `tests/test_wizard_rollback.py` `[new]` — rolling back to the prior ledger version restores prior behaviour, re-asserting both checks
+- [x] `tests/test_no_file_config.py` `[new]` — no wizard path writes a server file or requires a restart
+- [x] **[unplanned]** `weave/server/app.py` · `pyproject.toml` — mount `/wizard` and ship `weave/wizards/templates/*.json` as package data. Without the latter an installed wheel has a wizard with no templates, which fails at first use rather than at build. *(Added from P4.2 implementation — R1.)*
+- [ ] **[deferred]** `/onboard/apply` writes ontology and rules **directly through the services, bypassing the ledger** — so those changes get no signature, no version and no history, while the wizard's do. Not touched in P4: it is pre-existing surface and converting it is unreviewed scope. **Raised as a contract question** — it is arguably A8/A9 drift (a second write path for artifact kinds the ledger owns) rather than a defect. Manager's ruling wanted before P5.
 
 **Gate (M4):** from a fresh install, a wizard run produces a governed workspace with roles and gates
 enforced, with **zero file edits and zero restarts**; an RBAC change is observed as a 403 that was a

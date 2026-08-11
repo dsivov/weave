@@ -1654,6 +1654,13 @@ def create_app(args):
         )
     )
 
+    # The team-vocabulary wizard (P4). It installs governance by signing ledger
+    # versions through the Studio engine — there is no wizard-only write path and
+    # no config file, which is what keeps A8 true.
+    from weave.server.routers.wizard import create_wizard_routes
+
+    app.include_router(create_wizard_routes(rag, studio_engine, api_key=api_key))
+
     # Two route groups the source mounted here are deliberately absent, and their
     # absence is the point rather than an omission:
     #
