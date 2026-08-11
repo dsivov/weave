@@ -241,12 +241,12 @@ returns 0 outside the migration path; no endpoint returns a password hash; the s
 
 ### P2.2 · The answer surface *(A9: one handler, two adapters — write the service function first, then both adapters over it)*
 - [x] `weave/model/answers.py` `[new]` — the four canonical traversals; **one service function each**
-- [ ] `weave/server/routers/ask.py` `[new]` — `/ask/{changes,why,features,learnings}` as thin adapters
-- [ ] `weave/server/mcp.py` — the four MCP tools call **the same functions** as the routers (A9, R26)
+- [x] `weave/server/routers/ask.py` `[new]` — `/ask/{changes,why,features,learnings}` as thin adapters
+- [x] `weave/server/mcp.py` — the four MCP tools call **the same functions** as the routers (A9, R26)
 - [x] `weave/server/routers/projects.py` `[new]` — `POST/GET /projects`, `GET /projects/resolve` — all three scoped to the caller's workspace. **Written and tested during P2.1b** (the R22a 404 assertion needs it), but ⚠ **not yet mounted in `app.py`** — see the router-registration task below. Its behaviour is asserted; its reachability on a live server is not, and that is an M2 gate check.
-- [ ] **[unplanned]** `weave/server/app.py` — mount the `/ask` and `/projects` routers. Recorded as its own task because "written and tested" and "reachable" came apart here, and an unmounted router passes every test it has. *(Added from P2.1b implementation — R1.)*
+- [x] **[unplanned]** `weave/server/app.py` — mount the `/ask` and `/projects` routers. Recorded as its own task because "written and tested" and "reachable" came apart here, and an unmounted router passes every test it has. *(Added from P2.1b implementation — R1.)*
 - [x] `tests/test_answers.py` `[new]` — each of the four questions is one traversal returning nodes
-- [ ] `tests/test_mcp_rest_parity.py` `[new]` — the same question via MCP and REST returns **the same node set**. Assert parity by **calling both surfaces**, not by asserting they share a symbol — a shared call site is the implementation, node-set equality is the contract.
+- [x] `tests/test_mcp_rest_parity.py` `[new]` — the same question via MCP and REST returns **the same node set**. Assert parity by **calling both surfaces**, not by asserting they share a symbol — a shared call site is the implementation, node-set equality is the contract.
 
 ### P2.3 · Migration and verification
 - [ ] `weave/model/migrate_reviews.py` `[new]` — lift task `reviews` / `learnings` into `Review` / `Insight` nodes; idempotent. **Must cover entries written by `release()`** if that work is in the pinned sha (D-022)
@@ -393,6 +393,7 @@ milestone that would turn it into one.
 | ~~W1~~ | ~~**A4 does not say the three storage paths differ on tenancy.**~~ **Closed 2026-08-11** — dsivov chose *experimental, single-workspace*; A4 is at **v4**, logged as **D-029**, and the refusal is now a P2.1 task with a test. | M1 review H1 | — |
 | W2 | **Membership is indexed only by user**, so "who can reach workspace X" is a full scan. Correct at this scale. | M1 review M2 | an audit view needs the reverse question, or user counts grow — earliest is P4. |
 | W3 | **Nothing refuses multi-worker startup on the in-process bus** (A7). A client on one worker would silently never receive events published on another. | M0 + M1 contract checks | **P3** — the Postgres `LISTEN/NOTIFY` adapter ships with the refusal, not after it. |
+| W4 | **A rule enforced in an adapter protects only the callers who arrive through that adapter.** Three instances now, not a coincidence: the last-administrator guard lived in the HTTP router, so the local console could brick the install (P2.0); the workspace header was read in one middleware, so nothing else could set the tenant (D-030); and M1's own finding M3 was the same shape — a lockout fix that reopened the lockout by another door. Each was found by a *second* surface arriving later. **Open question for the manager:** does this belong in `DECISIONS.md` as a stated rule, or in the M2 review as an observation? Raised twice by message; both sends were denied delivery, so it is recorded here instead. | P2.0 · P2.1c | a fourth instance, or the M2 review — whichever comes first. The test that catches the class is "enforce in the service, assert on every surface". |
 
 **Traceability:** every task here maps to a numbered requirement in
 [WEAVE_DRP.md](WEAVE_DRP.md) §3 or a gate criterion in §5. New work gets a task here **first**

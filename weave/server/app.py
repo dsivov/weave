@@ -1567,6 +1567,24 @@ def create_app(args):
 
     app.include_router(create_user_routes(user_service, api_key=api_key))
 
+    # The P2 answer surface. `/ask/*` and `/projects/*` mount together because
+    # they are two halves of one promise: a question returns nodes, and a node
+    # resolves through its locator to a real document. Either alone is half an
+    # answer — citable but unreadable, or readable but uncitable.
+    #
+    # The `ProjectLayout` registry goes through the same `RecordStore` port the
+    # user store and the fleet registries use (A4), so registrations follow the
+    # deployment's storage path rather than inventing a fourth one.
+    from weave.model.project_layout import JsonProjectLayoutStore, ProjectLayoutRegistry
+    from weave.server.routers.ask import create_ask_routes
+    from weave.server.routers.projects import create_project_routes
+
+    project_registry = ProjectLayoutRegistry(JsonProjectLayoutStore(str(args.working_dir)))
+    app.state.project_registry = project_registry
+
+    app.include_router(create_project_routes(project_registry, api_key=api_key))
+    app.include_router(create_ask_routes(rag, api_key=api_key))
+
     # Two route groups the source mounted here are deliberately absent, and their
     # absence is the point rather than an omission:
     #

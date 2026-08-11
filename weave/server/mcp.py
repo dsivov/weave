@@ -569,6 +569,57 @@ def create_mcp_server(
 
         return _current_workspace.get() or "default"
 
+    # ── the four questions (A9, R26) ──────────────────────────────────
+    #
+    # Each of these calls the *same* function in `weave.model.answers` that
+    # `weave/server/routers/ask.py` calls — not an equivalent one, the same one.
+    # R26 says a human and an agent asking the same question get the same node
+    # set, and the only durable way to hold that is to leave the two adapters
+    # nothing of their own to get wrong. Nothing here filters, reshapes or
+    # re-ranks; the tool bodies are one call and a return.
+    #
+    # `tests/test_mcp_rest_parity.py` asserts it by calling both surfaces and
+    # comparing node sets, rather than by checking they share a symbol — a
+    # shared call site is the implementation, node-set equality is the contract.
+
+    def _answer_graph():
+        _require_quadruple(rag)
+        graph = getattr(rag, "chunk_entity_relation_graph", None)
+        if graph is None:
+            raise ToolError("the answer surface requires Weave mode")
+        return graph
+
+    @mcp.tool()
+    async def ask_changes(feature: Optional[str] = None) -> dict:
+        """What changed — the delivery chain, as nodes you can cite and resolve. Pass `feature` to anchor on one capability; omit it for every change request in this workspace and what came of it. Returns ChangeRequest → Task → Commit → PullRequest → IntegrationRun nodes, each with the locator that leads back to the real document. Ask this before claiming work, so you inherit the history instead of rediscovering it."""
+        from weave.model.answers import ask_changes as _ask
+
+        return await _ask(_answer_graph(), feature=feature)
+
+    @mcp.tool()
+    async def ask_why(node: str) -> dict:
+        """Why something is the way it is — the decision record behind a node and the artifacts it justifies. Requires `node`, because "why" is a question *about* something. Returns the ArchitectureDecisionRecord nodes in scope plus the chain that reaches them, so you can read the rejected options rather than re-argue them. Ask this before changing a design someone already reasoned about."""
+        from weave.model.answers import ask_why as _ask
+
+        try:
+            return await _ask(_answer_graph(), node=node)
+        except ValueError as e:
+            raise ToolError(str(e))
+
+    @mcp.tool()
+    async def ask_features(feature: Optional[str] = None) -> dict:
+        """What the product does — capabilities, and the modules, PRDs, RFCs and diagrams that describe each. Pass `feature` for one, omit for all. Returns nodes with locators, not prose, so every claim resolves to a document at a pinned revision. Ask this when you need to know whether something already exists before building it."""
+        from weave.model.answers import ask_features as _ask
+
+        return await _ask(_answer_graph(), feature=feature)
+
+    @mcp.tool()
+    async def ask_learnings(scope: Optional[str] = None) -> dict:
+        """What the team has learned — Review and Insight nodes. Pass `scope` to ask what was learned about a particular node; omit for everything. These were list fields on task records before they became nodes, which is why they can now be traversed and cited. Ask this before repeating an approach someone already tried."""
+        from weave.model.answers import ask_learnings as _ask
+
+        return await _ask(_answer_graph(), scope=scope)
+
     @mcp.tool()
     async def list_diagrams(depicts: Optional[str] = None) -> dict:
         """List the project diagrams shared in this workspace — id, title, mermaid type, version, and what each depicts. Diagrams live on the server, so this is the same set your teammates see. Pass `depicts` to filter to the ones covering a given change request, module, or task id. Call this before drawing something new: reuse or revise an existing diagram rather than starting a parallel one."""
