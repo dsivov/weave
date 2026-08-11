@@ -53,6 +53,36 @@ None.
 
 None new. S1 from M0 (the published default JWT secret) was closed as P1's first task.
 
+## Correction, 2026-08-11 — A6 and A14 did **not** hold, and this review said they did
+
+Recorded here rather than quietly amended in the table below, because a review is read later as fact
+and the table's verdicts are the part people trust.
+
+The developer, reading before starting P2, found that `weave/server/workspace_pool.py:192` reads the
+request workspace from a rebrand artifact rather than the documented `WEAVE-WORKSPACE` header.
+Reproduced independently: line 214 is the only `_current_workspace.set()` in the tree, so the lookup
+misses on every request and **every request resolves to `default_workspace`**. The tenant boundary
+this whole design rests on was not enforced at all. That is **Critical**, it predates P2, and both
+this review and M0's missed it (D-030).
+
+**Why it was missed, which matters more than the miss.** A6 was checked by driving 403 / 200 / 401
+across roles, and A14 by confirming per-workspace membership was persisted and carried in the token.
+Both are true and both were verified. Neither asks the next question — *does the workspace the client
+names actually select anything?* The M1 gate has the same shape: "an admin creates a user → that user
+signs in → sees **only** granted workspaces" is satisfiable entirely at the token and membership
+layer, and it was satisfied there. **A gate that can pass without the data layer participating does
+not test the data layer.** M2 gains `tests/test_workspace_isolation.py` for exactly this: two
+workspaces, real store, different data over HTTP.
+
+This is the second instance of one mechanism — a renamed literal that is compared against something
+produced outside this codebase, where self-consistency proves nothing. The first was the `POSTGRES_*`
+startup defect corrected in [WEAVE_CODE_REVIEW.md](WEAVE_CODE_REVIEW.md). Twice is a pattern, so the
+rule is written down in D-030 rather than left as a habit: **a renamed literal is safe when both sides
+of the comparison were renamed together, and broken when the other side is an external contract.**
+
+The verdicts below stand as originally written, with A6 and A14 read as **superseded by this
+correction**.
+
 ## Contract check (methodology R11)
 
 | ID | Verdict | Evidence |

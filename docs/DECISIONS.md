@@ -482,3 +482,37 @@ Status: `accepted` · `superseded by D-NN` · `reversed`.
   documentation is the trap this decision exists to close. That lands as a P2 task with a test, since
   P2 is the phase that makes the workspace boundary load-bearing (D-028). The M2 gate keeps running all
   three paths: experimental means restricted, not unverified. Watch item **W1** in the work plan closes.
+
+## D-030 · Restoring a declared contract is not a contract change — and the workspace header was never honoured
+- **Date:** 2026-08-11  ·  **Status:** accepted  ·  **Raised by:** developer (P2 reading), verified by weave-manager
+- **Context:** `weave/server/workspace_pool.py:192` reads the request workspace from a header literal
+  left behind by the P0 rebrand. Its own docstring (line 176), the OpenAPI document (`app.py:1392`),
+  the UI, the worker, the playbook and six router docstrings all declare **`WEAVE-WORKSPACE`**. Line
+  214 is the **only** `_current_workspace.set()` in the tree, so when that lookup misses — and it
+  always misses — every request resolves to `default_workspace`. In a system whose tenant boundary is
+  the workspace, that is a silent and total collapse of isolation: with P1's user store live,
+  per-workspace membership grants decide nothing. Two review cycles missed it.
+- **Decision:** Fix the literal to the documented header, inside P2 and **before** the rest of the
+  phase. **No amendment, no version bump, no `D-NN` authorising a contract change** — the ruling is
+  that *restoring* a contract every other surface already publishes is not *changing* one. Changing
+  what the OpenAPI document publishes would be.
+- **Why record it at all:** the question recurs, and the answer should be findable rather than
+  re-argued. It also fixes the boundary: the test is whether the **published** contract moves, not
+  whether a string in the code does.
+- **Consequences:** Sequenced ahead of P2.0 because P2.1's tenancy test would otherwise be written
+  against a broken substrate and could pass for the wrong reason. Two tests are required, and the
+  second is the one that matters: the middleware honours the documented header, **and two workspaces
+  see different data over HTTP through the real store**. M1's gate said "sees only granted workspaces"
+  and passed — verified at the token and membership layer, never at the data layer. That hole is how
+  this survived M0 and M1, and closing it is part of the fix.
+- **The generalisation, which is the durable part.** `weave_core-` appears in six literals. Five are
+  harmless — the JWT default-secret sentinel (`config.py:418`, `auth.py:32`, `app.py:567`) and the
+  `weave_core-server` argv in `tests/conftest.py` — because both sides of those comparisons were
+  renamed together. The workspace header is compared against a value produced **outside this
+  codebase**, where self-consistency is worth nothing. **Rule: a renamed literal is safe when both
+  sides of the comparison were renamed together, and broken when the other side is an external
+  contract.** The class to audit is therefore every literal matched against something a client,
+  database or peer supplies — headers, query parameters, event names, storage keys, environment
+  variable names. Neither name-guard catches this class: the string is neither the old brand nor
+  misspelled. It is the same blind spot that hid the `POSTGRES_*` startup defect at M0 (see the H1
+  correction in `WEAVE_CODE_REVIEW.md`), which is twice now, so it is a pattern and not bad luck.
