@@ -22,6 +22,7 @@ from pydantic import BaseModel, Field
 
 from weave.server.users import (
     ACTIVE,
+    ADMIN_ROLES,
     DISABLED,
     UserConflict,
     UserError,
@@ -30,9 +31,7 @@ from weave.server.users import (
 )
 from weave.server.utils import authenticated_principal, get_combined_auth_dependency
 
-#: Roles allowed to administer users. Deliberately narrow: the ability to create
-#: an account and grant it a role is the ability to grant any role.
-ADMIN_ROLES = {"admin", "manager"}
+__all__ = ["ADMIN_ROLES", "create_user_routes"]
 
 
 class UserCreate(BaseModel):
@@ -131,8 +130,6 @@ def create_user_routes(users: UserService, api_key: Optional[str] = None) -> API
     @router.patch("/{user_id}", dependencies=[Depends(combined_auth)])
     def update_user(user_id: str, body: UserUpdate, actor: str = Depends(_require_admin)):
         try:
-            target = users.require(user_id)
-            _refuse_self_demotion(actor, target, body)
             user = users.update(
                 user_id,
                 display_name=body.display_name,
@@ -142,6 +139,8 @@ def create_user_routes(users: UserService, api_key: Optional[str] = None) -> API
             )
         except UserNotFound as e:
             raise HTTPException(status_code=404, detail=str(e))
+        except UserConflict as e:
+            raise HTTPException(status_code=409, detail=str(e))
         except UserError as e:
             raise HTTPException(status_code=400, detail=str(e))
         return user.public_dict()
@@ -149,11 +148,12 @@ def create_user_routes(users: UserService, api_key: Optional[str] = None) -> API
     @router.delete("/{user_id}", status_code=204, dependencies=[Depends(combined_auth)])
     def delete_user(user_id: str, actor: str = Depends(_require_admin)):
         try:
-            target = users.require(user_id)
+            users.require(user_id)
+            users.delete(user_id)
         except UserNotFound as e:
             raise HTTPException(status_code=404, detail=str(e))
-        _refuse_removing_the_last_admin(actor, target)
-        users.delete(user_id)
+        except UserConflict as e:
+            raise HTTPException(status_code=409, detail=str(e))
         return None
 
     @router.post("/{user_id}/password", status_code=204, dependencies=[Depends(combined_auth)])
@@ -181,47 +181,12 @@ def create_user_routes(users: UserService, api_key: Optional[str] = None) -> API
             raise HTTPException(status_code=404, detail=str(e))
         return {"workspaces": user.workspaces}
 
-    # -- guards that exist because the alternative is a locked-out install ----
-
-    def _refuse_self_demotion(actor: str, target, body: UserUpdate) -> None:
-        """An admin may not remove their own last route back in.
-
-        Disabling yourself, or demoting yourself out of the admin roles, is
-        indistinguishable from a typo until the next request — at which point
-        nobody can undo it. Refuse when the actor is the target and no other
-        active admin remains.
-        """
-        if actor in ("", "bootstrap") or target.username != actor:
-            return
-        losing_admin = body.role is not None and body.role not in ADMIN_ROLES
-        losing_active = body.status == DISABLED
-        if not (losing_admin or losing_active):
-            return
-        if _other_active_admins(target) == 0:
-            raise HTTPException(
-                status_code=409,
-                detail=(
-                    "You are the only active administrator. Promote someone else "
-                    "first, or this install has no way back in."
-                ),
-            )
-
-    def _refuse_removing_the_last_admin(actor: str, target) -> None:
-        if target.role in ADMIN_ROLES and target.status == ACTIVE:
-            if _other_active_admins(target) == 0:
-                raise HTTPException(
-                    status_code=409,
-                    detail=(
-                        "That is the only active administrator; deleting it would "
-                        "leave the install unadministrable."
-                    ),
-                )
-
-    def _other_active_admins(excluding) -> int:
-        return sum(
-            1
-            for u in users.list_users()
-            if u.id != excluding.id and u.status == ACTIVE and u.role in ADMIN_ROLES
-        )
+    # The "an install always keeps one active administrator" guard used to live
+    # here, as two functions. It now lives in `UserService`, because a rule that
+    # prevents an irreversible lockout has to hold on every surface: enforced in
+    # this adapter, it protected callers arriving over HTTP and left the local
+    # console — the one an operator reaches for *after* being locked out — free
+    # to cause the exact lockout it guards against. The router's remaining job is
+    # to map the service's `UserConflict` onto 409.
 
     return router

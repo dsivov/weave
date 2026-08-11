@@ -20,6 +20,12 @@ requires-python = ">=3.12"
 license = { text = "MIT" }
 dependencies = []
 
+# The local administration command. Not a fourth deployable (A1): it ships
+# inside the server package and is run on the machine the server runs on, which
+# is the whole point — see weave/cli/__init__.py.
+[project.scripts]
+weave = "weave.cli:main"
+
 [tool.setuptools.packages.find]
 include = ["weave*", "weave_core*"]
 exclude = ["tests*", "scripts*", "deploy*", "docs*", "weave-ui*"]

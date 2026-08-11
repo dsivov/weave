@@ -55,6 +55,16 @@ USERNAME_RE = re.compile(r"^[A-Za-z0-9._-]{2,64}$")
 ACTIVE = "active"
 DISABLED = "disabled"
 
+#: Roles that can administer users. Deliberately narrow: the ability to create
+#: and promote accounts is the ability to grant yourself anything.
+#:
+#: Defined here rather than in the router because the invariant it supports —
+#: *an install always keeps at least one active administrator* — is a property
+#: of the user store, not of HTTP. It used to live in the router, which meant
+#: the guard protected only callers who arrived over the network; the console
+#: could demote the last admin and brick the install it exists to rescue.
+ADMIN_ROLES = {"admin", "manager"}
+
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
@@ -336,6 +346,17 @@ class UserService:
         status: Optional[str] = None,
     ) -> User:
         user = self.require(user_id)
+        if status is not None and status not in (ACTIVE, DISABLED):
+            raise UserError(f"Status must be '{ACTIVE}' or '{DISABLED}'.")
+
+        losing_admin = role is not None and role not in ADMIN_ROLES
+        losing_active = status == DISABLED
+        if losing_admin or losing_active:
+            self._require_another_administrator_remains(
+                user,
+                "demoting" if losing_admin else "disabling",
+            )
+
         if display_name is not None:
             user.display_name = display_name
         if email is not None:
@@ -343,8 +364,6 @@ class UserService:
         if role is not None:
             user.role = role
         if status is not None:
-            if status not in (ACTIVE, DISABLED):
-                raise UserError(f"Status must be '{ACTIVE}' or '{DISABLED}'.")
             user.status = status
         user.updated_at = _now()
         self._store.save(SYSTEM_REALM, user)
@@ -379,10 +398,38 @@ class UserService:
         user = self.get(user_id)
         if user is None:
             return False
+        self._require_another_administrator_remains(user, "deleting")
         ok = self._store.delete(SYSTEM_REALM, user_id)
         if ok:
             logger.info(f"user store: deleted '{user.username}'")
         return ok
+
+    def _require_another_administrator_remains(self, target: User, verb: str) -> None:
+        """Refuse a change that would leave the install with no way back in.
+
+        The invariant is *at least one active administrator exists*, and it is
+        enforced here rather than in an adapter so that it holds on every
+        surface. It previously lived in the HTTP router, where it protected only
+        callers arriving over the network — while the local console, which
+        exists precisely because a locked-out install has no network route back,
+        could demote or delete the last admin without complaint.
+
+        Only fires when the target is itself the last active administrator, so
+        ordinary edits to ordinary accounts are untouched.
+        """
+        if not (target.role in ADMIN_ROLES and target.status == ACTIVE):
+            return
+        others = sum(
+            1
+            for u in self._store.list(SYSTEM_REALM)
+            if u.id != target.id and u.status == ACTIVE and u.role in ADMIN_ROLES
+        )
+        if others == 0:
+            raise UserConflict(
+                f"'{target.username}' is the only active administrator; {verb} it "
+                "would leave this install with no way to administer users. "
+                "Promote someone else first."
+            )
 
     def record_login(self, user: User) -> None:
         user.last_login_at = _now()
@@ -415,142 +462,3 @@ class UserService:
 _TIMING_DUMMY_HASH = bcrypt.hashpw(
     secrets.token_bytes(16), bcrypt.gensalt()
 ).decode("utf-8")
-
-
-# ── server-side bootstrap ────────────────────────────────────────────────────
-
-
-#: Where the server keeps its data when nothing says otherwise. Matches the
-#: default in weave/server/config.py.
-DEFAULT_WORKING_DIR = "./weave_storage"
-
-
-def _default_store(working_dir: Optional[str] = None):
-    """The store the server would use, resolved without importing its config.
-
-    Deliberately reads the environment directly rather than going through
-    :mod:`weave.server.config`. That module parses ``sys.argv`` at import to
-    build the *server's* option set, so importing it here would make this
-    command inherit hundreds of server flags and reject its own subcommands.
-    Staying independent also keeps the command usable on a machine that carries
-    the daemon rather than the server (R75).
-    """
-    import os
-
-    base = working_dir or os.environ.get("WEAVE_WORKING_DIR", DEFAULT_WORKING_DIR)
-    return JsonUserStore(str(base))
-
-
-def main(argv: Optional[List[str]] = None) -> int:
-    """Administer users from the machine the server runs on.
-
-    **Why this exists.** Administering users over HTTP requires an admin, and
-    there are two ordinary ways to have none: a fresh install before anyone is
-    created, and an install migrated from environment accounts, where nobody
-    held an admin role because the old scheme had no such concept — the operator
-    administered by editing a file and restarting.
-
-    The HTTP surface opens a bootstrap window only while *no* user exists, and
-    it closes for good on the first one. That is the right rule for a network
-    surface and it leaves the migrated install with a server it cannot
-    administer — which is precisely the trap this milestone removes.
-
-    So the escape hatch is local rather than remote. Running this already
-    requires access to the machine and its storage, which is strictly more
-    authority than any HTTP caller has, so it grants nothing new — it just
-    refuses to be reachable from the network.
-
-    This is the seed of `weave user add` (R44); the CLI in P6 calls these same
-    service functions rather than reimplementing them (A9).
-
-        python -m weave.server.users list
-        python -m weave.server.users add alice --role admin --workspaces alpha,beta
-        python -m weave.server.users promote alice --role admin
-        python -m weave.server.users passwd alice
-    """
-    import argparse
-    import getpass
-
-    parser = argparse.ArgumentParser(
-        prog="python -m weave.server.users",
-        description="Administer Weave users from the server machine.",
-    )
-    parser.add_argument(
-        "--working-dir", default="",
-        help="where the store lives (default: $WEAVE_WORKING_DIR, then ./weave_storage)",
-    )
-    sub = parser.add_subparsers(dest="command", required=True)
-
-    sub.add_parser("list", help="list every user")
-
-    add = sub.add_parser("add", help="create a user")
-    add.add_argument("username")
-    add.add_argument("--role", default="user")
-    add.add_argument("--display-name", default="")
-    add.add_argument("--email", default="")
-    add.add_argument("--workspaces", default="", help="comma separated")
-    add.add_argument("--password", default="", help="prompted for if omitted")
-
-    promote = sub.add_parser("promote", help="change a user's role")
-    promote.add_argument("username")
-    promote.add_argument("--role", required=True)
-
-    passwd = sub.add_parser("passwd", help="set a user's password")
-    passwd.add_argument("username")
-    passwd.add_argument("--password", default="", help="prompted for if omitted")
-
-    args = parser.parse_args(argv)
-    service = UserService(_default_store(args.working_dir or None))
-
-    def _resolve(username: str) -> User:
-        user = service.by_username(username)
-        if user is None:
-            raise SystemExit(f"No user '{username}'.")
-        return user
-
-    try:
-        if args.command == "list":
-            users = service.list_users()
-            if not users:
-                print("No users yet.")
-                return 0
-            width = max(len(u.username) for u in users)
-            for u in users:
-                grants = ", ".join(u.workspaces) or "-"
-                print(f"{u.username:<{width}}  {u.role:<12} {u.status:<9} {grants}")
-            return 0
-
-        if args.command == "add":
-            password = args.password or getpass.getpass("Password: ")
-            user = service.create(
-                username=args.username,
-                password=password,
-                role=args.role,
-                display_name=args.display_name,
-                email=args.email,
-                workspaces=[w.strip() for w in args.workspaces.split(",") if w.strip()],
-                granted_by="console",
-            )
-            print(f"Created '{user.username}' with role '{user.role}'.")
-            return 0
-
-        if args.command == "promote":
-            user = _resolve(args.username)
-            service.update(user.id, role=args.role)
-            print(f"'{user.username}' is now '{args.role}'.")
-            return 0
-
-        if args.command == "passwd":
-            user = _resolve(args.username)
-            password = args.password or getpass.getpass("New password: ")
-            service.set_password(user.id, password)
-            print(f"Password set for '{user.username}'.")
-            return 0
-    except UserError as e:
-        raise SystemExit(str(e))
-
-    return 1
-
-
-if __name__ == "__main__":  # pragma: no cover - entry point
-    raise SystemExit(main())
