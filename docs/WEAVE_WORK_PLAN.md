@@ -521,6 +521,15 @@ supervision must not have changed the claim protocol.
 >   themselves serve correctly (4.1 MB JS, 150 kB CSS, `<title>Weave</title>`). **This is the M6 gate in
 >   miniature:** a clean machine following the published steps reaches a 404 at the first URL a human
 >   would type.
+> - [x] **W5 — CLOSED 2026-08-11.** The P2 migration finally ran on real data, against the demo tenant
+>   (`docs/DEMO_SCENARIO.md`): 7 tasks, 6 reviews and 7 learnings → **13 nodes created**, second run
+>   **0 created / 13 already present**, verify **complete, 0 missing, 0 mismatched**. R25's criterion met
+>   against real data rather than fixtures, after four phases of staying untriggered.
+> - [ ] **W11 — `migrate_reviews.py` has no CLI and no endpoint.** It is a library function, so lifting
+>   task reviews/learnings into nodes needs a hand-written script that constructs a task store and a
+>   graph. Seeding the demo tenant required exactly that. **A migration an operator cannot invoke is a
+>   migration that will not be run** — give it a `weave` subcommand in this phase, where the CLI is the
+>   deliverable.
 > - [ ] **W7 — the operator instructions that name commands which do not exist**
 >   (`weave/server/gunicorn.py:103,108`). Harmless while nobody follows them; this is the phase where
 >   published steps are the deliverable and a wrong command ships as documentation.
