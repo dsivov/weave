@@ -31,11 +31,12 @@ from __future__ import annotations
 import argparse
 from typing import List, Optional
 
+from weave.cli import migrate as _migrate
 from weave.cli import users as _users
 from weave_core.version import __version__
 
 #: Subcommand groups, in the order they appear in `weave --help`.
-_GROUPS = (_users,)
+_GROUPS = (_users, _migrate)
 
 
 def build_parser() -> argparse.ArgumentParser:

@@ -24,6 +24,7 @@ from __future__ import annotations
 import json
 import os
 import shlex
+import sys
 import time
 import urllib.error
 import urllib.request
@@ -279,6 +280,7 @@ def run_worker(
     client.register(worker_id, role=role, host=host, goal=goal)
     completed: List[str] = []
     idle = 0
+    halted_reason: Optional[str] = None
 
     def stopped() -> bool:
         return client.heartbeat(worker_id).get("control") == "stop"
@@ -317,7 +319,29 @@ def run_worker(
         if result.commit_sha:
             client.record_commit(tid, sha=result.commit_sha, subject=result.summary)
 
-        if not (result.ok and git.run_tests()):
+        # "The tests failed" and "the test command could not run" are different
+        # facts, and only the first says anything about the code (W9). The loop
+        # used to record a **learning** either way — and P2 made learnings
+        # `Insight` nodes that `/ask/learnings` serves as fact, so a machine
+        # missing an interpreter wrote a false statement about the repository
+        # into the graph, where the next reader meets it as a finding.
+        #
+        # So a broken test command stops this worker loudly instead. It is an
+        # operational fault, the same task will fail for the same reason on the
+        # next attempt, and grinding through the queue would fabricate one
+        # insight per task.
+        try:
+            tests_passed = git.run_tests()
+        except UnrunnableTestCommand as e:
+            logger.error(
+                f"Weave worker '{worker_id}': the test command could not run — "
+                f"{e}. Stopping without recording a learning: this says nothing "
+                "about the code (W9)."
+            )
+            halted_reason = str(e)
+            break
+
+        if not (result.ok and tests_passed):
             client.record_learning(
                 f"task {tid} did not pass: {result.summary or 'tests failed'}", task_id=tid)
             continue                                    # left for review / re-work
@@ -330,7 +354,42 @@ def run_worker(
         logger.info(f"Weave worker '{worker_id}' completed '{tid}' → PR opened")
 
     client.heartbeat(worker_id)
-    return {"worker": worker_id, "completed": completed, "count": len(completed)}
+    out: Dict[str, Any] = {
+        "worker": worker_id, "completed": completed, "count": len(completed),
+    }
+    if halted_reason:
+        # Surfaced rather than swallowed: a supervisor reading the fleet needs to
+        # know this machine stopped for a reason the code cannot fix.
+        out["halted"] = halted_reason
+    return out
+
+
+class UnrunnableTestCommand(RuntimeError):
+    """The test command could not be executed at all (W9).
+
+    (Named to avoid a leading ``Test``, which pytest tries to collect as a test
+    class — a small thing, but a warning on every run is a warning people stop
+    reading.)
+
+    Distinct from "the tests failed", and the distinction is the whole point.
+    A failing test says something about the code; a command that could not run
+    says something about the **machine**. The loop used to conflate them and
+    write a `learning` either way — and P2 made learnings `Insight` nodes that
+    `/ask/learnings` serves to humans and agents **as fact**. So a missing
+    interpreter did not merely fail a task: it put a false statement about the
+    code into the graph, where the next reader meets it as a finding.
+
+    A wrong task outcome is recoverable. A fabricated insight is read later as
+    evidence.
+    """
+
+
+#: The default test command. `sys.executable` rather than a bare ``python``,
+#: because Debian, Ubuntu and most containers ship ``python3`` with no ``python``
+#: at all — so the old default failed on every task, on most hosts, and the loop
+#: recorded that as "tests failed" (W9). Using the interpreter already running
+#: the worker is correct inside the dev-agent image and everywhere else.
+DEFAULT_TEST_CMD = [sys.executable, "-m", "pytest", "-q"]
 
 
 # ── shell implementations + CLI entrypoint (thin; not unit-covered) ──────────
@@ -338,7 +397,7 @@ def run_worker(
 @dataclass
 class ShellGit:  # pragma: no cover - trivial shell-outs; new_branch is covered
     workdir: str = "."
-    test_cmd: List[str] = field(default_factory=lambda: ["python", "-m", "pytest", "-q"])
+    test_cmd: List[str] = field(default_factory=lambda: list(DEFAULT_TEST_CMD))
     env: Dict[str, str] = field(default_factory=dict)
     base_branch: str = "main"
 
@@ -360,7 +419,26 @@ class ShellGit:  # pragma: no cover - trivial shell-outs; new_branch is covered
         self._run(["git", "clean", "-fd"])
 
     def run_tests(self) -> bool:
-        return self._run(self.test_cmd).returncode == 0
+        """True if the tests passed, False if they failed.
+
+        Raises :class:`UnrunnableTestCommand` when the command could not be
+        executed — a missing interpreter, a bad path, a non-executable file.
+        That is **not** a test failure and must not be recorded as one (W9).
+        """
+        import subprocess
+
+        try:
+            completed = self._run(self.test_cmd)
+        except (FileNotFoundError, NotADirectoryError, PermissionError, OSError) as e:
+            raise UnrunnableTestCommand(
+                f"could not run {self.test_cmd!r} in {self.workdir!r}: {e}") from e
+        # 127 is the shell's "command not found"; some runners surface it that
+        # way rather than raising, and it is still not a test result.
+        if completed.returncode == 127:
+            raise UnrunnableTestCommand(
+                f"{self.test_cmd!r} exited 127 (command not found) in "
+                f"{self.workdir!r}: {(completed.stderr or '').strip()[:200]}")
+        return completed.returncode == 0
 
 
 @dataclass
