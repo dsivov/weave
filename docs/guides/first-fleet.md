@@ -64,6 +64,41 @@ under a process manager.
 
 Then open `http://<host>:9800/` — the root redirects to the UI.
 
+### If the server's model backend is a local one
+
+The server has its own model backend, and it is the **only** place in Weave a
+model credential exists — no Claude Code seat, human or agent, ever sees one.
+Point it at a hosted API and there is nothing more to do here. Point it at a
+local runtime and two settings decide whether ingestion works at all. Both
+present as bugs rather than as configuration, which is why they are in the guide
+rather than in a tuning appendix.
+
+**Keep the model resident.** With a runtime that unloads between calls, every
+chunk pays the cold start again — measured at ~15 s per chunk on the demo
+instance, and extraction died on `httpx.ReadTimeout` before finishing a single
+document. Pin the model (ollama: `keep_alive`) and give the server room:
+
+```
+export WEAVE_TIMEOUT=600
+```
+
+With the model pinned and that timeout, the same document processed in about a
+minute. The symptom is a timeout, so it reads as a Weave defect; it is not.
+
+**Give the embedding backend a batch that fits a chunk.** llama.cpp defaults to a
+512-token physical batch and Weave's chunks reach ~1500, so every embedding call
+returns 500. Start it with:
+
+```
+--batch-size 8192 --ubatch-size 8192
+```
+
+The error message names the cause exactly — **in the model server's log, not
+Weave's**, which is the only reason it is hard to find.
+
+*(Both measured on the demo instance while getting retrieval working, 2026-08-11.
+Neither is a defect in Weave; both are what a clean machine hits.)*
+
 ---
 
 ## 3 · Create the first administrator
@@ -220,3 +255,5 @@ prints is the number a real run will create. Running it twice is safe.
 | Every task "fails its tests" | the test command may not exist on that host — the worker halts rather than recording a false finding |
 | A permissions change did nothing, and Studio shows no version | it was written outside the ledger — that is a bug, not a setting; see D-032/D-034 |
 | `weave up` refuses to start | `weave init` has not run, or `weave.env` was never sourced |
+| Ingestion times out on a local model | the model is unloading between calls — pin it and raise `WEAVE_TIMEOUT`; see step 2 |
+| Every embedding call returns 500 | the embedding server's batch is smaller than a chunk — read **its** log, not Weave's; see step 2 |
