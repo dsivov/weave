@@ -56,6 +56,7 @@ from weave.server.routers.graph import create_graph_routes
 from weave.server.routers.reasoning import create_reasoning_routes
 from weave.server.mcp import create_mcp_server
 from weave.server.workspace_pool import (
+    WORKSPACE_HEADER,
     WorkspacePool,
     WorkspaceProxy,
     get_workspace_middleware,
@@ -699,8 +700,11 @@ def create_app(args):
         Returns:
             Workspace identifier (may be empty string for global namespace)
         """
-        # Check custom header first
-        workspace = request.headers.get("WEAVE-WORKSPACE", "").strip()
+        # Check custom header first. Starlette's Headers mapping is
+        # case-insensitive, so this read was never the broken one — but the name
+        # still comes from the single constant, so there is nothing here to fall
+        # out of step with the middleware again.
+        workspace = request.headers.get(WORKSPACE_HEADER, "").strip()
 
         if not workspace:
             workspace = None
@@ -1383,13 +1387,16 @@ def create_app(args):
     WorkspaceMiddleware = get_workspace_middleware(workspace_pool, default_workspace)
     app.add_middleware(WorkspaceMiddleware)
 
-    # Document the WEAVE-WORKSPACE header in OpenAPI docs.
+    # Document the workspace header in OpenAPI docs.
     # The actual routing is handled by the middleware above; this dependency
-    # only makes the header visible in Swagger UI.
+    # only makes the header visible in Swagger UI. The name comes from the same
+    # constant the middleware reads, so what is published and what is honoured
+    # cannot drift — they did once, and every request silently answered from the
+    # default workspace until a test asserted the two agreed.
     async def workspace_header_doc(
         weave_workspace: str = Header(
             default=default_workspace,
-            alias="WEAVE-WORKSPACE",
+            alias=WORKSPACE_HEADER,
             description="Workspace/tenant name. Each workspace has isolated storage (graph, vectors, documents). "
             "Only a-z, A-Z, 0-9, and _ are allowed.",
         ),

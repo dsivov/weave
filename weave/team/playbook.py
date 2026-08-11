@@ -24,6 +24,8 @@ from __future__ import annotations
 
 from typing import Any, Dict, List
 
+from weave.server.workspace_pool import WORKSPACE_HEADER
+
 # ── the five roles, data-driven ─────────────────────────────────────────────
 # Each entry is the whole kit for one role. `loop` is the operating cycle the
 # session runs; `actions` are the governed actions RBAC grants it; `endpoints`
@@ -205,7 +207,7 @@ def _mcp_config(ws: str, server_url: str) -> Dict[str, Any]:
             "weave": {
                 "type": "http",
                 "url": f"{server_url}/mcp",
-                "headers": {"WEAVE-WORKSPACE": ws},
+                "headers": {WORKSPACE_HEADER: ws},
             }
         }
     }

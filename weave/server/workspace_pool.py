@@ -19,6 +19,28 @@ from weave_core.utils import logger
 # Valid workspace name: alphanumeric and underscores only
 _WORKSPACE_RE = re.compile(r"^[a-zA-Z0-9_]+$")
 
+#: The header that selects the tenant. **This is the one place it is named.**
+#:
+#: It is a published contract — the OpenAPI document, the UI client, the dev
+#: worker and the playbook all send or document this exact string — so the
+#: middleware must not carry its own copy of it. It did, and the copy was wrong:
+#: a rebrand renamed the middleware's literal to a name no client has ever sent,
+#: and because a raw ASGI lookup that misses returns the default rather than an
+#: error, every request in the system resolved to the default workspace with no
+#: log line to show for it.
+#:
+#: The general shape (the reason this is a constant and not a corrected literal):
+#: a renamed literal is safe when both sides of the comparison were renamed
+#: together, and broken when the other side is produced outside this codebase.
+#: Header names are the second kind, so there is exactly one of this string.
+WORKSPACE_HEADER = "WEAVE-WORKSPACE"
+
+#: ASGI delivers raw header names **lowercased** in ``scope["headers"]``, so a
+#: raw-scope read must compare against the lowercase form. Derived, never typed
+#: out again — ``b"WEAVE-WORKSPACE"`` would be just as dead as the name it
+#: replaced, and would fail exactly as quietly.
+_WORKSPACE_HEADER_BYTES = WORKSPACE_HEADER.lower().encode("latin-1")
+
 # Context variable holding the current workspace name for the active request
 _current_workspace: contextvars.ContextVar[str] = contextvars.ContextVar(
     "current_workspace", default="default"
@@ -189,7 +211,9 @@ def get_workspace_middleware(pool: WorkspacePool, default_workspace: str = "defa
                 return
 
             headers = dict(scope.get("headers") or [])
-            workspace = headers.get(b"weave_core-workspace", b"").decode("latin-1").strip()
+            workspace = (
+                headers.get(_WORKSPACE_HEADER_BYTES, b"").decode("latin-1").strip()
+            )
             if not workspace:
                 workspace = default_workspace
 

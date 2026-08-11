@@ -30,6 +30,8 @@ import urllib.request
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Protocol
 
+from weave.server.workspace_pool import WORKSPACE_HEADER
+
 try:                                  # the server's logger, when the server is here
     from weave_core.utils import logger
 except ImportError:                   # the developer container, which is not
@@ -184,7 +186,7 @@ class WeaveClient:
         self._timeout = timeout
 
     def _headers(self) -> Dict[str, str]:
-        h = {"Content-Type": "application/json", "WEAVE-WORKSPACE": self._ws}
+        h = {"Content-Type": "application/json", WORKSPACE_HEADER: self._ws}
         if self._token:
             h["Authorization"] = f"Bearer {self._token}"
         if self._api_key:

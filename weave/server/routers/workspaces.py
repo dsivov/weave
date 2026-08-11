@@ -27,6 +27,7 @@ from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
 
 from weave.server.utils import get_combined_auth_dependency
+from weave.server.workspace_pool import WORKSPACE_HEADER
 from weave_core.utils import logger
 
 
@@ -222,7 +223,7 @@ def build_bootstrap(ws: str, role: Optional[str], server_url: str) -> Dict[str, 
                 "weave": {
                     "type": "http",
                     "url": f"{server_url}/mcp",
-                    "headers": {"WEAVE-WORKSPACE": ws},
+                    "headers": {WORKSPACE_HEADER: ws},
                 }
             }
         },
@@ -255,7 +256,7 @@ def _playbook_md(ws: str, role: Optional[str], m: Dict[str, Any], server_url: st
         '    "weave": {\n'
         '      "type": "http",\n'
         f'      "url": "{server_url}/mcp",\n'
-        '      "headers": { "WEAVE-WORKSPACE": "' + ws + '" }\n'
+        f'      "headers": {{ "{WORKSPACE_HEADER}": "{ws}" }}\n'
         "    }\n"
         "  }\n"
         "}"
