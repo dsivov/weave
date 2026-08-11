@@ -451,3 +451,34 @@ Status: `accepted` · `superseded by D-NN` · `reversed`.
   after the fact. M2 gains a gate assertion driven with two workspaces and one repo registered in only
   one of them. The DRP also now states plainly that **workspace**, **`ProjectLayout`** and
   `weave/team/project.py` are three different things that all say "project".
+
+## D-029 · The Neo4j path is experimental and single-workspace; the second workspace is refused
+- **Date:** 2026-08-11  ·  **Status:** accepted  ·  **Raised by:** weave-manager (M1 review, H1)
+- **Context:** M1 verified all three storage paths against real databases and closed AS2/AS3 — and in
+  doing so found what the contract had not said. Neo4j **Community Edition has no multi-database
+  support**; that is an Enterprise feature. Every workspace therefore shares the default database, and
+  isolation on that path rests on labels and naming rather than on a database boundary. A4 v3 said
+  "exactly three storage paths" with no qualification, while D-028 was written on the premise that the
+  workspace **is** the hard boundary — the premise the whole locator resolver was scoped around. An
+  operator reading A4 could deploy Neo4j with several workspaces believing they were isolated to the
+  same degree as on PostgreSQL. They would not be. The adapter is not defective: it is correct for what
+  Community offers. The gap was between what the contract implied and what one path delivers.
+- **Options:** (a) qualify A4 — Neo4j requires Enterprise for multi-workspace deployments /
+  (b) ship the Neo4j path **experimental and single-workspace** / (c) defer to P3
+- **Decision:** **(b).** A4 now ranks the three paths rather than listing them as equals: PostgreSQL is
+  the multi-workspace production path, file-based is single-operator (its writes are whole-file
+  read-modify-write), and Neo4j is experimental and supported for **one** workspace. The manager
+  recommended (a); dsivov chose (b) and that is the decision.
+- **Why:** (a) is a truthful qualification but it leaves the failure available — an operator on
+  Community who reads "requires Enterprise for multi-workspace" and proceeds anyway gets no error, just
+  silent co-tenancy, which is the same class of defect as the in-process bus under multiple workers
+  (D-019): correct-looking, silent, and discovered by its consequences. (b) removes the promise instead
+  of annotating it. The cost is that a verified-working path is demoted, which is real but recoverable —
+  Enterprise support can lift the restriction later with its own `D-NN`, whereas a tenancy leak cannot
+  be un-shipped.
+- **Consequences:** A4 goes to **v4** with an amendment row. **The refusal is code, not prose** — a
+  Neo4j deployment that is asked for a second workspace must fail loudly at the point the workspace is
+  created, naming the edition limit and pointing at PostgreSQL; a constraint enforced only by
+  documentation is the trap this decision exists to close. That lands as a P2 task with a test, since
+  P2 is the phase that makes the workspace boundary load-bearing (D-028). The M2 gate keeps running all
+  three paths: experimental means restricted, not unverified. Watch item **W1** in the work plan closes.

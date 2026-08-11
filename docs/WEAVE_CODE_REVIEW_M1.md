@@ -33,6 +33,7 @@ None.
 - **Failure:** Neo4j Community has no multi-database support — that is an Enterprise feature — so every workspace shares the default database. Isolation on that path rests on labels and naming rather than on a database boundary. A4 says "exactly three storage paths" with no qualification, and D-028 was written on the premise that the workspace *is* the hard boundary. An operator reading A4 could deploy Neo4j with several workspaces believing they are isolated to the same degree as on PostgreSQL. They would not be.
 - **Not a code defect:** the adapter is correct for what Community offers. The gap is between what the contract implies and what one path delivers.
 - **Decision needed (dsivov, R11):** either (a) A4 states that Neo4j requires Enterprise for multi-workspace deployments, or (b) the Neo4j path ships labelled experimental and single-workspace. Either way A4 changes, so this is an amendment with a version bump and an amendment row. Recommend (a): it is a truthful qualification rather than a retreat, and the path is otherwise verified working.
+- **RESOLVED 2026-08-11 — (b), by dsivov ([D-029](DECISIONS.md), A4 → v4).** The recommendation was not taken, and the reasoning against it is worth recording: (a) annotates the failure but leaves it available, since an operator on Community who reads the qualification and proceeds anyway gets no error — just silent co-tenancy. That is the same class of defect as the in-process bus under multiple workers (D-019). **The consequence is that this finding became code, not prose:** a Neo4j deployment asked for a second workspace must fail at creation, and P2.1 carries the task and its test. A restriction enforced only by documentation is what the decision exists to close.
 
 ## Medium
 
@@ -92,7 +93,7 @@ None new. S1 from M0 (the published default JWT secret) was closed as P1's first
 ## Verdict
 
 - [x] All **Critical** fixed → milestone gate passes. (None found.)
-- [ ] **High** — H1 open, but it is a **decision for dsivov**, not work for the developer. P2 is not blocked by it: P2 touches the data model, not storage tenancy.
+- [x] **High** — H1 **closed 2026-08-11**: dsivov chose *experimental, single-workspace*; A4 is at v4, D-029 is logged, and the enforcement it requires is a P2.1 task with a test. P2 was never blocked by it.
 - [x] Layout & dependencies match the design docs (three additions to fold into the plan).
 - [x] **Every constraint in `CONSTRAINTS.md` v3 holds** — A4 needs qualifying, which H1 proposes.
 - Decisions arising: H1 → an A4 amendment; M1 → an architecture correction; M3 → plan tasks.

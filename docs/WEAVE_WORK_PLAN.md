@@ -207,11 +207,13 @@ returns 0 outside the migration path; no endpoint returns a password hash; the s
 > Run the phase end to end and **stop at the gate** for review (R3, R4); do not begin P3.
 >
 > **Carried in from the M1 review** ([WEAVE_CODE_REVIEW_M1.md](WEAVE_CODE_REVIEW_M1.md)):
-> **H1 is open and is the manager's, not yours** — Neo4j Community has no per-workspace database, so
-> A4's three paths are not equal on the property tenancy rests on. It awaits an A4 amendment from
-> dsivov. It does **not** block P2: P2 scopes the resolver to a workspace in *application* code
-> (D-028), which is correct on all three paths regardless of how A4 is worded. If you find yourself
-> relying on the *database* as the tenant boundary, stop and report — that is the drift H1 predicts.
+> **H1 is closed, and it became work for you.** Neo4j Community has no per-workspace database, so A4's
+> three paths were not equal on the property tenancy rests on. dsivov chose to ship the Neo4j path
+> **experimental and single-workspace** rather than qualify it — **A4 is now v4, logged as D-029** —
+> and that restriction has to be **enforced in code**, so P2.1 gains the refusal and its test.
+> The rest of P2 is unaffected: it scopes the resolver to a workspace in *application* code (D-028),
+> which is correct on all three paths. If you find yourself relying on the *database* as the tenant
+> boundary, stop and report — that is the drift D-029 exists to close.
 
 - [ ] **Contract check (R11)** — touches **A5** (artifact nodes reference, never embed), **A6**, **A9** (one handler for REST and MCP), **A14** (per-workspace membership — the locator resolver must not sit outside it). Also **A2** (`weave/model/` is a new top-level package — it holds no HTTP and `weave_core/` must not import it) and **A4** (persistence through the store ports only; no new client). Write the check into the commit message, naming each ID and its verdict.
 
@@ -225,6 +227,8 @@ returns 0 outside the migration path; no endpoint returns a password hash; the s
 - [ ] `weave/model/locator.py` `[new]` — `Locator{repo, path, rev, anchor}`; `sha` added to `Commit` (R21)
 - [ ] `weave/model/project_layout.py` `[new]` — `ProjectLayout` registry + `resolve()` → URL for a human, file content for an agent (R22); resolves against the recorded `rev`, never `HEAD` (R23). **Workspace-scoped, stored through `weave_core/store/record.py`** so the workspace argument is required by signature, not by convention (R22a/R22b, D-028)
 - [ ] `tests/test_project_layout_tenancy.py` `[new]` — two workspaces, one repo registered in one of them: the other gets **404** from `/projects/resolve`, not content and not a distinguishable error (R22a)
+- [ ] **Refuse a second workspace on the Neo4j path** (**A4 v4**, D-029) — Community Edition cannot give a workspace its own database, so creating workspace #2 while the graph backend is Neo4j must **fail loudly at creation**, naming the edition limit and pointing at PostgreSQL. Prose is not enough: a documented-only restriction is the trap D-029 exists to close. Enforce where the workspace is created, not in the adapter, and not at read time.
+- [ ] `tests/test_neo4j_single_workspace.py` `[new]` — on the Neo4j path, the first workspace succeeds and the second is refused with an actionable error; on the PostgreSQL and file paths the same call succeeds. The test asserts the **class** (backend-dependent workspace admission), not the one call site.
 - [ ] `tests/test_locator_resolve.py` `[new]` — resolution at a pinned `rev`; a moved file at `HEAD` still resolves
 
 ### P2.2 · The answer surface *(A9: one handler, two adapters — write the service function first, then both adapters over it)*
@@ -377,7 +381,7 @@ milestone that would turn it into one.
 
 | # | Watch | Raised | Turns into work when |
 |---|-------|--------|----------------------|
-| W1 | **A4 does not say the three storage paths differ on tenancy.** Neo4j Community shares one database across workspaces. | M1 review H1 | dsivov answers — then A4 is amended (v4 + row) and a `D-NN` logged **before** any code. **[manager]** |
+| ~~W1~~ | ~~**A4 does not say the three storage paths differ on tenancy.**~~ **Closed 2026-08-11** — dsivov chose *experimental, single-workspace*; A4 is at **v4**, logged as **D-029**, and the refusal is now a P2.1 task with a test. | M1 review H1 | — |
 | W2 | **Membership is indexed only by user**, so "who can reach workspace X" is a full scan. Correct at this scale. | M1 review M2 | an audit view needs the reverse question, or user counts grow — earliest is P4. |
 | W3 | **Nothing refuses multi-worker startup on the in-process bus** (A7). A client on one worker would silently never receive events published on another. | M0 + M1 contract checks | **P3** — the Postgres `LISTEN/NOTIFY` adapter ships with the refusal, not after it. |
 
