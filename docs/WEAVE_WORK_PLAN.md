@@ -5,7 +5,7 @@
 
 - **Sources:** [WEAVE_DRP.md](WEAVE_DRP.md) · [WEAVE_ARCHITECTURE.html](WEAVE_ARCHITECTURE.html) · [WEAVE_RFC.html](WEAVE_RFC.html)
 - **Contract:** [CONSTRAINTS.md](CONSTRAINTS.md) **v4** — every phase opens with a contract check (R11)
-- **Branch:** work rides a `feature/` branch and the manager merges at each gate — two sessions now share one checkout (D-025's direct-to-`main` waiver superseded in practice; R5 observed). · **Status:** **P0–P2 complete and reviewed. M2 approved 2026-08-11 — 0 Critical, 0 High open, merged to `main`. P3 is the active phase.**
+- **Branch:** work rides a `feature/` branch and the manager merges at each gate — two sessions now share one checkout (D-025's direct-to-`main` waiver superseded in practice; R5 observed). · **Status:** **P0–P3 complete and reviewed. M3 approved 2026-08-11 — 0 Critical, 0 High, merged to `main`. P4 is the active phase.** Both M3 measured criteria were reproduced by the reviewer, not accepted on report.
 - **Owner:** dsivov · **Roles:** *manager* owns this plan, the contract, the reviews, git and server startup; *developer* implements the tasks and runs the gate. A task marked **[manager]** is not the developer's to do.
 
 > **This plan builds on working code, not a blank page.** Every task below that moves code names its
@@ -361,13 +361,27 @@ across a real network; what they establish is that nothing in the path is accide
 claim harness writes throwaway tasks with neither), so the P2 migration has still never run on real
 data. It stays open.
 
-**Review:** code review; update the checkpoint.
+**Review:** ✅ **M3 reviewed 2026-08-11** → [WEAVE_CODE_REVIEW_M3.md](WEAVE_CODE_REVIEW_M3.md) — **0 Critical, 0 High**, 4 Medium. **Merged to `main`.** Both measured criteria were re-run by the reviewer rather than accepted on report: **p95 2.44 ms** over 100 trials / 200 samples against a 1000 ms gate (developer measured 2.52 ms), and **exactly one winner of 20** with 0 lost writes on `memory`, `file` and `postgres`. Suite **897 / 0 / 0**. **W3 closes** — the A7 refusal shipped in the same commit as the adapter and is reachable from every startup path. The SSE tenant check runs **per event**, closing the stream if a grant is revoked mid-connection.
 
 ---
 
 ## P4 · Team-vocabulary wizards → **M4**
 
-- [ ] **Contract check (R11)** — touches **A8** (the runtime enforces the ledger version; no server-file config path).
+> **Opened 2026-08-11 after the M3 review.** Two carried items apply directly. **W6 is now a habit,
+> not a task:** the suite does not construct the server, so anything in `create_app` is unverified
+> until something starts it — twice caught that way already (unmounted P2 routers; `app.state` set
+> before `app` existed with 888 tests green). **Start the server once before the gate, every phase.**
+> **W4 is the review lens:** a wizard writes through the same service the HTTP routers do, so any
+> guard added here belongs in the service, not the router — the P3.3 version check was moved for
+> exactly this reason and P4 is the phase that proves it was right.
+>
+> **A8 is the constraint this phase exists to satisfy, and it cuts against the obvious design.** A
+> wizard that writes a config file the runtime does not read is a second source of truth — the
+> failure A8 names. What the wizard produces must be **signed ledger versions**, the same artifacts
+> the runtime already enforces. If you find yourself adding a server-file config path for roles, RBAC
+> or lifecycle, stop and report: that is A8 going false, not a shortcut.
+
+- [ ] **Contract check (R11)** — re-read `CONSTRAINTS.md` **v4** first. Touches **A8** (the runtime enforces the signed ledger version; **no server-file config path** for roles, RBAC or lifecycle), **A6** (the wizard's writes pass the same governance as any other action, against an authenticated principal), **A9** (whatever the wizard can do must be one handler, reachable by both surfaces — not a wizard-only code path), and **A11** (the interview is built on the copied `GetStarted` / `/onboard/chat` flow, not a new mechanism). Write the check into the first commit message with a verdict per ID.
 - [ ] `weave_core/studio/service.py` — register `rbac` and `lifecycle` as ledger artifact kinds (R35); the existing kinds are `rule · ontology · flow · action`
 - [ ] `weave/wizards/session.py` `[new]` — the interview, **built on the copied `GetStarted` / `/onboard/chat` flow** rather than a new mechanism
 - [ ] `weave/wizards/templates/` `[new]` — Weave-oriented starting templates for common team shapes (R37)

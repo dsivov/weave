@@ -60,6 +60,10 @@ multi-role support.
   added constraint A7.
 
 ## Plan & progress
+- [WEAVE_CODE_REVIEW_M3.md](WEAVE_CODE_REVIEW_M3.md) — **M3**, 2026-08-11. **0 Critical · 0 High** · 4 Medium.
+  The first gate with **measured** criteria, and both were re-run by the reviewer rather than accepted:
+  **p95 2.44 ms** over 100 trials against a 1000 ms gate, and **exactly one winner of 20** with 0 lost writes
+  on all three storage paths. Suite 897 / 0 / 0. **A7 delivered, W3 closed.** Merged.
 - [WEAVE_CODE_REVIEW_M2.md](WEAVE_CODE_REVIEW_M2.md) — **M2**, 2026-08-11. 0 Critical · **1 High (H1, open —
   the D-029 admission check fails open)** · 3 Medium. Gate reproduced independently at **848 passed / 0 failed /
   0 skipped** and driven by hand on a live server: tenant boundary confirmed (cross-tenant `resolve` returns a
