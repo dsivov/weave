@@ -17,10 +17,10 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from weave.server.utils import get_combined_auth_dependency
+from weave.server.utils import authenticated_principal, get_combined_auth_dependency
 from weave.server.routers.reasoning import (
     RelationContextData,
     _pydantic_to_rc,
@@ -117,7 +117,7 @@ def _require_rules_capable(rag) -> None:
         )
 
 
-def create_rules_routes(rag, service, *, api_key: Optional[str] = None,
+def create_rules_routes(rag, service, *, studio_engine=None, api_key: Optional[str] = None,
                         workspace_resolver=None):
     """Build the /rules router bound to *rag* and a RulesService.
 
@@ -129,6 +129,34 @@ def create_rules_routes(rag, service, *, api_key: Optional[str] = None,
 
         def workspace_resolver():
             return _current_workspace.get()
+
+    # ── governance writes go through the signed ledger (A8, D-033) ──────────
+    #
+    # These endpoints change what the runtime enforces. Writing straight through
+    # `service.save()` left no signature and no version — false by A8's first
+    # sentence, and the guard meant to catch it *excluded this file* on the
+    # reasoning that it "is the direct surface". A8 does not care which surface
+    # is meant to be direct.
+    #
+    # `studio_engine` is required rather than optional: falling back to the
+    # direct write is how a removed second path comes back.
+
+    def _require_ledger():
+        if studio_engine is None:
+            raise HTTPException(
+                status_code=503,
+                detail=("This change must be signed into the ledger, and the "
+                        "Studio engine is unavailable (A8, D-033)."))
+        return studio_engine
+
+    def _signer(request: Request):
+        principal = authenticated_principal(request)
+        approver = str(principal.get("sub") or principal.get("username") or "")
+        if not approver:
+            raise HTTPException(
+                status_code=401,
+                detail="Changing governance requires an authenticated identity.")
+        return approver, str(principal.get("role") or "")
 
     router = APIRouter(tags=["rules"])
     combined_auth = get_combined_auth_dependency(api_key)
@@ -146,12 +174,18 @@ def create_rules_routes(rag, service, *, api_key: Optional[str] = None,
     @router.post("/rules", response_model=RuleSummaryResponse,
                  dependencies=[Depends(combined_auth)],
                  summary="Set/replace the workspace's rules policy (validated)")
-    async def set_rules(request: RulePolicyRequest):
+    async def set_rules(request: RulePolicyRequest, http_request: Request):
         _require_rules_capable(rag)
         ws = _ws()
+        engine = _require_ledger()
+        approver, role = _signer(http_request)
         try:
-            service.save(ws, request.dsl, request.concepts,
-                         enabled=request.enabled, model_id=request.model_id)
+            await engine.sign(
+                ws, "rule",
+                {"dsl": request.dsl,
+                 "concepts": {k: list(v) for k, v in (request.concepts or {}).items()},
+                 "enabled": request.enabled},
+                approver=approver, reason=f"rules set by {approver}", role=role)
         except ValueError as e:
             # Invalid DSL / undefined concept → 400 (author error)
             raise HTTPException(status_code=400, detail=str(e))
@@ -194,16 +228,20 @@ def create_rules_routes(rag, service, *, api_key: Optional[str] = None,
 
     @router.delete("/rules", dependencies=[Depends(combined_auth)],
                    summary="Delete the workspace's rules policy")
-    async def delete_rules():
+    async def delete_rules(http_request: Request):
         _require_rules_capable(rag)
         ws = _ws()
-        deleted = service.delete(ws)
+        engine = _require_ledger()
+        approver, role = _signer(http_request)
+        result = await engine.sign_removal(
+            ws, "rule", approver=approver,
+            reason=f"rules policy removed by {approver}", role=role)
         service.attach(rag, ws)  # detaches (gate becomes None)
-        return {"deleted": deleted, "workspace": ws}
+        return {"deleted": result is not None, "workspace": ws, "recorded": result}
 
     @router.post("/rules/generate", dependencies=[Depends(combined_auth)],
                  summary="Generate (and optionally apply) DSL from a natural-language policy")
-    async def generate_rules(request: GenerateRequest):
+    async def generate_rules(request: GenerateRequest, http_request: Request):
         _require_rules_capable(rag)
         from weave_core.governance.rules.agent import RuleAuthor
 
@@ -224,7 +262,16 @@ def create_rules_routes(rag, service, *, api_key: Optional[str] = None,
 
         saved = False
         if request.save and result.valid:
-            service.save(ws, result.dsl, result.concepts)
+            engine = _require_ledger()
+            approver, role = _signer(http_request)
+            await engine.sign(
+                ws, "rule",
+                {"dsl": result.dsl,
+                 "concepts": {k: list(v) for k, v in (result.concepts or {}).items()},
+                 "enabled": True},
+                approver=approver,
+                reason=f"rules authored from a policy description by {approver}",
+                role=role)
             service.attach(rag, ws)
             saved = True
 

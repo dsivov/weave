@@ -287,6 +287,138 @@ class DiffEngine:
             "decision_audit": audit,
         }
 
+    # -- the one way to write a ledger-owned artifact ------------------------
+
+    async def sign(
+        self,
+        workspace: str,
+        kind: str,
+        after: Dict[str, Any],
+        *,
+        approver: str,
+        reason: str,
+        role: Optional[str] = None,
+        artifact_id: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Persist *after* as a new signed version — the only writer callers need.
+
+        Every surface that changes a ledger-owned artifact goes through here:
+        the Studio, the wizard, onboarding, and the four governance editors
+        (`/rbac`, `/ontology`, `/lifecycle`, `/rules`). That is the point of it
+        existing. Before D-033 each of those built its own diff, and the ones
+        that did not were the ones that silently wrote nothing to the ledger.
+
+        Being one function is what makes A8 checkable: *what the runtime enforces
+        is the signed ledger version* is a property of this call site, not a rule
+        every author has to remember.
+        """
+        artifact_id = artifact_id or kind
+        before = self._load_current(workspace, kind, artifact_id)
+        from_version = before.get("version") if before else None
+        diff = ArtifactDiff(
+            kind=kind,
+            artifact_id=artifact_id,
+            to_version=int(from_version or 0) + 1,
+            from_version=from_version,
+            delta={"before": before or {}, "after": after},
+            # Governance *is* behaviour, so sign-off requires an approver and a
+            # reason. An unattributed policy change makes "who took away my
+            # access" unanswerable.
+            behaviour_changed=True,
+            origin="authoring",
+        )
+        return await self.apply(
+            workspace, diff, approver=approver, reason=reason, role=role)
+
+    async def sign_removal(
+        self,
+        workspace: str,
+        kind: str,
+        *,
+        approver: str,
+        reason: str,
+        role: Optional[str] = None,
+        artifact_id: Optional[str] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """Remove an artifact by **recording a version that says so** (D-033).
+
+        Deleting governance is a governance change, and the obvious
+        implementation — call `service.delete()` and move on — leaves an
+        *absence*: the policy is gone, the ledger's last word is the version that
+        was in force, and nothing says who removed it or when. That is the same
+        hole as an unsigned write wearing a different hat, and it is worse for
+        RBAC, because `DELETE /rbac` returns a workspace to **permissive**.
+
+        So a removal is an append: an empty snapshot, signed, with the prior
+        version still on the ledger to revert to. History reads
+        `v1 policy → v2 removed`, and `revert(v1)` puts it back.
+
+        **An empty artifact is not a removed one, and the difference is not
+        cosmetic.** Saving `{}` as an RBAC policy leaves a policy that exists and
+        grants nothing — deny-by-default. Deleting it leaves *no* policy, which
+        this system treats as permissive. Signing `{}` would therefore record a
+        version whose replay produces the opposite of what was asked for, so
+        removal deletes through the service and records the version separately.
+
+        Returns None when there was nothing to remove — an idempotent delete
+        should not manufacture a version recording the removal of nothing.
+        """
+        artifact_id = artifact_id or kind
+        before = self._load_current(workspace, kind, artifact_id)
+        if before is None:
+            return None
+
+        from_version = before.get("version")
+        diff = ArtifactDiff(
+            kind=kind, artifact_id=artifact_id,
+            to_version=int(from_version or 0) + 1, from_version=from_version,
+            delta={"before": before, "after": {}},
+            behaviour_changed=True, origin="authoring",
+        )
+        # The approval is recorded first and runs the workspace gate, exactly as
+        # `apply` does — so a rejected removal removes nothing, and a refused one
+        # leaves no audit trail of an approval that never happened.
+        audit = await self._record_signoff(workspace, diff, approver, reason, role)
+
+        removed = self._remove(workspace, kind, artifact_id)
+        if not removed:
+            return None
+
+        version = ArtifactVersion(
+            kind=kind, artifact_id=artifact_id,
+            version=int(from_version or 0) + 1,
+            snapshot={},                       # empty snapshot == removed
+            from_version=from_version,
+            behaviour_changed=True,
+            origin="authoring",
+            sign_off=SignOff(
+                approver=approver, reason=reason,
+                at=datetime.fromtimestamp(self._now(), tz=timezone.utc).isoformat(),
+                role=role),
+            decision_audit=audit,
+        )
+        self._studio.record(workspace, version)
+        logger.info(
+            f"Studio removed {kind}:{artifact_id} (v{version.version} records the "
+            f"removal; v{from_version} is still there to revert to), by={approver}")
+        return {
+            "kind": kind, "artifact_id": artifact_id, "version": version.version,
+            "removed": True, "revert_to": from_version,
+            "sign_off": version.sign_off.to_dict(), "decision_audit": audit,
+        }
+
+    def _remove(self, ws: str, kind: str, artifact_id: str) -> bool:
+        """Delete through the artifact's own service — the mirror of `_persist`."""
+        if kind == "rbac" and self._rbac is not None:
+            return bool(self._rbac.delete(ws))
+        if kind == "lifecycle" and self._lifecycle is not None:
+            return bool(self._lifecycle.delete(ws))
+        if kind == "ontology" and self._ontology is not None:
+            return bool(self._ontology.delete(ws))
+        if kind == "rule" and self._rules is not None:
+            return bool(self._rules.delete(ws))
+        raise ValueError(f"cannot remove kind '{kind}'")
+
     # -- revert --------------------------------------------------------------
 
     async def revert(

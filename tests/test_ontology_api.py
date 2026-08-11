@@ -12,6 +12,38 @@ from weave_core.governance.ontology import InMemoryOntologyStore, OntologyServic
 from weave.server.routers.ontology import create_ontology_routes
 
 
+# D-033: these endpoints now sign into the ledger rather than calling
+# `service.save()`, so a router built without a Studio engine refuses with 503 —
+# deliberately, because falling back to the direct write is how a removed second
+# path returns. The tests therefore construct a real engine over the same
+# service, which is also what the server does.
+def _signed_in(app, user="tester", role="admin"):
+    """Give the app an authenticated principal.
+
+    D-033 made governance changes require one: an unattributed policy change
+    makes "who took away my access" unanswerable, so the endpoint 401s without
+    an identity. These tests exercise the *editing* contract, so they sign in.
+    """
+    @app.middleware("http")
+    async def _principal(request, call_next):
+        request.state.token_info = {"sub": user, "username": user, "role": role}
+        return await call_next(request)
+
+    return app
+
+
+def _ledger(service, kind):
+    from weave_core.studio.service import DiffEngine
+    from weave_core.studio.store import InMemoryStudioStore
+
+    return DiffEngine(
+        studio_store=InMemoryStudioStore(),
+        **{f"{kind}_service": service},
+        now=lambda: 1.0,
+    )
+
+
+
 ONTO = {
     "name": "sales",
     "object_types": [
@@ -85,8 +117,8 @@ def _client(rag=None, svc=None):
     rag = rag or FakeRag()
     app = FastAPI()
     app.include_router(
-        create_ontology_routes(rag, svc, api_key=None, workspace_resolver=lambda: "acme"))
-    return TestClient(app), rag, svc
+        create_ontology_routes(rag, svc, studio_engine=_ledger(svc, 'ontology'), api_key=None, workspace_resolver=lambda: "acme"))
+    return TestClient(_signed_in(app)), rag, svc
 
 
 @pytest.mark.offline

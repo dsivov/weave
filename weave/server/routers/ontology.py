@@ -15,10 +15,10 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from weave.server.utils import get_combined_auth_dependency
+from weave.server.utils import authenticated_principal, get_combined_auth_dependency
 from weave_core.utils import logger
 
 
@@ -96,7 +96,7 @@ def _require_cg(rag) -> None:
         )
 
 
-def create_ontology_routes(rag, service, *, api_key: Optional[str] = None,
+def create_ontology_routes(rag, service, *, studio_engine=None, api_key: Optional[str] = None,
                            workspace_resolver=None):
     """Build the /ontology router bound to *rag* and an OntologyService."""
     if workspace_resolver is None:
@@ -104,6 +104,34 @@ def create_ontology_routes(rag, service, *, api_key: Optional[str] = None,
 
         def workspace_resolver():
             return _current_workspace.get()
+
+    # ── governance writes go through the signed ledger (A8, D-033) ──────────
+    #
+    # These endpoints change what the runtime enforces. Writing straight through
+    # `service.save()` left no signature and no version — false by A8's first
+    # sentence, and the guard meant to catch it *excluded this file* on the
+    # reasoning that it "is the direct surface". A8 does not care which surface
+    # is meant to be direct.
+    #
+    # `studio_engine` is required rather than optional: falling back to the
+    # direct write is how a removed second path comes back.
+
+    def _require_ledger():
+        if studio_engine is None:
+            raise HTTPException(
+                status_code=503,
+                detail=("This change must be signed into the ledger, and the "
+                        "Studio engine is unavailable (A8, D-033)."))
+        return studio_engine
+
+    def _signer(request: Request):
+        principal = authenticated_principal(request)
+        approver = str(principal.get("sub") or principal.get("username") or "")
+        if not approver:
+            raise HTTPException(
+                status_code=401,
+                detail="Changing governance requires an authenticated identity.")
+        return approver, str(principal.get("role") or "")
 
     router = APIRouter(tags=["ontology"])
     combined_auth = get_combined_auth_dependency(api_key)
@@ -121,25 +149,33 @@ def create_ontology_routes(rag, service, *, api_key: Optional[str] = None,
     @router.post("/ontology", response_model=OntologySummaryResponse,
                  dependencies=[Depends(combined_auth)],
                  summary="Set/replace the workspace's ontology (validated)")
-    async def set_ontology(request: OntologyRequest):
+    async def set_ontology(request: OntologyRequest, http_request: Request):
         _require_cg(rag)
         ws = _ws()
+        engine = _require_ledger()
+        approver, role = _signer(http_request)
         try:
-            service.save(ws, request.ontology)
+            await engine.sign(ws, "ontology", request.ontology, approver=approver,
+                              reason=f"ontology set by {approver}", role=role)
         except (ValueError, KeyError, TypeError) as e:
             raise HTTPException(status_code=400, detail=str(e))
         return OntologySummaryResponse(**service.get_summary(ws))
 
     @router.delete("/ontology", dependencies=[Depends(combined_auth)],
                    summary="Delete the workspace's ontology")
-    async def delete_ontology():
+    async def delete_ontology(http_request: Request):
         _require_cg(rag)
         ws = _ws()
-        return {"deleted": service.delete(ws), "workspace": ws}
+        engine = _require_ledger()
+        approver, role = _signer(http_request)
+        result = await engine.sign_removal(
+            ws, "ontology", approver=approver,
+            reason=f"ontology removed by {approver}", role=role)
+        return {"deleted": result is not None, "workspace": ws, "recorded": result}
 
     @router.post("/ontology/generate", dependencies=[Depends(combined_auth)],
                  summary="Generate (and optionally save) an ontology from a description")
-    async def generate_ontology(request: GenerateOntologyRequest):
+    async def generate_ontology(request: GenerateOntologyRequest, http_request: Request):
         _require_cg(rag)
         from weave_core.governance.ontology.agent import OntologyAuthor
 
@@ -154,7 +190,11 @@ def create_ontology_routes(rag, service, *, api_key: Optional[str] = None,
 
         saved = False
         if request.save and result.valid:
-            service.save(ws, result.ontology)
+            engine = _require_ledger()
+            approver, role = _signer(http_request)
+            await engine.sign(ws, "ontology", result.ontology, approver=approver,
+                              reason=f"ontology authored from a description by {approver}",
+                              role=role)
             saved = True
         return {**result.to_dict(), "saved": saved}
 

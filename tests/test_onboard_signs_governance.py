@@ -148,8 +148,7 @@ async def test_an_onboarded_artifact_can_be_rolled_back():
 # ── the class: no router writes a ledger-owned kind behind the ledger's back ──
 
 
-#: Artifact kinds the signed ledger owns. A direct `save` on one of these from a
-#: router is the pattern D-032 removes.
+#: Artifact kinds the signed ledger owns, by the variable a router holds them in.
 LEDGER_OWNED = {
     "ontology_service": "ontology",
     "rules_service": "rule",
@@ -157,38 +156,58 @@ LEDGER_OWNED = {
     "lifecycle_service": "lifecycle",
 }
 
+#: The four governance editors, where the service arrives as a **bare `service`
+#: parameter** rather than a named one.
+#:
+#: This map exists because dropping the exclusion list was not enough, and that
+#: is worth recording: the guard matched on *variable name*, so `service.save()`
+#: in `rbac.py` was invisible to it. The exclusion list was hiding a rule that
+#: would have caught nothing in those files anyway — a guard blind twice over,
+#: reading as coverage both times. Proven by reintroducing a direct
+#: `service.save()` into `rbac.py` and watching the guard pass.
+GOVERNANCE_EDITORS = {
+    "rbac.py": "rbac",
+    "ontology.py": "ontology",
+    "lifecycle.py": "lifecycle",
+    "rules.py": "rule",
+}
 
-def test_no_router_saves_a_ledger_owned_artifact_directly():
-    """The structural rule, so a third write path cannot appear quietly.
 
-    Reads are fine and common — `get_summary`, `store.load`, `check`. What this
-    forbids is `<service>.save(...)` from a router, because that is the call that
-    changes what the runtime enforces without the ledger seeing it.
+def test_no_router_writes_a_ledger_owned_artifact_directly():
+    """The structural rule, so another write path cannot appear quietly.
 
-    `routers/rbac.py`, `ontology.py`, `lifecycle.py` and `rules.py` are the
-    artifact editors themselves: they *are* the direct surface, and the Studio
-    composes them. The rule is about routers that install governance as a side
-    effect of doing something else — onboarding was one, and that is precisely
-    how it went unnoticed.
+    **The exclusion list is gone (D-033).** It used to exempt `rbac.py`,
+    `ontology.py`, `lifecycle.py`, `rules.py` and `studio.py` on the reasoning
+    that they "are the direct surface, and the Studio composes them" — which was
+    a statement of intent, not of what A8 says. Four of the five were the biggest
+    write paths in the product: `POST /rbac` changed what the runtime enforced
+    with no signature, and `DELETE /rbac` returned a workspace to permissive with
+    no record at all.
+
+    A guard whose exclusion list contains the largest hole is worse than no
+    guard, because it reads as coverage. So the rule is now uniform: **no router
+    calls `save()` or `delete()` on a ledger-owned service.** Reads are untouched
+    and common — `get_summary`, `store.load`, `check`, `attach`.
     """
-    editors = {"rbac.py", "ontology.py", "lifecycle.py", "rules.py", "studio.py"}
     offenders = []
 
     for path in sorted(_ROUTERS.glob("*.py")):
-        if path.name in editors:
-            continue
+        editor_kind = GOVERNANCE_EDITORS.get(path.name)
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
         for node in ast.walk(tree):
             if not isinstance(node, ast.Call):
                 continue
             func = node.func
-            if not isinstance(func, ast.Attribute) or func.attr != "save":
+            if not isinstance(func, ast.Attribute) or func.attr not in ("save", "delete"):
                 continue
             owner = getattr(func.value, "id", None)
-            if owner in LEDGER_OWNED:
+            kind = LEDGER_OWNED.get(owner)
+            if kind is None and editor_kind is not None and owner == "service":
+                kind = editor_kind
+            if kind is not None:
                 offenders.append(
-                    f"{path.name}:{node.lineno} — {owner}.save() writes "
-                    f"'{LEDGER_OWNED[owner]}' without a ledger version"
+                    f"{path.name}:{node.lineno} — {owner}.{func.attr}() changes "
+                    f"'{kind}' without a ledger version"
                 )
 
     assert not offenders, (

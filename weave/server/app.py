@@ -1475,7 +1475,7 @@ def create_app(args):
     if rules_service is not None:
         from weave.server.routers.rules import create_rules_routes
 
-        app.include_router(create_rules_routes(rag, rules_service, api_key=api_key))
+        app.include_router(create_rules_routes(rag, rules_service, studio_engine=studio_engine, api_key=api_key))
 
     # Ingress API (webhook front door → durable log → bus → decision quad).
     if ingress_service is not None:
@@ -1554,19 +1554,19 @@ def create_app(args):
     if ontology_service is not None:
         from weave.server.routers.ontology import create_ontology_routes
 
-        app.include_router(create_ontology_routes(rag, ontology_service, api_key=api_key))
+        app.include_router(create_ontology_routes(rag, ontology_service, studio_engine=studio_engine, api_key=api_key))
 
     # RBAC API (manage the per-workspace access policy).
     if rbac_service is not None:
         from weave.server.routers.rbac import create_rbac_routes
 
-        app.include_router(create_rbac_routes(rag, rbac_service, api_key=api_key))
+        app.include_router(create_rbac_routes(rag, rbac_service, studio_engine=studio_engine, api_key=api_key))
 
     # Lifecycle API (manage the per-workspace state machines).
     if lifecycle_service is not None:
         from weave.server.routers.lifecycle import create_lifecycle_routes
 
-        app.include_router(create_lifecycle_routes(rag, lifecycle_service, api_key=api_key))
+        app.include_router(create_lifecycle_routes(rag, lifecycle_service, studio_engine=studio_engine, api_key=api_key))
 
     # Actions API (manage + invoke the catalog; RBAC- and lifecycle-gated).
     if action_service is not None:

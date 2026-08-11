@@ -16,10 +16,10 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from weave.server.utils import get_combined_auth_dependency
+from weave.server.utils import authenticated_principal, get_combined_auth_dependency
 from weave_core.utils import logger
 
 
@@ -62,7 +62,8 @@ def _require_cg(rag) -> None:
         )
 
 
-def create_rbac_routes(rag, service, *, api_key: Optional[str] = None,
+def create_rbac_routes(rag, service, *, studio_engine=None,
+                       api_key: Optional[str] = None,
                        workspace_resolver=None):
     """Build the /rbac router bound to *rag* and an RbacService."""
     if workspace_resolver is None:
@@ -70,6 +71,34 @@ def create_rbac_routes(rag, service, *, api_key: Optional[str] = None,
 
         def workspace_resolver():
             return _current_workspace.get()
+
+    # ── governance writes go through the signed ledger (A8, D-033) ──────────
+    #
+    # These endpoints change what the runtime enforces. Writing straight through
+    # `service.save()` left no signature and no version — false by A8's first
+    # sentence, and the guard that was supposed to catch it *excluded this file*
+    # on the reasoning that it "is the direct surface". A8 does not care which
+    # surface is meant to be direct.
+    #
+    # `studio_engine` is required rather than optional: falling back to the
+    # direct write is how a removed second path comes back.
+
+    def _require_ledger():
+        if studio_engine is None:
+            raise HTTPException(
+                status_code=503,
+                detail=("This change must be signed into the ledger, and the "
+                        "Studio engine is unavailable (A8, D-033)."))
+        return studio_engine
+
+    def _signer(request: Request):
+        principal = authenticated_principal(request)
+        approver = str(principal.get("sub") or principal.get("username") or "")
+        if not approver:
+            raise HTTPException(
+                status_code=401,
+                detail="Changing governance requires an authenticated identity.")
+        return approver, str(principal.get("role") or "")
 
     router = APIRouter(tags=["rbac"])
     combined_auth = get_combined_auth_dependency(api_key)
@@ -87,21 +116,33 @@ def create_rbac_routes(rag, service, *, api_key: Optional[str] = None,
     @router.post("/rbac", response_model=RbacSummaryResponse,
                  dependencies=[Depends(combined_auth)],
                  summary="Set/replace the workspace's RBAC policy (validated)")
-    async def set_rbac(request: RbacPolicyRequest):
+    async def set_rbac(request: RbacPolicyRequest, http_request: Request):
         _require_cg(rag)
         ws = _ws()
+        engine = _require_ledger()
+        approver, role = _signer(http_request)
         try:
-            service.save(ws, request.policy)
+            await engine.sign(ws, "rbac", request.policy, approver=approver,
+                              reason=f"RBAC policy set by {approver}", role=role)
         except (ValueError, KeyError, TypeError) as e:
             raise HTTPException(status_code=400, detail=str(e))
         return RbacSummaryResponse(**service.get_summary(ws))
 
     @router.delete("/rbac", dependencies=[Depends(combined_auth)],
                    summary="Delete the workspace's RBAC policy (→ permissive)")
-    async def delete_rbac():
+    async def delete_rbac(http_request: Request):
         _require_cg(rag)
         ws = _ws()
-        return {"deleted": service.delete(ws), "workspace": ws}
+        engine = _require_ledger()
+        approver, role = _signer(http_request)
+        # A removal is a governance change and gets a version recording it, not
+        # an absence — this endpoint returns the workspace to **permissive**,
+        # which is the most consequential thing anyone can do here.
+        result = await engine.sign_removal(
+            ws, "rbac", approver=approver,
+            reason=f"RBAC policy removed by {approver} (workspace → permissive)",
+            role=role)
+        return {"deleted": result is not None, "workspace": ws, "recorded": result}
 
     @router.post("/rbac/check", dependencies=[Depends(combined_auth)],
                  summary="Dry-run an access decision")
