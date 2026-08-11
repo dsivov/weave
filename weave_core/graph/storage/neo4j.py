@@ -61,6 +61,60 @@ READ_RETRY = retry(
 )
 
 
+#: Labels Neo4j creates for its own purposes, never for a Weave workspace.
+_RESERVED_LABELS = frozenset({"base"})
+
+
+async def occupied_workspaces() -> "set[str]":
+    """Workspace labels that already hold data in the configured Neo4j database.
+
+    **Why this exists here and not in the caller.** Neo4j Community has no
+    multi-database support — that is an Enterprise feature — so every workspace
+    on this path shares one database and is separated only by a label. A4 (v4,
+    D-029) therefore ships the Neo4j path as experimental and single-workspace,
+    and a second workspace must be refused at creation rather than documented.
+
+    Answering "is this database already occupied, and by whom" needs a Neo4j
+    connection, and A4 also says no module constructs a database client outside
+    its own adapter. So the question is answered *inside* the adapter and the
+    admission policy calls this — which is also what makes the refusal survive a
+    restart, since it reads the database rather than in-process bookkeeping.
+
+    Returns an empty set when Neo4j is not configured or cannot be reached: this
+    is an admission check, and it must not be the thing that takes the server
+    down. Refusing to start because we could not verify a limit would be worse
+    than the limit.
+    """
+    uri = os.environ.get("WEAVE_NEO4J_URI", config.get("neo4j", "uri", fallback=None))
+    username = os.environ.get(
+        "WEAVE_NEO4J_USERNAME", config.get("neo4j", "username", fallback=None)
+    )
+    password = os.environ.get(
+        "WEAVE_NEO4J_PASSWORD", config.get("neo4j", "password", fallback=None)
+    )
+    if not (uri and username and password):
+        return set()
+
+    database = os.environ.get("WEAVE_NEO4J_DATABASE") or None
+    driver = None
+    try:
+        driver = AsyncGraphDatabase.driver(uri, auth=(username, password))
+        async with driver.session(database=database) as session:
+            result = await session.run("CALL db.labels() YIELD label RETURN label")
+            labels = {record["label"] async for record in result}
+    except Exception as e:  # noqa: BLE001 - see docstring: never fatal
+        logger.warning(f"could not read Neo4j workspace labels for admission: {e}")
+        return set()
+    finally:
+        if driver is not None:
+            try:
+                await driver.close()
+            except Exception:  # noqa: BLE001
+                pass
+
+    return {label for label in labels if label not in _RESERVED_LABELS}
+
+
 @final
 @dataclass
 class Neo4JStorage(BaseGraphStorage):

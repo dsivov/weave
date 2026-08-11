@@ -50,9 +50,16 @@ _current_workspace: contextvars.ContextVar[str] = contextvars.ContextVar(
 class WorkspacePool:
     """Manages a pool of WeaveEngine/WeaveGraph instances, one per workspace."""
 
-    def __init__(self, rag_cls: Type, rag_kwargs: dict, post_create=None):
+    def __init__(self, rag_cls: Type, rag_kwargs: dict, post_create=None,
+                 admission_probe=None):
         self._rag_cls = rag_cls
         self._rag_kwargs = rag_kwargs
+        # Which graph backend this deployment runs on. Some hold exactly one
+        # workspace (A4 v4, D-029) and a second must be refused *here*, at the
+        # point a workspace comes into being, rather than documented.
+        self._graph_storage = str(rag_kwargs.get("graph_storage") or "")
+        # Injectable so the policy can be exercised without a live database.
+        self._admission_probe = admission_probe
         # Optional hook run on every freshly-constructed instance (e.g. to attach
         # per-task LLM roles). Called synchronously with the new rag instance.
         self._post_create = post_create
@@ -84,8 +91,22 @@ class WorkspacePool:
         return self._instances[workspace]
 
     async def finalize_seed(self, workspace: str):
-        """Complete async initialization for a seeded workspace."""
+        """Complete async initialization for a seeded workspace.
+
+        The seeded default is admitted here rather than in :meth:`seed`, which
+        is synchronous and cannot ask the database anything. It matters: a
+        deployment whose default workspace is `X`, pointed at a Neo4j that
+        already holds `Y`, would otherwise open a second workspace on a
+        single-workspace backend at boot — the silent co-tenancy D-029 exists to
+        prevent, arriving through the one door that skips the creation check.
+
+        A conflict here stops startup, which is the intended outcome: the
+        deployment is misconfigured, and serving it would quietly co-tenant two
+        workspaces in one database. An *unreachable* database is a different
+        case and does not stop anything — see `workspace_admission`.
+        """
         if workspace in self._needs_init:
+            await self._check_admission(workspace)
             rag = self._instances[workspace]
             await rag.initialize_storages()
             await rag.check_and_migrate_data()
@@ -120,6 +141,11 @@ class WorkspacePool:
             if workspace in self._instances:
                 return self._instances[workspace]
 
+            # The creation point. Everything above this line is a lookup of a
+            # workspace that already exists; below it, one comes into being —
+            # which is exactly where a single-workspace backend has to say no.
+            await self._check_admission(workspace)
+
             logger.info(f"Initializing workspace: {workspace}")
             rag = self._make(workspace)
             await rag.initialize_storages()
@@ -127,6 +153,26 @@ class WorkspacePool:
             self._instances[workspace] = rag
             logger.info(f"Workspace '{workspace}' ready")
             return rag
+
+    async def _check_admission(self, workspace: str) -> None:
+        """Refuse a workspace this deployment's graph backend cannot hold.
+
+        Delegated to `weave.server.workspace_admission`, which owns the policy
+        and asks the adapter what the database already holds — so the refusal
+        survives a restart rather than resting on this process's dictionary.
+        """
+        from weave.server.workspace_admission import check_admission
+
+        await check_admission(
+            workspace,
+            self._graph_storage,
+            # The *other* workspaces this process holds. The candidate is
+            # excluded deliberately: `seed()` registers an instance before
+            # `finalize_seed()` admits it, so counting it would make the seeded
+            # default admit itself and the boot-time check would be theatre.
+            known_workspaces=[w for w in self._instances if w != workspace],
+            probe=self._admission_probe,
+        )
 
     @property
     def workspaces(self) -> list[str]:
@@ -201,6 +247,8 @@ def get_workspace_middleware(pool: WorkspacePool, default_workspace: str = "defa
 
     from starlette.responses import JSONResponse
 
+    from weave.server.workspace_admission import WorkspaceNotAdmitted
+
     class WorkspaceMiddleware:
         def __init__(self, app):
             self.app = app
@@ -227,6 +275,15 @@ def get_workspace_middleware(pool: WorkspacePool, default_workspace: str = "defa
 
             try:
                 await pool.get_rag(workspace)
+            except WorkspaceNotAdmitted as e:
+                # Not a failure to initialise: a deliberate refusal by policy
+                # (A4 v4, D-029). 409, and the message says which workspace
+                # holds the backend and what to move to — an operator who hits
+                # this needs to act, not to retry.
+                logger.warning(f"refused workspace '{workspace}': {e}")
+                resp = JSONResponse(status_code=409, content={"detail": str(e)})
+                await resp(scope, receive, send)
+                return
             except Exception as e:
                 logger.error(f"Failed to initialize workspace '{workspace}': {e}")
                 resp = JSONResponse(
