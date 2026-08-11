@@ -5,7 +5,7 @@
 
 - **Sources:** [WEAVE_DRP.md](WEAVE_DRP.md) · [WEAVE_ARCHITECTURE.html](WEAVE_ARCHITECTURE.html) · [WEAVE_RFC.html](WEAVE_RFC.html)
 - **Contract:** [CONSTRAINTS.md](CONSTRAINTS.md) **v4** — every phase opens with a contract check (R11)
-- **Branch:** `feature/p2-data-model` — two sessions now share one checkout, so work rides a branch and the manager merges at each gate (D-025's direct-to-`main` waiver superseded in practice; R5 observed). · **Status:** **P2 complete, M2 gate met and reviewed — 0 Critical, 1 High (H1) open.** P3 does not start and nothing merges to `main` until H1 is closed (R4, R5).
+- **Branch:** work rides a `feature/` branch and the manager merges at each gate — two sessions now share one checkout (D-025's direct-to-`main` waiver superseded in practice; R5 observed). · **Status:** **P0–P2 complete and reviewed. M2 approved 2026-08-11 — 0 Critical, 0 High open, merged to `main`. P3 is the active phase.**
 - **Owner:** dsivov · **Roles:** *manager* owns this plan, the contract, the reviews, git and server startup; *developer* implements the tasks and runs the gate. A task marked **[manager]** is not the developer's to do.
 
 > **This plan builds on working code, not a blank page.** Every task below that moves code names its
@@ -294,13 +294,22 @@ declared environment.
 
 **Review:** ✅ **M2 reviewed 2026-08-11** → [WEAVE_CODE_REVIEW_M2.md](WEAVE_CODE_REVIEW_M2.md) — 0 Critical, **1 High (H1, open)**, 3 Medium. Gate reproduced independently: **848 passed / 0 failed / 0 skipped** in the conda env against live PostgreSQL and Neo4j, and the criteria driven by hand on a live server — tenant boundary confirmed (cross-tenant `resolve` returns a 404 byte-identical to a nonexistent repo), governance confirmed (401 on all four `/ask` routes once auth is configured), parent tree verified intact. **H1 must be fixed before P3 starts or anything merges to `main`** (R4, R5).
 
-- [ ] **H1 (developer)** — the D-029 admission check fails open: the Neo4j occupancy probe returns an empty set on *any* error, which `check_admission` cannot tell from "no workspaces", and `known_workspaces` is empty on a fresh boot. A restart while Neo4j is briefly unreachable admits a second workspace permanently and silently — the exact mode D-029 chose code over prose to prevent. Distinguish *undetermined* from *unoccupied* and refuse a **new** workspace when occupancy cannot be verified; add the test that fails against today's code.
+- [x] **H1 (developer)** — the D-029 admission check failed open: the Neo4j occupancy probe returned an empty set on *any* error, which `check_admission` could not tell from "no workspaces", and `known_workspaces` is empty on a fresh boot. **Fixed in `cf85275`** — occupancy is now `set | None`, undetermined refuses a *new* workspace while still admitting one already held, and the two refusals read differently. Reproduced against a dead database before fixing, re-verified at **852 / 0 / 0**.
 
 ---
 
 ## P3 · Live, multi-user surface → **M3**
 
-- [ ] **Contract check (R11)** — touches **A7** (bus adapter must match the deployment — new in v2), **A8**, **A9**.
+> **Opened 2026-08-11 after the M2 review.** Two findings from P2 apply directly here and are not
+> optional reading. **W3 closes in this phase, not after it:** nothing currently refuses multi-worker
+> startup on the in-process bus, and A7 is the constraint that makes SSE correct — the refusal ships
+> **with** the Postgres adapter, in the same commit, or the phase reintroduces the silent failure it
+> exists to remove. **W4 is the lens to review your own work by:** a rule enforced in an adapter
+> protects only the callers who arrive through that adapter — three instances so far, and SSE plus a
+> second bus adapter is exactly the shape that produces a fourth. **W5:** if this phase produces a
+> populated task store, re-run the P2 migration against it and record the result.
+
+- [ ] **Contract check (R11)** — re-read `CONSTRAINTS.md` **v4** before the first task. Touches **A7** (the bus adapter must match the deployment — *the pairing is the whole point; a multi-worker deployment on the in-process bus fans out to nothing, with no error and no log*), **A8**, **A9** (SSE is a third adapter over the same handlers, not a fourth answer surface), **A11** (`asyncpg` is already installed — **no new library**, and a broker would breach A1 as well), and **A15** (nothing here may require the server to dial a client). Write the check into the first commit message, naming each ID and its verdict.
 - [ ] `weave_core/events/postgres.py` `[new]` — the `LISTEN/NOTIFY` bus adapter via `asyncpg`; **no new library** (A7, A11, D-019)
 - [ ] `weave/server/config.py` — bus adapter selected alongside the storage path; refuse to start multi-worker on the in-process bus (A7)
 - [ ] `weave/live/stream.py` `[new]` — SSE endpoint `GET /live/stream`, subscribed to the bus

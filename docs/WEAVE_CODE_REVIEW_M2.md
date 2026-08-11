@@ -3,7 +3,18 @@
 # Weave — Code Review (M2, 2026-08-11)
 
 - **Scope:** `feature/p2-data-model` — `main..40c277c` (P2: data model & the answer surface). 39 files, +4,930 / −243. Reviewed against `WEAVE_DRP.md` §3.4 / §5-M2 and `CONSTRAINTS.md` **v4**.
-- **Reviewer:** weave-manager · **Result:** **gate met — one High open. Not merged to `main` until it is closed (R4, R5).**
+- **Reviewer:** weave-manager · **Result:** **approved — gate met, H1 fixed in `cf85275`, merged to `main`.**
+
+> **H1 closed 2026-08-11 (`cf85275`), re-verified independently: 852 passed / 0 failed / 0 skipped.**
+> The developer reproduced the failure against a genuinely dead database — bolt on a closed port, not a
+> stub — before fixing it, which is the right response to a finding reasoned from code rather than
+> executed. `occupied_workspaces()` now returns `set[str] | None`, `None` meaning *undetermined*; an
+> empty set keeps its old meaning of *asked, holds nothing*, and "not configured" stays determinate so
+> an unreachable Neo4j cannot refuse a workspace on a deployment that does not use Neo4j.
+> `check_admission` refuses a **new** workspace on undetermined occupancy and still admits one already
+> held, so a blip cannot evict a running workspace. Four tests added, three of which fail against
+> `40c277c` — including one asserting the two refusals read differently and that the undetermined
+> message never names a holder it did not observe.
 
 ## Summary
 
@@ -106,9 +117,11 @@ None new. The tenant boundary — the one security-relevant property this milest
 ## Verdict
 
 - [x] **Critical** — none.
-- [ ] **High** — **H1 open.** A code defect in new work, so unlike M1's High this is not a decision: it is a fix, and it belongs to the developer.
+- [x] **High** — H1 **fixed and re-verified** (`cf85275`, 852 / 0 / 0).
 - [x] Gate criteria met, reproduced independently and driven by hand.
 - [x] **Every constraint in `CONSTRAINTS.md` v4 holds.**
-- [x] Layout & dependency drift: one doc gap (M3, manager's).
+- [x] Layout & dependency drift: one doc gap (M3), fixed by the manager.
 
-**Not merged to `main`.** The house rule is that a milestone merges when the gate passes **and** the review is clean of Critical/High (R4, R5); H1 is High and narrow, so the shortest path to a clean merge is fixing it rather than arguing the severity down. **P3 does not start until it is closed.**
+**Merged to `main`.** The gate passes and the review is clean of Critical and High (R4, R5). **P3 may start.**
+
+Three Mediums carry forward as watch items rather than open findings: W5 (the migration has never run on real data), the empty-graph caveat on the locator count, and W4 (a rule enforced in an adapter protects only the callers who arrive through that adapter) — the last of which is now a standing review lens with three instances behind it.
