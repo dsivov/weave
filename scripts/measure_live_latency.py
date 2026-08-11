@@ -63,6 +63,11 @@ class _Listener:
         self.name = name
         self.arrivals: Dict[str, float] = {}
         self.ready = asyncio.Event()
+        #: Why this listener never became ready, in the caller's words. A
+        #: refusal and a dead transport look identical from the outside, and
+        #: "never became ready" sent the M3 reviewer hunting for an unmounted
+        #: router when the real answer was a 403 (M3 review, M1).
+        self.failure: Optional[str] = None
         self._stop = asyncio.Event()
 
     async def run(self, client, url: str, token: str, workspace: str) -> None:
@@ -72,7 +77,21 @@ class _Listener:
             "Accept": "text/event-stream",
         }
         async with client.stream("GET", f"{url}/live/stream", headers=headers) as r:
-            r.raise_for_status()
+            if r.is_error:
+                body = (await r.aread()).decode("utf-8", "replace").strip()
+                self.failure = f"HTTP {r.status_code} from {url}/live/stream: {body[:300]}"
+                if r.status_code in (401, 403):
+                    self.failure += (
+                        "\n    A 401/403 here is usually the measuring user having no "
+                        "membership of this workspace — /live/stream refuses a "
+                        "non-member by design. Create it with, for example:\n"
+                        f"        weave user add <name> --role admin --workspaces {workspace}\n"
+                        "    A role alone is not access; the grant is separate."
+                    )
+                # Released so the caller stops waiting and reports the cause,
+                # rather than timing out with nothing to go on.
+                self.ready.set()
+                return
             async for line in r.aiter_lines():
                 if self._stop.is_set():
                     return
@@ -122,7 +141,24 @@ async def _run(args: argparse.Namespace) -> int:
                 asyncio.gather(*(l.ready.wait() for l in listeners)), timeout=15
             )
         except asyncio.TimeoutError:
-            print("SSE clients never became ready", file=sys.stderr)
+            pass
+
+        # A listener may be "ready" because it gave up. Report *why* — R2 means
+        # someone who does not already know the trick can reproduce the claim,
+        # and "never became ready" is not something anyone can act on.
+        refused = [l for l in listeners if l.failure]
+        unready = [l for l in listeners if not l.ready.is_set()]
+        if refused or unready:
+            for listener in refused:
+                print(f"SSE client '{listener.name}' was refused: {listener.failure}",
+                      file=sys.stderr)
+            for listener in unready:
+                print(
+                    f"SSE client '{listener.name}' never became ready and the "
+                    f"connection did not fail — is {args.url} reachable, and is "
+                    "/live/stream mounted?",
+                    file=sys.stderr,
+                )
             for t in tasks:
                 t.cancel()
             return 2
