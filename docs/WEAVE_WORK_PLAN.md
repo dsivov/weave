@@ -320,8 +320,8 @@ declared environment.
 - [x] `weave/server/routers/studio.py` — version-checked writes: stale write → **409** + merge view (R31)
 - [ ] **UI:** `weave-ui/src/pages/LiveBoard.tsx` `[new]` — board, tasks, fleet and presence over SSE
 - [ ] **UI:** remove every polling loop the stream covers — `grep -r setInterval` in board sources → 0 (R32)
-- [ ] `scripts/measure_live_latency.py` `[new]` — 2 authenticated SSE clients, 100 trials, publish p95 (R2)
-- [ ] `scripts/measure_claim_concurrency.py` `[new]` — N=20 simultaneous claims per storage path; report winners, 409s, lost writes (R2)
+- [x] `scripts/measure_live_latency.py` `[new]` — 2 authenticated SSE clients, 100 trials, publish p95 (R2)
+- [x] `scripts/measure_claim_concurrency.py` `[new]` — N=20 simultaneous claims per storage path; report winners, 409s, lost writes (R2)
 - [x] `tests/test_sse_multiworker.py` `[new]` — **2 gunicorn workers**: an event published on worker 1 reaches a client on worker 2 (the failure A7 exists to prevent)
 - [x] **[unplanned]** `tests/test_event_bus_postgres.py` `[new]` — the adapter's own quiet failure modes: an oversized `NOTIFY` payload raises at the publisher instead of vanishing, a raising subscriber does not silence the others, an undecodable notification does not kill the listener, and **both adapters dispatch identically** — A7 requires deployments to swap them, so a difference in dispatch would change behaviour on the deployment that swapped. *(Added from P3.1 implementation — R1.)*
 - [x] `tests/test_optimistic_concurrency.py` `[new]` — second writer gets 409; a silent overwrite fails
