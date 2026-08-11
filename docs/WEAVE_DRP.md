@@ -120,10 +120,10 @@ of 14 node types; any `weave` command (`scripts/` is empty, all four console ent
 | # | Requirement | Priority | Rationale |
 |---|-------------|:--------:|-----------|
 | R7 | Every variable **Weave itself reads** is `WEAVE_*` — including `POSTGRES_*`, `NEO4J_*`, `JWT_*` — and no parent-prefixed variable is read, including for backward compatibility. Variables a **vendor library reads directly** (`OPENAI_API_KEY`, `AZURE_*`, `GOOGLE_*`) are never prefixed; prefixing them breaks the library, and they carry no parent product name so A3 does not reach them (D-024). | must | R2 applies to the config surface, the most-copied text in any deployment — but a rename that breaks a vendor SDK is a bug, not compliance. |
-| R8 | Three storage paths are supported and tested: file-based (default), PostgreSQL, Neo4j. | must | D-007. File-based makes first run trivial; Postgres is the multi-user path; Neo4j serves graph-engine teams. |
+| R8 | Three storage paths are supported and tested: file-based (default, single-operator), PostgreSQL (**the multi-workspace production path**), Neo4j (**experimental, single-workspace**). The three are tested as equals and **deployed as a ranking** (A4 v4). | must | D-007, D-029. File-based makes first run trivial; Postgres is the multi-user path; Neo4j serves graph-engine teams, but Community Edition cannot isolate a workspace by database, so a second workspace there is refused rather than silently co-tenanted. |
 | R9 | The full test suite passes on all three storage paths at every milestone from M1 onward. | must | Two production paths that are not gated are two paths that do not work. |
 | R10 | Multi-user deployment documentation states that the file-based path is single-operator only. | must | Its `_write()` is whole-file read-modify-write; concurrent writers lose data. |
-| R11 | Neo4j ships labelled experimental if it cannot hold the M1 gate. | should | Better a labelled gap than a silent one. |
+| R11 | Neo4j ships labelled **experimental and single-workspace** — and the second workspace is **refused in code**, not merely documented (A4 v4, D-029). | must | Better a labelled gap than a silent one. **Note the label was earned differently than this row first anticipated:** the path *held* the M1 gate. What it cannot do is isolate a workspace by database on Community Edition, so the limit is about tenancy, not about the path working. A restriction enforced only by prose is the failure mode D-029 exists to close, which is why this is now *must*. |
 
 ### 3.3 Users, roles, access
 
@@ -257,9 +257,9 @@ of 14 node types; any `weave` command (`scripts/` is empty, all four console ent
 
 | # | Assumption | Status | How it gets verified |
 |---|------------|--------|----------------------|
-| AS1 | The copied test suite passes standalone after the rename. | **unverified** | P0 first task: copy, rename, run. Any test coupled to a parent path is a P0 fix. |
-| AS2 | The PostgreSQL graph path works at team scale. | **unverified** — the running instance is file-based; no Postgres deployment has been exercised. | P1: stand it up, run the suite, record the result. If it needs an extension (e.g. AGE for graph storage) that becomes a documented prerequisite. |
-| AS3 | The Neo4j path works at all. | **unverified** — same reason. | P1, same treatment; falls back to "experimental" per R11. |
+| AS1 | The copied test suite passes standalone after the rename. | **verified — M0** (569 passed / 3 skipped / 0 failed in the declared conda env). | P0 first task: copy, rename, run. Any test coupled to a parent path is a P0 fix. |
+| AS2 | The PostgreSQL graph path works at team scale. | **verified — M1**: the user-store contract runs against a real PostgreSQL, same behaviour as the file path. No extension beyond `pgvector` was needed. | P1: stand it up, run the suite, record the result. If it needs an extension (e.g. AGE for graph storage) that becomes a documented prerequisite. |
+| AS3 | The Neo4j path works at all. | **verified — M1**: nodes, edges, degree, traversal and delete against a real server. **But one limit was found that the contract now carries** — Community Edition cannot give a workspace its own database, so the path is experimental and **single-workspace** (A4 v4, D-029). Verified working ≠ verified isolating. | P1, same treatment; the "experimental" label is now attached, for the reason above rather than for a gate failure. |
 | AS4 | The dev-agent image builds and runs after the rebrand. | **unverified** | P6 gate; the image's `COPY` lines and entry point change with the rename (R49). |
 | AS5 | The event bus can carry board-level traffic without a broker. | **unverified** — it has never had a consumer. | P3: measure under the concurrency harness before committing to the design. |
 | AS6 | 92k LOC can be renamed mechanically without behaviour change. | partially verified — the rename is textual, but dynamic lookups (the `STORAGES` name→module map) are string-keyed. | P0: the storage registry is the known trap; explicitly tested on all three paths. |
@@ -288,7 +288,7 @@ Accepted when **all** hold. These become the milestone test gates in the work pl
 - [ ] An install configured with `AUTH_ACCOUNTS` migrates on first boot and then serves with the variable unset.
 - [ ] `grep -r AUTH_ACCOUNTS` returns 0 outside the migration path.
 - [ ] No endpoint returns a password hash; asserted by a response-schema test.
-- [ ] The suite passes green on file-based **and** PostgreSQL **and** Neo4j (or Neo4j is labelled experimental with the failing set named).
+- [ ] The suite passes green on file-based **and** PostgreSQL **and** Neo4j. *(Met at M1: 679 passed / 0 failed / 0 skipped with both databases and `--run-integration`. Neo4j is labelled experimental for its tenancy limit, not for a failing set — see R11.)*
 - [ ] A human role on a **separate machine** connects with Claude Code CLI using only the generated kit, authenticates with their own credential, and can read and act through MCP.
 - [ ] The generated `.mcp.json` contains no parent-derived server name or header; the name-guard passes over it.
 
