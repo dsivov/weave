@@ -270,6 +270,28 @@ reachable; the M1 baseline is **679 passed / 0 failed / 0 skipped**, and M2 must
 storage paths go unverified again and the skip count will hide it. Check skip **reasons**, never the
 count.
 
+**Gate run by hand, 2026-08-11 — developer's evidence, for the manager to reproduce.**
+Live server on `0.0.0.0:9800` (file path), plus PostgreSQL 5442 and Neo4j bolt 7688.
+
+| Gate criterion | Result |
+|---|---|
+| Four question classes, one traversal each, **returning nodes** | ✅ over HTTP on the live server: `changes` 6 nodes · `why` 3 · `features` 4 · `learnings` 2. Each returned **only** its declared types — `/ask/changes` did not drag in `ADR-1` or the review chain, which is the bound that separates an answer from a graph dump. |
+| **MCP ≡ REST** — same node set | ✅ verified **by calling both surfaces on the live server**, MCP over its real Streamable-HTTP transport (`initialize` → `tools/call`). All four node lists byte-identical to REST. |
+| Resolver reports **0 dangling locators** | ✅ `scripts/check_locators.py --workspace alpha` → `resolved 2 · dangling 0 · malformed 0 · unregistered 0`, **exit 0**. Its detection was proven separately against a seeded bad locator → `dangling 1`, exit 1. |
+| `Commit` carries a **resolving** `sha` | ✅ resolved through the registered layout to real file content at that revision. |
+| Migration 100% by count **and content**, idempotent | ✅ 15 tests. Not exercised on the live server: the live task store was empty, so there was nothing to migrate. **Stated as a limit, not claimed as a pass.** |
+| `reviewed_in` terminates on `Review`; no link type points at nothing | ✅ asserted over the preset document. |
+| **Tenant boundary** — other workspace → 404 | ✅ on the live server: `alpha` resolved with content, `beta` got 404, and a repository that exists nowhere got the **byte-identical** 404. Also on real PostgreSQL in the suite. |
+| **D-029** — second Neo4j workspace refused | ✅ against the **live Neo4j**: occupancy read from the database (`alpha`), re-opening it admitted, a second refused with the actionable message, and the same call admitted on `PGGraphStorage`. |
+| Suite ≥ M1 baseline | ✅ **848 passed / 0 failed / 0 skipped** with `--run-integration` (M1 was 679). Skip **reasons** checked, not counts — there are none. |
+| A3 naming, on the **generated** contract | ✅ 0 hits over the live server's `/openapi.json`. Name-guard clean; 7 pipeline artifacts out of scope, 1 lineage exemption honoured. |
+
+**Two limits, declared rather than buried.** (1) `scripts/parent_checksum.sh` **could not run** —
+`WEAVE_SOURCE_DIR` is unset on this machine, so "nothing was written to the parent" is *unverified
+here*, not verified. (2) The suite ran under a `.venv` built from `deploy/requirements.txt` (the
+parity-tested projection), because this machine has no conda; the manager reproduces the gate in the
+declared environment.
+
 **Review:** code review; update the checkpoint.
 
 ---
