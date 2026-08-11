@@ -1584,7 +1584,8 @@ def create_app(args):
             app.include_router(create_workspace_routes(
                 rag, ontology_service=ontology_service, action_service=action_service,
                 rules_service=rules_service, lifecycle_service=lifecycle_service,
-                rbac_service=rbac_service, api_key=api_key))
+                rbac_service=rbac_service, studio_engine=studio_engine,
+                api_key=api_key))
         except Exception as e:  # pragma: no cover - never block server start
             logger.warning(f"Workspace manifest API unavailable: {e}")
 

@@ -432,7 +432,19 @@ the P2 migration has still never run on real data.
 
 > **Opened 2026-08-11 after the M4 review. Do the carried High first — before any P5 task.**
 >
-> - [ ] **H1 from M4 (D-032) — `/onboard/apply` must route through `DiffEngine.apply`.** Today it calls
+> - [x] **H1 from M4 (D-032) — DONE.** `/onboard/apply` **and `/onboard`** now sign ontology and rules into
+>   the ledger through `DiffEngine.apply`. **The structural test found a third write path**: after converting
+>   `/onboard/apply` I asserted the *class* — no router may call `save()` on a ledger-owned service — and it
+>   immediately caught `/onboard`, which the finding had not named. That is the argument for asserting the
+>   class rather than the instance, and it is why the fix is wider than the ruling asked for. A missing Studio
+>   engine now returns **503 rather than falling back** to the unsigned write, since a fallback is how a
+>   removed second path returns. Both halves of the escalation were verified in the code first: the rules gate
+>   really is in `actions.py`'s enforcement chain (REJECT → 422), and the old writers really did leave no
+>   ledger entry — `tests/test_onboard_signs_governance.py` reproduces that as a passing assertion about the
+>   *old* behaviour before proving the new. 6 tests. Suite **931 / 0 / 0**; server booted and `/onboard*` still
+>   mounted (W6).
+>
+> - [x] ~~**H1 from M4 (D-032) — `/onboard/apply` must route through `DiffEngine.apply`.**~~ Today it calls
 >   `ontology_service.save()` / `rules_service.save()` directly, so a rule installed through onboarding is
 >   **enforced by the runtime** (`actions.py`: `RBAC → lifecycle → rules gate → side effect`) while carrying
 >   **no signature and no version** — A8's first sentence is false for it. Both write paths must produce

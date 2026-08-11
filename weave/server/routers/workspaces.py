@@ -26,7 +26,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
 
-from weave.server.utils import get_combined_auth_dependency
+from weave.server.utils import authenticated_principal, get_combined_auth_dependency
 from weave.server.workspace_pool import WORKSPACE_HEADER
 from weave_core.utils import logger
 
@@ -385,6 +385,7 @@ Build well — and grumble freely.
 
 def create_workspace_routes(rag, *, ontology_service=None, action_service=None,
                             rules_service=None, lifecycle_service=None, rbac_service=None,
+                            studio_engine=None,
                             api_key: Optional[str] = None, workspace_resolver=None):
     """Build the /workspace + /onboard router from the installed services."""
     if workspace_resolver is None:
@@ -475,12 +476,61 @@ def create_workspace_routes(rag, *, ontology_service=None, action_service=None,
         if llm is None or ontology_service is None:
             raise HTTPException(status_code=503, detail="Apply needs an LLM and the ontology service.")
 
+        # Onboarding writes governance, so it writes it the way governance is
+        # written: through the signed ledger (A8, D-032).
+        #
+        # It used to call `ontology_service.save` / `rules_service.save`
+        # directly. That produced artifacts with **no signature and no version**
+        # — and a rule installed this way is genuinely enforced, because
+        # `routers/actions.py` runs the rules gate and maps a REJECT to 422. So
+        # the runtime was enforcing something the ledger had never seen, which is
+        # A8's first sentence being false rather than merely at risk.
+        #
+        # `_require_cg` above already gates this endpoint on Weave mode, which is
+        # exactly when the Studio engine exists. If it somehow does not, that is a
+        # misconfiguration worth refusing over — writing unsigned governance is
+        # the failure this fix exists to remove.
+        if studio_engine is None:
+            raise HTTPException(
+                status_code=503,
+                detail=("Onboarding installs governance, which must be signed into "
+                        "the ledger — the Studio engine is unavailable (A8, D-032)."),
+            )
+
+        principal = authenticated_principal(http_request)
+        approver = str(principal.get("sub") or principal.get("username") or "")
+        if not approver:
+            raise HTTPException(
+                status_code=401,
+                detail="Installing governance requires an authenticated identity.",
+            )
+        approver_role = str(principal.get("role") or "")
+
+        async def _sign(kind: str, after: Dict[str, Any], reason: str) -> int:
+            """Persist one artifact as a signed ledger version."""
+            from weave_core.studio.schema import ArtifactDiff
+
+            before = studio_engine._load_current(ws, kind, kind)
+            from_version = before.get("version") if before else None
+            diff = ArtifactDiff(
+                kind=kind, artifact_id=kind,
+                to_version=int(from_version or 0) + 1, from_version=from_version,
+                delta={"before": before or {}, "after": after},
+                behaviour_changed=True, origin="authoring",
+            )
+            result = await studio_engine.apply(
+                ws, diff, approver=approver, reason=reason, role=approver_role)
+            return result["version"]
+
         # 1) Tailored ontology from the distilled description.
         from weave_core.governance.ontology.agent import OntologyAuthor
         onto = await OntologyAuthor(llm).generate(p.description, max_repairs=1)
         onto_saved = False
+        onto_version = None
         if onto.valid:
-            ontology_service.save(ws, onto.ontology)
+            onto_version = await _sign(
+                "ontology", onto.ontology,
+                f"onboarding: vocabulary distilled from the interview, by {approver}")
             onto_saved = True
 
         # 2) Optional tailored rules from the distilled policy.
@@ -489,10 +539,17 @@ def create_workspace_routes(rag, *, ontology_service=None, action_service=None,
             from weave_core.governance.rules.agent import RuleAuthor
             r = await RuleAuthor(llm).generate(p.policy, max_repairs=1)
             rsaved = False
+            rules_version = None
             if r.valid:
-                rules_service.save(ws, r.dsl, r.concepts, enabled=True)
+                rules_version = await _sign(
+                    "rule",
+                    {"dsl": r.dsl,
+                     "concepts": {k: list(v) for k, v in (r.concepts or {}).items()},
+                     "enabled": True},
+                    f"onboarding: policy distilled from the interview, by {approver}")
                 rsaved = True
-            rules_out = {"valid": r.valid, "saved": rsaved, "errors": r.errors}
+            rules_out = {"valid": r.valid, "saved": rsaved, "errors": r.errors,
+                         "version": rules_version}
 
         # 3) Seed Role nodes.
         seeded: List[str] = []
@@ -535,6 +592,7 @@ def create_workspace_routes(rag, *, ontology_service=None, action_service=None,
         return {
             "workspace": ws,
             "ontology": {"valid": onto.valid, "saved": onto_saved,
+                         "version": onto_version,
                          "object_types": [o["name"] for o in (onto.ontology or {}).get("object_types", [])]},
             "rules": rules_out,
             "roles_seeded": seeded,
@@ -553,14 +611,51 @@ def create_workspace_routes(rag, *, ontology_service=None, action_service=None,
             raise HTTPException(status_code=503,
                                 detail="Onboarding needs an LLM and the ontology service.")
 
+        # Same rule as `/onboard/apply`: governance is installed by signing it
+        # (A8, D-032). This handler was the *third* write path — the structural
+        # test caught it after the first two were converted, which is the whole
+        # argument for asserting the class rather than the instance.
+        if studio_engine is None:
+            raise HTTPException(
+                status_code=503,
+                detail=("Onboarding installs governance, which must be signed into "
+                        "the ledger — the Studio engine is unavailable (A8, D-032)."),
+            )
+        principal = authenticated_principal(http_request)
+        approver = str(principal.get("sub") or principal.get("username") or "")
+        if not approver:
+            raise HTTPException(
+                status_code=401,
+                detail="Installing governance requires an authenticated identity.",
+            )
+        approver_role = str(principal.get("role") or "")
+
+        async def _sign(kind: str, after: Dict[str, Any], reason: str) -> int:
+            from weave_core.studio.schema import ArtifactDiff
+
+            before = studio_engine._load_current(ws, kind, kind)
+            from_version = before.get("version") if before else None
+            diff = ArtifactDiff(
+                kind=kind, artifact_id=kind,
+                to_version=int(from_version or 0) + 1, from_version=from_version,
+                delta={"before": before or {}, "after": after},
+                behaviour_changed=True, origin="authoring",
+            )
+            result = await studio_engine.apply(
+                ws, diff, approver=approver, reason=reason, role=approver_role)
+            return result["version"]
+
         # 1) Tailored ontology from the description (NL author).
         from weave_core.governance.ontology.agent import OntologyAuthor
         base = ontology_service.store.load(ws) if request.extend else None
         onto = await OntologyAuthor(llm).generate(
             request.description, base=base, max_repairs=request.max_repairs)
         onto_saved = False
+        onto_version = None
         if onto.valid:
-            ontology_service.save(ws, onto.ontology)
+            onto_version = await _sign(
+                "ontology", onto.ontology,
+                f"onboarding: vocabulary authored from the description, by {approver}")
             onto_saved = True
 
         # 2) Optional tailored rules from a plain-English policy.
@@ -569,10 +664,17 @@ def create_workspace_routes(rag, *, ontology_service=None, action_service=None,
             from weave_core.governance.rules.agent import RuleAuthor
             r = await RuleAuthor(llm).generate(request.policy, max_repairs=request.max_repairs)
             rsaved = False
+            rules_version = None
             if r.valid:
-                rules_service.save(ws, r.dsl, r.concepts, enabled=True)
+                rules_version = await _sign(
+                    "rule",
+                    {"dsl": r.dsl,
+                     "concepts": {k: list(v) for k, v in (r.concepts or {}).items()},
+                     "enabled": True},
+                    f"onboarding: policy authored from plain English, by {approver}")
                 rsaved = True
-            rules_out = {"valid": r.valid, "saved": rsaved, "attempts": r.attempts, "errors": r.errors}
+            rules_out = {"valid": r.valid, "saved": rsaved, "attempts": r.attempts,
+                         "errors": r.errors, "version": rules_version}
 
         # 3) Seed Role nodes (best-effort).
         seeded: List[str] = []
