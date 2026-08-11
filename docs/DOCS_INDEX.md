@@ -60,6 +60,11 @@ multi-role support.
   added constraint A7.
 
 ## Plan & progress
+- [WEAVE_CODE_REVIEW_M5.md](WEAVE_CODE_REVIEW_M5.md) — **M5**, 2026-08-11. **0 Critical · 0 High** · 2 Medium.
+  Suite 974 / 0 / 0. The gate's own wording checked rather than believed: the three claim-test files hash
+  **byte-identical to the P0 fork commit**. A15 verified structurally — the seat holds no transport and a
+  `socket.connect` trap over the whole surface records zero connections. **D-032 and D-033 closed**, so every
+  governance write goes through the ledger. Merged.
 - [WEAVE_CODE_REVIEW_M4.md](WEAVE_CODE_REVIEW_M4.md) — **M4**, 2026-08-11. 0 Critical · **1 High (pre-existing,
   P5's first task — D-032)** · 2 Medium. Behavioural gate **run live by the reviewer**: a permission that was
   allowed became denied, read back by a separate process while the same server pid kept serving. Suite

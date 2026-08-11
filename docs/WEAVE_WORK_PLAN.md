@@ -5,7 +5,7 @@
 
 - **Sources:** [WEAVE_DRP.md](WEAVE_DRP.md) · [WEAVE_ARCHITECTURE.html](WEAVE_ARCHITECTURE.html) · [WEAVE_RFC.html](WEAVE_RFC.html)
 - **Contract:** [CONSTRAINTS.md](CONSTRAINTS.md) **v4** — every phase opens with a contract check (R11)
-- **Branch:** work rides a `feature/` branch and the manager merges at each gate — two sessions now share one checkout (D-025's direct-to-`main` waiver superseded in practice; R5 observed). · **Status:** **P0–P4 complete and reviewed. M4 approved 2026-08-11 — 0 Critical, merged to `main`. P5 is the active phase, and its first task is M4's H1** (`/onboard/apply` through the ledger, D-032 — a pre-existing gap M4 revealed, not P4's defect).
+- **Branch:** work rides a `feature/` branch and the manager merges at each gate — two sessions now share one checkout (D-025's direct-to-`main` waiver superseded in practice; R5 observed). · **Status:** **P0–P5 complete and reviewed. M5 approved 2026-08-11 — 0 Critical, 0 High, merged to `main`. P6 is the active phase — the last one.** D-032 and D-033 both closed: every governance write now goes through the ledger.
 - **Owner:** dsivov · **Roles:** *manager* owns this plan, the contract, the reviews, git and server startup; *developer* implements the tasks and runs the gate. A task marked **[manager]** is not the developer's to do.
 
 > **This plan builds on working code, not a blank page.** Every task below that moves code names its
@@ -444,7 +444,7 @@ the P2 migration has still never run on real data.
 >   *old* behaviour before proving the new. 6 tests. Suite **931 / 0 / 0**; server booted and `/onboard*` still
 >   mounted (W6).
 >
-> - [ ] **D-033 — the same fix again, on the four doors the guard excludes.** Verifying D-032 I checked its
+> - [x] **D-033 — DONE (`b8b0505`)**, and there was a layer under it: dropping the exclusions was not enough, because the guard matched on *variable name* and the four editors hold a bare `service` param — so the rule would have caught nothing in the very files it excluded. Proven by reintroducing a direct `save()` and watching the guard pass. Matcher fixed, exclusions gone, `DELETE` recorded as a signed version with `revert_to`. ~~**D-033 — the same fix again, on the four doors the guard excludes.** Verifying D-032 I checked its
 >   exclusion list rather than its rule, and it does not hold: `routers/rbac.py:94`, `ontology.py:128,157`,
 >   `lifecycle.py:86` and `rules.py:153,227` all call `service.save(...)` directly, mounted in Weave mode
 >   behind `combined_auth`. `POST /rbac` changes what the runtime enforces with no signature, and
@@ -492,13 +492,46 @@ live heartbeat; a pause is honoured **between steps** (clean worktree, asserted)
 action is recorded with an authenticated principal; **the pre-existing claim tests pass unmodified** —
 supervision must not have changed the claim protocol.
 
-**Review:** code review; update the checkpoint.
+**Review:** ✅ **M5 reviewed 2026-08-11** → [WEAVE_CODE_REVIEW_M5.md](WEAVE_CODE_REVIEW_M5.md) — **0 Critical, 0 High**, 2 Medium. **Merged to `main`.** Suite **974 / 0 / 0** reproduced independently. **The gate's own wording checked rather than believed:** all three claim-test files hashed **byte-identical to the P0 fork commit `8610914`** (`test_claim_race.py` = `ac4cf323…` at both ends). A15 verified structurally — `Supervisor` holds no transport at all, and a `socket.connect` trap drives the whole supervisory surface with zero connections. A8's gap is closed across every write path.
 
 ---
 
 ## P6 · Onboarding bundle & productisation → **M6**
 
-- [ ] **Contract check (R11)** — touches **A1** (three deployables), **A10** (every role is a Claude Code session), **A13** (subscription seats), **A15** (outbound-only).
+> **Opened 2026-08-11 after the M5 review. This is the last phase, and it is the one where every
+> deferral comes due.** Four watch items were parked here on the argument that P6 is where they would
+> hurt most. This is P6.
+>
+> - [ ] **W9 — both halves, and the second is the one that matters.** `ShellGit.test_cmd` defaults to
+>   `["python", …]` and most hosts ship only `python3`, so a dev agent fails every task at the test step.
+>   That is the trigger. The defect is that the loop cannot tell *"the test command could not run"* from
+>   *"the tests failed"*, so it writes a **learning** — and P2 made learnings `Insight` nodes that
+>   `/ask/learnings` serves **as fact**. Pick an interpreter that exists (or fail loudly), **and**
+>   distinguish could-not-run from failed so no insight is written for the former.
+> - [ ] **W7 — the operator instructions that name commands which do not exist**
+>   (`weave/server/gunicorn.py:103,108`). Harmless while nobody follows them; this is the phase where
+>   published steps are the deliverable and a wrong command ships as documentation.
+> - [ ] **W8 — the three pre-existing UI type errors.** CI runs the UI build; they would fail a strict
+>   `tsc`. The UI has now shipped **unbuilt for three phases** because no `bun` exists in the dev
+>   container — M6's gate requires a clean machine to reach a live fleet, so this is where that has to
+>   resolve one way or the other.
+> - [ ] **W5 — last chance.** The P2 migration has never run on real data through four phases. If P6
+>   produces a populated task store, run it and record the result; if it does not, say so plainly in the
+>   milestone report rather than letting the claim stay half-verified.
+> - [ ] **M1/M2 from the M5 review** — give a ledger removal a **structural** marker (`origin='removal'`
+>   or `removed: bool`), and widen the governance guard beyond its filename map.
+>
+> **A10 and A13 are the constraints this phase exists to satisfy, and they are the two that have never
+> been exercised.** Every role is ordinary Claude Code over MCP — no bespoke client — and every seat is
+> subscription-authenticated: **no API key, auth token or base-URL override may reach a Claude Code
+> process**, while `CLAUDE_CODE_OAUTH_TOKEN` is deliberately *not* scrubbed, because scrubbing it would
+> remove the seat rather than protect it. Adding the `anthropic` package is this tripwire firing.
+>
+> **The M6 gate is measured and comparative** — a clean machine reaching a live fleet **by the published
+> steps only**, with onboarding timed. Under R2 that needs a harness in `scripts/` and an honest baseline;
+> if no baseline can be produced, publish the Weave number alone and say so (AS7).
+
+- [ ] **Contract check (R11)** — re-read `CONSTRAINTS.md` **v4** first. Touches **A1** (three deployables — the bundle must not become a fourth), **A10** (every role is a Claude Code session; no bespoke human client), **A13** (subscription seats; no model credential near a Claude Code process), **A15** (outbound-only — the dev host registers and heartbeats, the hub never dials it). Write the check into the first commit message with a verdict per ID.
 - [ ] `weave/cli/main.py` `[new]` — `init` · `roles install` · `user add` · `project register` · `up` · `down` · `agents up/scale/down` · `doctor`. **Calls the copied `preset.install()` and `playbook.role_kit()`** rather than reimplementing them (R44)
 - [ ] `environment.yml` — `[project.scripts]` equivalent: the `weave` console entry point (replacing the source's four `lightrag-*` entries)
 - [ ] `deploy/compose.devhost.yml` `[new]` — the dev-host bundle: daemon + Docker socket, deployed per developer machine
