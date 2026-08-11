@@ -97,3 +97,46 @@ def test_the_container_file_says_it_is_generated():
     head = (REPO / "deploy" / "requirements.txt").read_text()[:400]
     assert "DO NOT EDIT" in head
     assert "environment.yml" in head
+
+
+# ── the dev host installs a fraction of this (R75, A1) ───────────────────────
+
+#: Drivers a dev host must never need. A machine that carries developer
+#: containers talks to the server over HTTP and to Docker over a socket; it
+#: holds no database and reaches none, so requiring their drivers would put a
+#: compiler dependency on every laptop in the fleet to satisfy a code path none
+#: of them run.
+DATABASE_DRIVERS = ["asyncpg", "neo4j", "pgvector"]
+
+#: The server-side model connectors. A13 says the credential lives on the server
+#: and nowhere else; the SDK that would use one has no business on a dev host
+#: either, and its absence is easier to keep true than its unused presence.
+SERVER_ONLY = ["openai", "google-genai", "fastapi", "uvicorn", "gunicorn", "mcp"]
+
+
+@pytest.mark.offline
+@pytest.mark.parametrize("module", DATABASE_DRIVERS + SERVER_ONLY)
+def test_the_dev_host_daemon_imports_without(module):
+    """Importing the daemon must not reach for a driver a dev host does not have.
+
+    Run in a subprocess with the module poisoned in `sys.modules`, because the
+    parent process has everything installed — the only way to test an absence is
+    to create one. `ModuleNotFoundError` for *this* module is the failure; any
+    other error is this test's own problem and is reported as such.
+    """
+    code = (
+        "import sys\n"
+        f"sys.modules[{module.replace('-', '_')!r}] = None\n"
+        "import weave.devhost.daemon\n"
+        "print('ok')\n"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", code], cwd=str(REPO),
+        capture_output=True, text=True, timeout=180)
+
+    assert result.returncode == 0, (
+        f"`python -m weave.devhost` needs {module}, which a dev host has no "
+        "reason to install (R75). A machine carrying developer containers holds "
+        "no database and no model credential.\n\n"
+        + (result.stderr or "").strip()[-1500:]
+    )

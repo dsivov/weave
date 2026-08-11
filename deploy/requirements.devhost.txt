@@ -1,0 +1,43 @@
+# Weave dev host — what a machine that carries developers actually needs.
+#
+# Deployable #2 of three (A1), and the only one installed per developer machine.
+# It is a fraction of `deploy/requirements.txt` on purpose: a dev host holds no
+# database, reaches none, and holds no model credential, so shipping the server's
+# dependency set to every laptop in the fleet would install drivers and SDKs for
+# code paths none of those machines run.
+#
+# The absences are tested, not just intended — `tests/test_dependency_parity.py`
+# imports `weave.devhost.daemon` with each of these poisoned and fails if the
+# import reaches for one: asyncpg · neo4j · pgvector · openai · google-genai ·
+# fastapi · uvicorn · gunicorn · mcp.
+#
+# Everything here is already pinned identically in `environment.yml`, which
+# remains the single manifest (D-006, A11). This is a *subset*, never a second
+# source of truth: a version that disagrees with the manifest is a bug, and
+# `tests/test_dependency_parity.py` fails on it.
+#
+#   pip install -r deploy/requirements.devhost.txt
+#   python -m weave.devhost --server http://<server>:9800 --workspace <ws>
+
+# The daemon talks to the server over HTTP. `weave/team/worker.py` uses
+# `urllib` from the standard library for the call itself; httpx arrives through
+# weave_core's shared exception types.
+httpx>=0.28.1
+
+# Reached through weave_core's package import. Not used by anything the daemon
+# runs, and it is here because the import chain requires it rather than because
+# a dev host has array work to do — worth saying plainly rather than implying a
+# need that does not exist.
+numpy>=1.24,<3
+
+# NOT HERE, DELIBERATELY:
+#   anthropic     — A13. The seat is a subscription; the SDK is metered auth,
+#                   and a dev host is where containers get their seat.
+#   asyncpg,      — A4 storage drivers. The server holds the database; a host
+#   neo4j,          reaches it only through the server's HTTP surface.
+#   pgvector
+#   fastapi,      — the server's HTTP framework and its worker manager. A host
+#   uvicorn,        serves nothing; it dials out and never listens (A15).
+#   gunicorn
+#   openai,       — the server-side model connectors. The only place a model
+#   google-genai    credential exists is the server (A13).

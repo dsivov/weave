@@ -128,7 +128,23 @@ def test_every_documented_subcommand_exists():
 
 def test_documented_commands_parse_with_their_flags():
     """`--dry-run` and friends are part of the step. A flag that was renamed
-    makes the copied line fail exactly as a missing command would."""
+    makes the copied line fail exactly as a missing command would.
+
+    Two things this gets right that the first version did not, both found by it
+    reporting a correct guide as broken:
+
+    - **placeholders are substituted, not dropped.** Deleting `<clone-url>` from
+      `--repo <clone-url>` leaves a flag with no value, so the test failed on a
+      line a reader would have no trouble with. A reader substitutes; so does
+      this.
+    - **`shlex`, not `str.split`.** `--test-command 'python3 -m pytest -q'` is one
+      argument, and splitting on whitespace turned it into four.
+
+    Worth recording because both made the test *stricter than the truth*, which
+    is the failure mode that gets a guard weakened rather than fixed.
+    """
+    import shlex
+
     parser = build_parser()
     failures = []
 
@@ -137,9 +153,14 @@ def test_documented_commands_parse_with_their_flags():
             stripped = line.strip()
             if not stripped.startswith("weave "):
                 continue
+            try:
+                tokens = shlex.split(stripped)[1:]
+            except ValueError:      # unbalanced quotes — a doc bug of its own
+                failures.append(f"{path.name}: `{stripped}` is not a valid shell line")
+                continue
             argv = [
-                token for token in stripped.split()[1:]
-                if not _PLACEHOLDER.match(token)
+                "placeholder" if _PLACEHOLDER.match(token) else token
+                for token in tokens
             ]
             if not argv:
                 continue
@@ -150,6 +171,100 @@ def test_documented_commands_parse_with_their_flags():
 
     assert not failures, (
         "documented commands do not parse as written:\n  " + "\n  ".join(failures)
+    )
+
+
+# ── documented steps that are not `weave` commands ───────────────────────────
+
+
+#: `python3 -m weave.devhost …`, `python3 -m weave.server.app …`.
+_MODULE_CMD = re.compile(r"^python3?\s+-m\s+([\w.]+)")
+
+
+def _documented_modules() -> list[tuple[pathlib.Path, str, list[str]]]:
+    found = []
+    for path in _guides():
+        for line in path.read_text(encoding="utf-8").splitlines():
+            match = _MODULE_CMD.match(line.strip())
+            if match:
+                argv = [
+                    token for token in line.strip().split()[3:]
+                    if not _PLACEHOLDER.match(token)
+                ]
+                found.append((path, match.group(1), argv))
+    return found
+
+
+def test_every_documented_module_is_runnable_as_a_module():
+    """`python -m weave.devhost` needs a `weave/devhost/__main__.py`.
+
+    This test exists because the guide named that exact step and it **did not
+    run** — `main()` lived in `daemon.py` behind a `__name__ == "__main__"`
+    guard, which only fires for `python -m weave.devhost.daemon`. The first
+    version of this file checked `weave …` lines only, so the step the M6 gate
+    leans on hardest — attaching the machine that carries developers — was the
+    one nobody checked.
+
+    A guard that covers one of the two ways a guide names a command is a guard
+    with a hole in the shape of the other way.
+    """
+    import importlib.util
+
+    missing = []
+    for path, module, _argv in _documented_modules():
+        if importlib.util.find_spec(module) is None:
+            missing.append(f"{path.name}: `python -m {module}` — no such module")
+            continue
+        # A package needs a `__main__`; a plain module is runnable as it stands.
+        spec = importlib.util.find_spec(module)
+        if spec.submodule_search_locations is not None:
+            if importlib.util.find_spec(f"{module}.__main__") is None:
+                missing.append(
+                    f"{path.name}: `python -m {module}` fails — "
+                    f"{module} is a package with no __main__.py"
+                )
+
+    assert not missing, (
+        "documented `python -m` steps do not run:\n  " + "\n  ".join(missing)
+    )
+
+
+#: Documented modules whose parser this file can check. A module not listed here
+#: is still checked for *existence* above; only its flags go unverified.
+_MODULE_PARSERS = {
+    "weave.devhost": "weave.devhost.daemon:build_parser",
+}
+
+
+def test_documented_module_flags_parse():
+    """The flags too.
+
+    `--host-id` was **required** while the published step omits it, so the
+    documented command parsed as a usage error — a step that reads perfectly and
+    exits 2. The parser is the real one `main()` uses, not a description of it:
+    a copy would drift, and drift between a guide and a parser is precisely what
+    this file exists to catch.
+    """
+    import contextlib
+    import importlib
+    import io
+
+    failures = []
+    for path, module, argv in _documented_modules():
+        target = _MODULE_PARSERS.get(module)
+        if target is None or not argv:
+            continue
+        mod_name, _, factory = target.partition(":")
+        parser = getattr(importlib.import_module(mod_name), factory)()
+        try:
+            with contextlib.redirect_stderr(io.StringIO()):
+                parser.parse_args(argv)
+        except SystemExit:
+            failures.append(
+                f"{path.name}: `python -m {module} {' '.join(argv)}` does not parse")
+
+    assert not failures, (
+        "documented module steps do not parse as written:\n  " + "\n  ".join(failures)
     )
 
 

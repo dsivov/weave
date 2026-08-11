@@ -466,15 +466,35 @@ def _hostname() -> str:
         return ""
 
 
-def main(argv: Optional[List[str]] = None) -> int:  # pragma: no cover - entrypoint
+def build_parser():
+    """The dev-host argument parser.
+
+    Split out of `main()` so a test can check that a **published** step parses
+    without starting a daemon. Sharing the real parser rather than describing it
+    is the point: a copy would drift, and drift between a guide and a parser is
+    the exact failure `tests/test_cli_covers_docs.py` exists to catch.
+    """
     import argparse
 
-    from weave.team.worker import WeaveClient
-
-    ap = argparse.ArgumentParser(description="Weave dev-host daemon")
-    ap.add_argument("--server", required=True, help="Weave base URL")
-    ap.add_argument("--workspace", required=True)
-    ap.add_argument("--host-id", required=True, help="This machine's id in the fleet")
+    ap = argparse.ArgumentParser(prog="python -m weave.devhost",
+                                 description="Weave dev-host daemon")
+    # Every flag that a container would need falls back to a `WEAVE_`-prefixed
+    # variable (D-024), because `deploy/compose.devhost.yml` configures this
+    # daemon by environment and cannot pass flags through an ENTRYPOINT. A flag
+    # still wins: an operator debugging on the box types the flag and expects it
+    # to take effect over whatever the unit file exported.
+    ap.add_argument("--server", default=os.environ.get("WEAVE_SERVER", ""),
+                    help="Weave base URL (or $WEAVE_SERVER)")
+    ap.add_argument("--workspace", default=os.environ.get("WEAVE_WORKSPACE", ""),
+                    help="The workspace this machine works for (or $WEAVE_WORKSPACE)")
+    # Defaults to the machine's own name. It was required, and the published
+    # step for attaching a host does not pass it — a machine already has an
+    # identity, and making the operator invent a second one is a step that only
+    # exists because the flag existed. Still overridable: two hosts behind the
+    # same NAT can share a hostname, and `--host-id` is how you tell them apart.
+    ap.add_argument("--host-id", default=os.environ.get("WEAVE_HOST_ID", ""),
+                    help="This machine's id in the fleet "
+                         "(or $WEAVE_HOST_ID; default: its hostname)")
     ap.add_argument("--machine", default="", help="Display name; defaults to the hostname")
     ap.add_argument("--image", default="",
                     help="Container image; defaults to the workspace project's image")
@@ -482,17 +502,45 @@ def main(argv: Optional[List[str]] = None) -> int:  # pragma: no cover - entrypo
                     help="Override the workspace project's repository (rarely needed)")
     ap.add_argument("--clone", default="",
                     help="Where to keep this machine's clone (default: <worktrees>/../clone)")
-    ap.add_argument("--worktrees", default="", help="Directory holding per-worker worktrees")
+    ap.add_argument("--worktrees", default=os.environ.get("WEAVE_STATE_DIR", ""),
+                    help="Directory holding per-worker worktrees "
+                         "(or $WEAVE_STATE_DIR)")
     ap.add_argument("--base-branch", default="main",
                     help="What each task branch starts from, so one PR shows one task")
-    ap.add_argument("--max-workers", type=int, default=8,
+    ap.add_argument("--max-workers", type=int,
+                    default=int(os.environ.get("WEAVE_MAX_WORKERS") or 8),
                     help="Ceiling on containers here — they share one subscription seat")
     ap.add_argument("--seat-file", default="",
                     help=f"File holding the seat token, if not exported as {SEAT_TOKEN_VAR}")
     ap.add_argument("--token", default=os.environ.get("WEAVE_SERVER_TOKEN"))
     ap.add_argument("--api-key", default=os.environ.get("WEAVE_SERVER_API_KEY"))
     ap.add_argument("--interval", type=float, default=HEARTBEAT_INTERVAL)
-    args = ap.parse_args(argv)
+    return ap
+
+
+def main(argv: Optional[List[str]] = None) -> int:  # pragma: no cover - entrypoint
+    from weave.team.worker import WeaveClient
+
+    args = build_parser().parse_args(argv)
+
+    # Checked here rather than by `required=True`, so the environment can supply
+    # them. argparse would refuse before ever looking at the variables the
+    # compose file sets, and the error would name a flag the operator never
+    # intended to type.
+    missing = [name for name, value in (("--server / $WEAVE_SERVER", args.server),
+                                        ("--workspace / $WEAVE_WORKSPACE", args.workspace))
+               if not value]
+    if missing:
+        raise SystemExit(
+            "a dev host needs to know where to dial and what for; missing: "
+            + ", ".join(missing))
+
+    args.host_id = args.host_id or _hostname()
+    if not args.host_id:
+        raise SystemExit(
+            "could not determine this machine's name — pass --host-id. The fleet "
+            "identifies hosts by it, and two hosts sharing an id would reconcile "
+            "against each other's desired worker count.")
 
     client = WeaveClient(args.server, args.workspace, token=args.token, api_key=args.api_key)
     runtime = DockerRuntime(host_id=args.host_id)

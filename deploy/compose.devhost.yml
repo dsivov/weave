@@ -1,0 +1,70 @@
+# Weave dev host — a machine that carries autonomous developers.
+#
+# Deployable #2 of three (A1), and the only one that is deployed *per developer
+# machine*. It is deliberately not part of `deploy/compose.yml`: a dev host is
+# often somebody's laptop or a box in a private VPC, and the hub has no way to
+# reach it. That is the design, not a limitation (A15).
+#
+#   export WEAVE_SERVER=http://weave.internal:9800
+#   export WEAVE_WORKSPACE=team
+#   docker compose -f deploy/compose.devhost.yml up -d
+#
+# WHAT THIS MACHINE NEEDS: Docker, a network route *out* to the server, and a
+# Claude Code subscription seat. Nothing needs to route *in* — no port is
+# published below, and that is the property to preserve. A dev host that
+# listened would be a dev host that could not sit behind NAT.
+#
+# WHAT IT DOES NOT NEED: a database, a database driver, or a model credential.
+# The image installs `deploy/requirements.devhost.txt`, which is a fraction of
+# the server's; the absences are asserted in `tests/test_dependency_parity.py`.
+
+name: weave-devhost
+
+services:
+  devhost:
+    build:
+      context: ..
+      dockerfile: deploy/devhost.Dockerfile
+    # The daemon starts developer containers as siblings, not children — so it
+    # needs the host's Docker socket. This is the one genuinely privileged thing
+    # on this machine, and it is why the dev host is a separate deployable from
+    # the server: the hub never gets a socket like this.
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Worktrees, the shared clone, and per-worker seat copies. Bind-mounted at
+      # the SAME absolute path inside and out: a git worktree's `.git` holds an
+      # absolute `gitdir:` pointer into the clone, so a tidier mount path leaves
+      # every git command in every developer container broken.
+      - ${WEAVE_STATE_DIR:-/var/lib/weave}:${WEAVE_STATE_DIR:-/var/lib/weave}
+      # The subscription credential, read-only. The daemon copies it per worker
+      # rather than sharing it, so one container's refresh cannot invalidate
+      # another's (A13).
+      - ${HOME}/.claude:/seat:ro
+    environment:
+      WEAVE_SERVER: "${WEAVE_SERVER:?set WEAVE_SERVER — the URL this machine dials out to}"
+      WEAVE_WORKSPACE: "${WEAVE_WORKSPACE:-default}"
+      # Defaults to this machine's hostname. Set it when two hosts share one —
+      # the fleet identifies machines by this, and a collision would have two
+      # daemons reconciling against each other's desired worker count.
+      WEAVE_HOST_ID: "${WEAVE_HOST_ID:-}"
+      WEAVE_STATE_DIR: "${WEAVE_STATE_DIR:-/var/lib/weave}"
+      # A ceiling this machine enforces locally, whatever the board asks for.
+      # Containers here share one subscription seat.
+      WEAVE_MAX_WORKERS: "${WEAVE_MAX_WORKERS:-8}"
+      # The token identifying this daemon to the server. It is a *server* token,
+      # not a model credential — it authenticates the host, and RBAC is enforced
+      # against the role inside it.
+      WEAVE_SERVER_TOKEN: "${WEAVE_SERVER_TOKEN:-}"
+
+      # NO MODEL CREDENTIAL IS SET HERE AND NONE MAY BE (A13). The containers
+      # this daemon starts run Claude Code on a subscription seat; every
+      # metered-auth variable is scrubbed on the way into them. Setting
+      # ANTHROPIC_API_KEY on this machine does not enable anything — the worker
+      # strips it — but it does put a metered credential on a box whose only job
+      # is to run unattended agents, so do not.
+
+    # Outbound only. There is deliberately no `ports:` stanza: publishing one
+    # would let the server dial this machine, which is precisely what A15 forbids
+    # and what `tests/test_devhost_outbound.py` asserts is impossible.
+
+    restart: unless-stopped

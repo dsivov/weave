@@ -78,23 +78,51 @@ class Step:
 
 
 def _steps(working_dir: str, token_secret: str) -> List[Step]:
-    """The guide's steps, in the order it gives them."""
+    """The guide's steps, in the order it gives them.
+
+    **Five of these were manual when this harness was written**, and three became
+    commands in P6 — signing the vocabulary, registering the project, and scaling
+    a machine's developers. That is most of the change in the number this prints,
+    and it is worth saying: the figure did not drop because the same work got
+    faster, it dropped because work that used to be done in a browser is now a
+    line an operator can copy.
+    """
+    env = {"WEAVE_WORKING_DIR": working_dir}
     return [
         Step("check the machine", "1 · Check the machine before you configure it",
              [PYTHON, "-m", "weave.cli", "doctor"],
              # A machine with no seat is a real answer, not a harness failure —
              # the number still means "how long did the published step take".
              allow_failure=True),
+        Step("initialise storage and secret", "2 · Start the server",
+             [PYTHON, "-m", "weave.cli", "init", "--working-dir", working_dir]),
+        Step("start the server", "2 · Start the server",
+             manual="`weave up` runs in the foreground until Ctrl-C. Timing it "
+                    "means timing 'until the first request succeeds', which is a "
+                    "different measurement from the steps around it and is "
+                    "reported separately rather than folded into their total"),
         Step("create the first administrator", "3 · Create the first administrator",
              [PYTHON, "-m", "weave.cli", "user", "add", "onboard-admin",
               "--role", "admin", "--workspaces", "team",
               "--password", "a-good-password-123"],
-             env={"WEAVE_WORKING_DIR": working_dir}),
+             env=env),
         Step("sign the team vocabulary", "4 · Give the workspace its vocabulary",
-             manual="a person reads the diff and signs it — that is the point of "
-                    "the wizard, and timing a guess would make the total untrue"),
+             [PYTHON, "-m", "weave.cli", "roles", "install",
+              "--working-dir", working_dir, "--workspace", "team",
+              "--approver", "onboard-admin"]),
+        Step("register the project", "5 · Tell the workspace what it is building",
+             [PYTHON, "-m", "weave.cli", "project", "register",
+              "--working-dir", working_dir, "--workspace", "team",
+              "--repo", "https://example.invalid/acme/thing.git",
+              "--test-command", "python3 -m pytest -q"]),
         Step("attach a machine", "6 · Attach a machine that carries developers",
-             manual="`claude auth login` is an interactive browser flow"),
+             manual="`claude auth login` is an interactive browser flow, and the "
+                    "daemon runs on a *second* machine — a one-box harness cannot "
+                    "time a step whose point is that it happens somewhere else"),
+        Step("put developers to work", "7 · Put developers to work",
+             manual="`weave agents up` needs a registered dev host, which needs "
+                    "the machine from step 6. Timing it against a host this "
+                    "harness registered itself would measure the harness"),
         Step("migrate existing reviews", "8 · If you are upgrading an existing install",
              [PYTHON, "-m", "weave.cli", "migrate", "reviews",
               "--workspace", "team", "--working-dir", working_dir, "--dry-run"]),

@@ -31,13 +31,20 @@ from __future__ import annotations
 import argparse
 from typing import List, Optional
 
+from weave.cli import agents as _agents
 from weave.cli import doctor as _doctor
 from weave.cli import migrate as _migrate
+from weave.cli import project as _project
+from weave.cli import roles as _roles
+from weave.cli import server as _server
 from weave.cli import users as _users
 from weave_core.version import __version__
 
-#: Subcommand groups, in the order they appear in `weave --help`.
-_GROUPS = (_users, _migrate, _doctor)
+#: Subcommand groups, in the order they appear in `weave --help` — which is the
+#: order of the published onboarding, not alphabetical. Someone reading `--help`
+#: for the first time is trying to work out what to do next, and the list is the
+#: cheapest place to answer that.
+_GROUPS = (_server, _doctor, _users, _roles, _project, _agents, _migrate)
 
 
 def build_parser() -> argparse.ArgumentParser:
