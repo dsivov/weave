@@ -400,6 +400,28 @@ enforced, with **zero file edits and zero restarts**; an RBAC change is observed
 200 before, on the next request; a lifecycle change is observed as a 409; both appear in ledger
 history with an attributed signature and a diff; rollback restores the prior behaviour.
 
+**Gate run by hand, 2026-08-11 — developer's evidence, for the manager to reproduce.**
+Live server, workspace `team`, admin `m4admin`, **one server pid throughout**.
+
+| Gate criterion | Before | After |
+|---|---|---|
+| `integrator` may `invoke:MergeToMain` | **True** — "no RBAC policy — permissive" | **False** — "role 'integrator' has no grants" — *a 403 that was a 200* |
+| `Task pending → done` (skips review) | **True** — "no lifecycle — permissive" | **False** — "Task has no transition pending→done" — *the 409* |
+| `Task pending → in_progress` | True | **True** — the legal step still works, so the machine is gated rather than broken |
+| **Zero restarts** | — | same server pid across all of it; `apply` returns `restart_required: false` |
+| **Zero file edits** | — | the operator edited nothing. The server persisted its own state (`rbac/`, `lifecycle/`, `studio/`, workspace graph) **inside its working directory** — the storage path doing its job. Nothing outside it changed but the log. |
+| Ledger history, attributed, with a diff | — | `rbac` v1 signed by `m4admin`, reason recorded; `/studio/history/rbac/rbac` shows it |
+| **Rollback restores prior behaviour** | `reviewed` re-granted the integrator (v2) | revert to v1 → **refused again**, and the revert is v3, appended not rewritten |
+| Suite · name-guard | — | **925 passed / 0 failed / 0 skipped**; guard clean |
+
+**Two limits, declared.** (1) The **UI is not built** — no `bun` in this container; `tsc --noEmit` is
+clean for every file P4 touched, and the three errors it does report are W8, pre-existing. (2) The
+run above drives the **API**, not the screen, so the wizard's HTTP contract is verified end-to-end
+and the React page is verified only by type-check.
+
+**W5 still not triggered** — P4 produced no populated task store carrying reviews or learnings, so
+the P2 migration has still never run on real data.
+
 **Review:** code review; update the checkpoint.
 
 ---
