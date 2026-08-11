@@ -660,5 +660,23 @@ Status: `accepted` · `superseded by D-NN` · `reversed`.
   actually wanted); `test_weave_api.py` installs governance **through the route**, so the signed installer is
   exercised rather than bypassed. This is the **sixth instance of one lesson**, and the first where the
   defect was in the guard's reach rather than its rule.
+- **Ratified 2026-08-11 by weave-manager, on evidence rather than on the argument.** Both fixture paths were
+  executed side by side: the pre-D-034 `preset.install(...)` and the replacement
+  `lifecycle.save("w", preset.load_part("lifecycle"))` produce a **byte-identical lifecycle machine**, the only
+  difference an `updated_at` timestamp 3.5 ms apart. Status: **accepted**. The gate-integrity question was
+  surfaced to dsivov separately, since this entry named it.
+- **Correction to this entry, and it belongs here rather than in a new decision.** The cost above says "a
+  one-line edit to `tests/test_claim_race.py`". That is what the *pin* watches, and it was true of the pin —
+  but the **gate criterion is plural**: *"the pre-existing claim tests pass unmodified"* (R41, DRP §326). The
+  same substitution also landed in `tests/test_weave_coordinator.py`, and `tests/test_weave_api.py` was rewired
+  to install governance through the bootstrap route. **Three carried files moved, one was declared.** The
+  manager found it by hashing all three rather than trusting the pin.
+  <br>Benign — proved by the same experiment — and the declaration was honest about what the pin covered. The
+  defect is that **the pin covered one file while the criterion covered three**, so a truthful declaration of
+  the pin's scope could still leave two files unaccounted for. **Fifth instance of one lesson: a guard's reach
+  silently redefines the claim it is trusted to enforce.** Fixed in `tests/test_claim_protocol_unchanged.py` —
+  all three pinned, each with the properties it is *kept for*, plus a check that any test file exercising the
+  claim path is either pinned or declared authored-here (offender unless annotated). Three negative controls:
+  editing a newly-pinned file, renaming a kept-for property, and adding an unpinned file that claims.
 
 - **Ratified 2026-08-11 by weave-manager, on evidence.** The cost was an edit to a hash-pinned claim test, which the tripwire says to stop for — the developer stopped and asked, correctly. Approved after executing both fixture paths side by side: the pre-D-034 `preset.install(...)` and the new `lifecycle.save("w", preset.load_part("lifecycle"))` produce a **byte-identical lifecycle machine**, the only difference being an `updated_at` timestamp 3.5 ms apart. No assertion, ordering, lock or `touches` case changed. Keeping the pre-D-034 hash beside the new one is the right record. **Reviewer's finding:** the same substitution also landed, undeclared, in `tests/test_weave_coordinator.py` — not concealed, simply outside what the single-file pin watches. Filed as M6's M1.

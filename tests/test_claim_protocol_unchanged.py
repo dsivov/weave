@@ -36,34 +36,66 @@ from weave.team.coordinator import WeaveCoordinator
 pytestmark = pytest.mark.offline
 
 _TESTS = pathlib.Path(__file__).resolve().parent
-_CLAIM_TESTS = _TESTS / "test_claim_race.py"
 
-#: sha256 of `tests/test_claim_race.py` as carried and as it stands at M6.
+#: **Every carried file that asserts the claim protocol, each pinned.**
 #:
-#: If this fails, do **not** update the hash to make it pass. Either the claim
-#: tests were edited — which the M5 gate forbids — or they were legitimately
-#: changed by a reviewed decision, in which case the `D-NN` comes first and this
+#: This was one file — `test_claim_race.py` — and that was the defect the M6
+#: review found. The gate criterion is *the pre-existing claim **tests** pass
+#: unmodified* (R41, DRP §326), plural, and the pin covered one of the three. So
+#: a developer could declare, truthfully, exactly what the pin watches and still
+#: leave two carried files unaccounted for — which is what happened under D-034.
+#:
+#: **A guard's reach silently redefines the claim it is trusted to enforce.**
+#: That is the fifth instance of one lesson in this project: the exclusion list
+#: hid the hole (D-033), the matcher could not see what it excluded, the reach
+#: was a hand-kept list (W12), the *justification* was untrue, and now the *set*
+#: was smaller than the criterion. Each was found by taking the previous fix
+#: seriously enough to test it rather than believe it.
+#:
+#: If one of these fails, do **not** update the hash to make it pass. Either a
+#: claim test was edited — which the gate forbids — or it was legitimately
+#: changed by a reviewed decision, in which case the `D-NN` comes first and the
 #: constant moves with it, in the same commit, with the reason.
+CLAIM_TESTS_SHA256 = {
+    # The races themselves: two workers, overlapping `touches`, one winner.
+    "test_claim_race.py":
+        "e4f81dc6df5f005e7cb88cdd90819f1b43fe2a033eda1a7e4724cf542af82c90",
+    # The scheduler and the claim: ready-set, deps, the lock, 409 on the loser.
+    "test_weave_coordinator.py":
+        "02071dd30e4176e2861218ac682e10a5371665769067b577511e0a05f95c8b90",
+    # The same protocol through HTTP: create → ready → brief → atomic claim,
+    # with RBAC and the lifecycle role gate in front of it.
+    "test_weave_api.py":
+        "6668ca421e445de97d84f0fb900083362867f9abe7c9e9b52fe24f52dbd5cbc6",
+}
+
+#: The pre-D-034 hashes, kept so the move stays auditable rather than merely
+#: asserted. **All three moved**, not the one that was declared: D-034 made
+#: `preset.install()` sign through the governance ledger, so every fixture that
+#: used it as a shortcut for "load me a preset layer" had to say what it actually
+#: wanted. `test_claim_race.py` and `test_weave_coordinator.py` became
+#: `lifecycle.save("w", preset.load_part("lifecycle"))`; `test_weave_api.py`
+#: installs governance through `POST /weave/bootstrap` instead, which exercises
+#: the signed installer rather than stepping around it.
 #:
-#: **Moved once, under D-034 (P6), and the reason is on the record.** The fixture
-#: helper `_coordinator` loaded the lifecycle machine with
-#: `preset.install("w", lifecycle_service=lifecycle)`. D-034 makes that installer
-#: sign through the governance ledger, so it now needs a studio engine — which a
-#: claim-race fixture has no business constructing. The line became
-#: `lifecycle.save("w", preset.load_part("lifecycle"))`: same machine, same
-#: service, one less indirection.
-#:
-#: What did **not** change is the point: no assertion, no ordering, no lock, no
-#: `touches` case, and no test name. `test_the_claim_tests_cover_the_races_that_
-#: matter` below re-asserts the five race properties by name and passes unchanged,
-#: which is the check the hash cannot make on its own.
-#:
-#: D-034 is **proposed, pending the manager's ratification** — flagged in the
-#: milestone report rather than settled by the developer who wanted the edit.
-CLAIM_TESTS_SHA256 = "e4f81dc6df5f005e7cb88cdd90819f1b43fe2a033eda1a7e4724cf542af82c90"
-#: The pre-D-034 hash, kept so the move is auditable rather than merely asserted.
-CLAIM_TESTS_SHA256_BEFORE_D034 = (
-    "ac4cf323c116d1c9c7874ec62cdf739af620844ba080c94b02064cc80210cae2")
+#: The manager ratified this on evidence rather than on the argument: running
+#: both fixture paths side by side produces a **byte-identical lifecycle
+#: machine**, differing only in an `updated_at` timestamp 3.5 ms apart.
+CLAIM_TESTS_SHA256_BEFORE_D034 = {
+    "test_claim_race.py":
+        "ac4cf323c116d1c9c7874ec62cdf739af620844ba080c94b02064cc80210cae2",
+}
+
+#: A carried test is one that came over with the code at P0. Authored-here tests
+#: that happen to call `claim()` are not part of the gate criterion and are not
+#: pinned — `test_membership.py` (P1) and `test_supervisor*.py` (P5) among them.
+#: Listed by name because git history is not available to a test run, and a
+#: wrong entry here is caught by the coverage check below rather than trusted.
+NOT_CARRIED_BUT_MENTIONS_CLAIMING = {
+    "test_claim_protocol_unchanged.py",   # this file
+    "test_membership.py",                 # P1 — workspace grants
+    "test_devhost_outbound.py",           # P6 — A15, no claim assertions
+}
 
 
 def _sha(path: pathlib.Path) -> str:
@@ -73,46 +105,119 @@ def _sha(path: pathlib.Path) -> str:
 # ── 1 · the carried tests themselves ─────────────────────────────────────────
 
 
-def test_the_claim_tests_still_exist():
-    assert _CLAIM_TESTS.exists(), (
-        "tests/test_claim_race.py is gone — the M5 gate is that it passes "
-        "unmodified, which it cannot do if it is deleted"
+@pytest.mark.parametrize("filename", sorted(CLAIM_TESTS_SHA256))
+def test_the_claim_tests_still_exist(filename):
+    assert (_TESTS / filename).exists(), (
+        f"tests/{filename} is gone — the gate is that the carried claim tests "
+        "pass unmodified, which they cannot do if one is deleted"
     )
 
 
-def test_the_claim_tests_are_byte_for_byte_unmodified():
-    """The gate criterion, mechanised.
+@pytest.mark.parametrize("filename", sorted(CLAIM_TESTS_SHA256))
+def test_the_claim_tests_are_byte_for_byte_unmodified(filename):
+    """The gate criterion, mechanised — for **each** carried claim file.
 
     Deliberately a hash rather than a spot-check: the point is that *nothing*
     moved, and a targeted assertion would only notice the parts someone thought
     to assert.
     """
-    actual = _sha(_CLAIM_TESTS)
-    assert actual == CLAIM_TESTS_SHA256, (
-        "tests/test_claim_race.py has changed.\n\n"
-        "  The M5 gate is that the carried claim tests pass UNMODIFIED. If a "
-        "supervisory feature needed one edited, that is the signal to stop and "
-        "report — not to adjust the test.\n\n"
-        f"  expected {CLAIM_TESTS_SHA256}\n  actual   {actual}\n"
+    actual = _sha(_TESTS / filename)
+    assert actual == CLAIM_TESTS_SHA256[filename], (
+        f"tests/{filename} has changed.\n\n"
+        "  The gate is that the carried claim tests pass UNMODIFIED. If a "
+        "feature needed one edited, that is the signal to stop and report — not "
+        "to adjust the test.\n\n"
+        f"  expected {CLAIM_TESTS_SHA256[filename]}\n  actual   {actual}\n"
     )
 
 
-def test_the_claim_tests_cover_the_races_that_matter():
-    """A hash proves nothing moved; it does not prove what was there was worth
-    keeping. These four are the properties a fleet actually depends on."""
-    names = {
-        node.name
-        for node in ast.walk(ast.parse(_CLAIM_TESTS.read_text(encoding="utf-8")))
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
-        and node.name.startswith("test_")
-    }
-    assert {
+def test_the_pin_reaches_every_test_that_asserts_a_claim():
+    """**The reach itself, asserted — which is the finding this file exists to
+    stop recurring.**
+
+    Pinning three files is only better than pinning one until a fourth carried
+    file grows a claim assertion. So the set is not trusted: every test file that
+    exercises the claim path must be pinned or explicitly listed as
+    authored-here. A new file is an offender until someone says which it is.
+
+    Same shape as the governance guard in
+    `tests/test_onboard_signs_governance.py` — default to *offender unless
+    annotated*, because a false positive costs a line and a false negative costs
+    the guarantee.
+    """
+    unaccounted = []
+    for path in sorted(_TESTS.glob("test_*.py")):
+        if path.name in CLAIM_TESTS_SHA256 or path.name in NOT_CARRIED_BUT_MENTIONS_CLAIMING:
+            continue
+        source = path.read_text(encoding="utf-8")
+        tree = ast.parse(source, filename=str(path))
+        asserts_a_claim = any(
+            isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "claim"
+            for node in ast.walk(tree)
+        ) or "/claim" in source
+
+        if asserts_a_claim:
+            unaccounted.append(path.name)
+
+    assert not unaccounted, (
+        "these test files exercise the claim protocol and are neither pinned nor "
+        "declared authored-here:\n  " + "\n  ".join(unaccounted)
+        + "\n\n  The gate criterion is *the carried claim tests pass "
+        "unmodified* — plural. Add each to CLAIM_TESTS_SHA256 if it was carried "
+        "at P0, or to NOT_CARRIED_BUT_MENTIONS_CLAIMING if it was authored here."
+    )
+
+
+#: The properties each carried file is kept *for*. A hash proves nothing moved;
+#: it does not prove that what was there was worth keeping — and a file could be
+#: rewritten wholesale, re-pinned, and still satisfy every hash in this module.
+REQUIRED_TESTS = {
+    "test_claim_race.py": {
         "test_two_tasks_touching_the_same_module_produce_one_winner",
         "test_disjoint_touches_both_win",
         "test_one_task_many_claimers_produces_one_winner",
         "test_the_json_store_does_not_lose_a_claim_to_a_stale_snapshot",
         "test_the_claim_lock_is_keyed_by_workspace_not_by_task",
-    } <= names
+    },
+    "test_weave_coordinator.py": {
+        "test_ready_set_honours_deps_touches_and_priority",
+        "test_claim_is_atomic_one_winner",
+        "test_claim_respects_role_gate",
+        "test_touches_conflict_defers_the_second_task",
+        "test_claim_blocked_on_unmet_dependency",
+    },
+    "test_weave_api.py": {
+        "test_create_ready_brief_claim",
+        "test_role_gate_blocks_manager_claim",
+    },
+}
+
+
+@pytest.mark.parametrize("filename", sorted(REQUIRED_TESTS))
+def test_the_claim_tests_cover_the_races_that_matter(filename):
+    """The properties a fleet actually depends on, per file."""
+    source = (_TESTS / filename).read_text(encoding="utf-8")
+    names = {
+        node.name
+        for node in ast.walk(ast.parse(source))
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and node.name.startswith("test_")
+    }
+    missing = REQUIRED_TESTS[filename] - names
+    assert not missing, (
+        f"tests/{filename} no longer contains: {', '.join(sorted(missing))}.\n"
+        "  A hash only proves the file did not move. This is what it is kept for."
+    )
+
+
+def test_every_pinned_file_declares_what_it_is_kept_for():
+    """The two maps must cover the same files — otherwise a file could be pinned
+    with nothing said about why, which is how a rewrite-and-re-pin passes."""
+    assert set(CLAIM_TESTS_SHA256) == set(REQUIRED_TESTS), (
+        "CLAIM_TESTS_SHA256 and REQUIRED_TESTS disagree: "
+        f"{set(CLAIM_TESTS_SHA256) ^ set(REQUIRED_TESTS)}"
+    )
 
 
 # ── 2 · the protocol they test ───────────────────────────────────────────────
