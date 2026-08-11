@@ -100,12 +100,16 @@ def main():
         print("\nHow to fix:")
         print("  Option 1 - Set environment variable before starting (recommended):")
         print("     export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES")
-        print("     weave_core-gunicorn --workers 2")
+        # W7: this used to name `weave_core-gunicorn`, a console script that has
+        # never existed — a rebrand sed artifact. P6 is where published operator
+        # instructions are the deliverable, so it now names the command a person
+        # can actually run.
+        print("     python -m weave.server.app --workers 2")
         print("\n  Option 2 - Add to your shell profile (~/.zshrc or ~/.bash_profile):")
         print("     echo 'export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES' >> ~/.zshrc")
         print("     source ~/.zshrc")
         print("\n  Option 3 - Use single worker mode (no multiprocessing):")
-        print("     weave_core-server --workers 1")
+        print("     python -m weave.server.app --workers 1")
         print("=" * 80 + "\n")
         sys.exit(1)
 

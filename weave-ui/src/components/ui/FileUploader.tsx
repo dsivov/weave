@@ -148,6 +148,10 @@ function FileUploader(props: FileUploaderProps) {
 
   const [files, setFiles] = useControllableState({
     prop: valueProp,
+    // Required by the current `useControllableState`. An uncontrolled uploader
+    // starts with no files, which is what the component already assumed — the
+    // default was previously implicit and is now stated.
+    defaultProp: [] as File[],
     onChange: onValueChange
   })
 

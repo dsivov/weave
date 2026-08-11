@@ -903,7 +903,11 @@ export const getAuthStatus = async (): Promise<AuthStatusResponse> => {
     });
 
     // Check if response is HTML (which indicates a redirect or wrong endpoint)
-    const contentType = response.headers['content-type'] || '';
+    // `AxiosHeaders` values are a union (string | number | boolean | string[]),
+    // so `.includes` is not available on the declared type even though this one
+    // is always a string at runtime. Normalised rather than cast, so a header
+    // that genuinely arrives as an array still answers the question correctly.
+    const contentType = String(response.headers['content-type'] ?? '');
     if (contentType.includes('text/html')) {
       console.warn('Received HTML response instead of JSON for auth-status endpoint');
       return {
