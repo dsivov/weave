@@ -347,6 +347,21 @@ def create_app(args):
 
     assert_signing_secret_is_safe(args.token_secret)
 
+    # The event-bus adapter has to match the deployment shape (A7, D-019), and
+    # the mismatch it guards is silent: on the in-process bus behind more than
+    # one worker, a client on worker 2 never receives an event published on
+    # worker 1 — no error, no log, the board just stops updating for some users.
+    #
+    # Asserted here, in `create_app`, because every path into a running server
+    # goes through it — uvicorn's `main()` and each forked gunicorn worker alike.
+    # Putting it in one entry point would leave the other one unguarded, which is
+    # the whole shape of watch item W4.
+    from weave.server.config import assert_bus_matches_deployment
+
+    assert_bus_matches_deployment(
+        getattr(args, "event_bus", "inprocess"), int(getattr(args, "workers", 1) or 1)
+    )
+
     # Check frontend build first and get status
     webui_assets_exist, is_frontend_outdated = check_frontend_build()
 

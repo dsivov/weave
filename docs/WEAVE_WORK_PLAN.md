@@ -309,9 +309,9 @@ declared environment.
 > second bus adapter is exactly the shape that produces a fourth. **W5:** if this phase produces a
 > populated task store, re-run the P2 migration against it and record the result.
 
-- [ ] **Contract check (R11)** — re-read `CONSTRAINTS.md` **v4** before the first task. Touches **A7** (the bus adapter must match the deployment — *the pairing is the whole point; a multi-worker deployment on the in-process bus fans out to nothing, with no error and no log*), **A8**, **A9** (SSE is a third adapter over the same handlers, not a fourth answer surface), **A11** (`asyncpg` is already installed — **no new library**, and a broker would breach A1 as well), and **A15** (nothing here may require the server to dial a client). Write the check into the first commit message, naming each ID and its verdict.
-- [ ] `weave_core/events/postgres.py` `[new]` — the `LISTEN/NOTIFY` bus adapter via `asyncpg`; **no new library** (A7, A11, D-019)
-- [ ] `weave/server/config.py` — bus adapter selected alongside the storage path; refuse to start multi-worker on the in-process bus (A7)
+- [x] **Contract check (R11)** — re-read `CONSTRAINTS.md` **v4** before the first task. Touches **A7** (the bus adapter must match the deployment — *the pairing is the whole point; a multi-worker deployment on the in-process bus fans out to nothing, with no error and no log*), **A8**, **A9** (SSE is a third adapter over the same handlers, not a fourth answer surface), **A11** (`asyncpg` is already installed — **no new library**, and a broker would breach A1 as well), and **A15** (nothing here may require the server to dial a client). Write the check into the first commit message, naming each ID and its verdict.
+- [x] `weave_core/events/postgres.py` `[new]` — the `LISTEN/NOTIFY` bus adapter via `asyncpg`; **no new library** (A7, A11, D-019)
+- [x] `weave/server/config.py` — bus adapter selected alongside the storage path; refuse to start multi-worker on the in-process bus (A7)
 - [ ] `weave/live/stream.py` `[new]` — SSE endpoint `GET /live/stream`, subscribed to the bus
 - [ ] `weave/live/presence.py` `[new]` — `POST /live/presence`; who is on a board, who is editing what
 - [ ] `weave/server/routers/studio.py` — version-checked writes: stale write → **409** + merge view (R31)
@@ -319,7 +319,8 @@ declared environment.
 - [ ] **UI:** remove every polling loop the stream covers — `grep -r setInterval` in board sources → 0 (R32)
 - [ ] `scripts/measure_live_latency.py` `[new]` — 2 authenticated SSE clients, 100 trials, publish p95 (R2)
 - [ ] `scripts/measure_claim_concurrency.py` `[new]` — N=20 simultaneous claims per storage path; report winners, 409s, lost writes (R2)
-- [ ] `tests/test_sse_multiworker.py` `[new]` — **2 gunicorn workers**: an event published on worker 1 reaches a client on worker 2 (the failure A7 exists to prevent)
+- [x] `tests/test_sse_multiworker.py` `[new]` — **2 gunicorn workers**: an event published on worker 1 reaches a client on worker 2 (the failure A7 exists to prevent)
+- [x] **[unplanned]** `tests/test_event_bus_postgres.py` `[new]` — the adapter's own quiet failure modes: an oversized `NOTIFY` payload raises at the publisher instead of vanishing, a raising subscriber does not silence the others, an undecodable notification does not kill the listener, and **both adapters dispatch identically** — A7 requires deployments to swap them, so a difference in dispatch would change behaviour on the deployment that swapped. *(Added from P3.1 implementation — R1.)*
 - [ ] `tests/test_optimistic_concurrency.py` `[new]` — second writer gets 409; a silent overwrite fails
 
 **Gate (M3):** a task claimed in one session appears in another in **< 1s at p95 over 100 trials**,

@@ -59,6 +59,61 @@ class DefaultRAGStorageConfig:
     DOC_STATUS_STORAGE = "JsonDocStatusStorage"
 
 
+#: The event-bus adapters, and which deployment shape each is correct for (A7).
+#:
+#: `inprocess` is the default because the default storage path is file-based,
+#: which is single-operator and therefore single-worker (A4). The pairing is
+#: self-consistent: the default deployment is exactly the one the in-process bus
+#: is correct for.
+IN_PROCESS_BUS = "inprocess"
+POSTGRES_BUS = "postgres"
+EVENT_BUSES = (IN_PROCESS_BUS, POSTGRES_BUS)
+DEFAULT_EVENT_BUS = IN_PROCESS_BUS
+
+
+class BusDeploymentMismatch(RuntimeError):
+    """The event-bus adapter does not match the deployment shape (A7, D-019).
+
+    A startup error rather than a warning, and deliberately so. The failure it
+    replaces is *silent*: on the in-process bus behind more than one worker, a
+    client connected to worker 2 never receives an event published on worker 1 —
+    nothing raises, nothing logs, the board simply stops updating for some users
+    and not others. A warning at boot would scroll past; a refusal cannot.
+    """
+
+
+def assert_bus_matches_deployment(event_bus: str, workers: int) -> None:
+    """Refuse a multi-worker deployment on the in-process bus (A7).
+
+    This is the other half of the PostgreSQL adapter, and it ships with it
+    rather than after it: an adapter that removes a silent failure, plus a
+    configuration that still permits the failure, is not a fix.
+
+    Note which way the check runs. It refuses *in-process + many workers*. It
+    does not refuse PostgreSQL with one worker — that pairing is merely
+    unnecessary, not wrong, and refusing it would break the ordinary case of
+    running a single worker against a production database.
+    """
+    if event_bus not in EVENT_BUSES:
+        raise BusDeploymentMismatch(
+            f"Unknown event bus '{event_bus}'. Set WEAVE_EVENT_BUS to one of: "
+            + ", ".join(EVENT_BUSES)
+        )
+    if event_bus == IN_PROCESS_BUS and workers > 1:
+        raise BusDeploymentMismatch(
+            f"Refusing to start: {workers} workers on the in-process event bus.\n\n"
+            "  The in-process bus cannot fan out across worker processes. A client\n"
+            "  connected to one worker would never receive an event published on\n"
+            "  another — with no error and no log. The board would simply stop\n"
+            "  updating, for some users and not others.\n\n"
+            "  Either use the PostgreSQL bus, which every worker already shares:\n"
+            "      export WEAVE_EVENT_BUS=postgres\n"
+            "  or run a single worker:\n"
+            "      --workers 1\n\n"
+            "  (A7, D-019 — the adapter must match the deployment.)"
+        )
+
+
 def get_default_host(binding_type: str) -> str:
     default_hosts = {
         "ollama": os.getenv("WEAVE_LLM_BINDING_HOST", "http://localhost:11434"),
@@ -331,6 +386,10 @@ def parse_args() -> argparse.Namespace:
     args.vector_storage = get_env_value(
         "WEAVE_VECTOR_STORAGE", DefaultRAGStorageConfig.VECTOR_STORAGE
     )
+
+    # The event-bus adapter is chosen alongside the storage path, not separately,
+    # because A7 pairs it with the deployment shape. See assert_bus_matches_deployment.
+    args.event_bus = get_env_value("WEAVE_EVENT_BUS", DEFAULT_EVENT_BUS)
 
     # Get WEAVE_MAX_PARALLEL_INSERT from environment
     args.max_parallel_insert = get_env_value("WEAVE_MAX_PARALLEL_INSERT", 2, int)
