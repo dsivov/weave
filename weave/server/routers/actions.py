@@ -23,7 +23,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from weave.server.utils import get_combined_auth_dependency, get_principal
+from weave.server.utils import authenticated_principal, get_combined_auth_dependency, get_principal
 from weave_core.utils import logger
 
 
@@ -86,7 +86,7 @@ def _require_cg(rag) -> None:
         )
 
 
-def create_actions_routes(rag, service, *, rbac_service=None, lifecycle_service=None,
+def create_actions_routes(rag, service, *, studio_engine=None, rbac_service=None, lifecycle_service=None,
                           api_key: Optional[str] = None, workspace_resolver=None):
     """Build the /actions router bound to *rag* and an ActionService.
 
@@ -99,6 +99,33 @@ def create_actions_routes(rag, service, *, rbac_service=None, lifecycle_service=
 
         def workspace_resolver():
             return _current_workspace.get()
+
+    # ── governance writes go through the signed ledger (A8, D-033) ──────────
+    #
+    # The action catalog defines **what the runtime will invoke** and the
+    # arguments it accepts, and `action` has been a ledger kind since P3. Writing
+    # it straight through `service.save()` left no signature and no version.
+    #
+    # Found by inverting the guard to "offender unless annotated" (M5 review,
+    # Medium 2) — the previous version listed the four governance editors by
+    # filename, and this file was not on the list.
+
+    def _require_ledger():
+        if studio_engine is None:
+            raise HTTPException(
+                status_code=503,
+                detail=("This change must be signed into the ledger, and the "
+                        "Studio engine is unavailable (A8, D-033)."))
+        return studio_engine
+
+    def _signer(request: Request):
+        principal = authenticated_principal(request)
+        approver = str(principal.get("sub") or principal.get("username") or "")
+        if not approver:
+            raise HTTPException(
+                status_code=401,
+                detail="Changing the action catalog requires an authenticated identity.")
+        return approver, str(principal.get("role") or "")
 
     router = APIRouter(tags=["actions"])
     combined_auth = get_combined_auth_dependency(api_key)
@@ -116,21 +143,29 @@ def create_actions_routes(rag, service, *, rbac_service=None, lifecycle_service=
     @router.post("/actions", response_model=ActionSummaryResponse,
                  dependencies=[Depends(combined_auth)],
                  summary="Set/replace the workspace's action catalog (validated)")
-    async def set_actions(request: ActionCatalogRequest):
+    async def set_actions(request: ActionCatalogRequest, http_request: Request):
         _require_cg(rag)
         ws = _ws()
+        engine = _require_ledger()
+        approver, role = _signer(http_request)
         try:
-            service.save(ws, request.catalog)
+            await engine.sign(ws, "action", request.catalog, approver=approver,
+                              reason=f"action catalog set by {approver}", role=role)
         except (ValueError, KeyError, TypeError) as e:
             raise HTTPException(status_code=400, detail=str(e))
         return ActionSummaryResponse(**service.get_summary(ws))
 
     @router.delete("/actions", dependencies=[Depends(combined_auth)],
                    summary="Delete the workspace's action catalog")
-    async def delete_actions():
+    async def delete_actions(http_request: Request):
         _require_cg(rag)
         ws = _ws()
-        return {"deleted": service.delete(ws), "workspace": ws}
+        engine = _require_ledger()
+        approver, role = _signer(http_request)
+        result = await engine.sign_removal(
+            ws, "action", approver=approver,
+            reason=f"action catalog removed by {approver}", role=role)
+        return {"deleted": result is not None, "workspace": ws, "recorded": result}
 
     @router.get("/actions/{name}", dependencies=[Depends(combined_auth)],
                 summary="One action's full definition")

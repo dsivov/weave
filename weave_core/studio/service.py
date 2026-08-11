@@ -373,7 +373,7 @@ class DiffEngine:
             kind=kind, artifact_id=artifact_id,
             to_version=int(from_version or 0) + 1, from_version=from_version,
             delta={"before": before, "after": {}},
-            behaviour_changed=True, origin="authoring",
+            behaviour_changed=True, origin="removal",
         )
         # The approval is recorded first and runs the workspace gate, exactly as
         # `apply` does — so a rejected removal removes nothing, and a refused one
@@ -390,7 +390,11 @@ class DiffEngine:
             snapshot={},                       # empty snapshot == removed
             from_version=from_version,
             behaviour_changed=True,
-            origin="authoring",
+            # Structural, not free text (M5 review). An empty snapshot alone
+            # cannot say whether the artifact was *removed* (→ permissive) or
+            # *authored empty* (→ deny-all), and replaying it under the wrong
+            # reading produces the inverse of what was recorded.
+            origin="removal",
             sign_off=SignOff(
                 approver=approver, reason=reason,
                 at=datetime.fromtimestamp(self._now(), tz=timezone.utc).isoformat(),
@@ -417,6 +421,8 @@ class DiffEngine:
             return bool(self._ontology.delete(ws))
         if kind == "rule" and self._rules is not None:
             return bool(self._rules.delete(ws))
+        if kind == "action" and self._actions is not None:
+            return bool(self._actions.delete(ws))
         raise ValueError(f"cannot remove kind '{kind}'")
 
     # -- revert --------------------------------------------------------------
@@ -441,6 +447,25 @@ class DiffEngine:
         prior = self._studio.get(workspace, kind, artifact_id, to_version)
         if prior is None:
             raise ValueError(f"no recorded {kind}:{artifact_id} v{to_version} to revert to")
+
+        # Reverting *to a removal* removes again — it does not re-author an empty
+        # artifact (M5 review). The two look identical on the ledger without
+        # `origin`, and they behave oppositely: an authored empty RBAC policy
+        # grants nothing (deny-all), a removed one leaves no policy (permissive).
+        # Replaying the snapshot alone would hand back the inverse of what was
+        # recorded, which is the whole reason `origin='removal'` is structural.
+        if prior.origin == "removal":
+            removed = await self.sign_removal(
+                workspace, kind, approver=approver, reason=reason, role=role,
+                artifact_id=artifact_id)
+            if removed is None:
+                # Already absent: reverting to "removed" is satisfied, and a
+                # version recording the removal of nothing would be noise.
+                return {"kind": kind, "artifact_id": artifact_id,
+                        "removed": True, "version": None,
+                        "note": "already absent; nothing to record"}
+            return removed
+
         diff = await self.propose(workspace, kind, artifact_id,
                                   draft=prior.snapshot, origin="reapproval")
         self.assess(workspace, diff)

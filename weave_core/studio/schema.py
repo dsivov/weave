@@ -23,7 +23,15 @@ from typing import Any, Dict, Optional
 DIFF_KINDS = (
     "ontology", "rule", "flow", "action", "diagram", "app", "rbac", "lifecycle",
 )
-DIFF_ORIGINS = ("authoring", "migration", "reapproval")
+#: Why a version exists. `removal` is **structural, not cosmetic** (M5 review).
+#:
+#: A removal records an empty snapshot — and an empty snapshot is ambiguous in a
+#: way that inverts behaviour: an *authored* empty RBAC policy exists and grants
+#: nothing (deny-by-default), while a *removed* one leaves no policy, which this
+#: system treats as permissive. Without a marker, anything replaying that version
+#: gets the opposite of what was recorded, and the only thing distinguishing the
+#: two is a free-text reason.
+DIFF_ORIGINS = ("authoring", "migration", "reapproval", "removal")
 
 
 @dataclass

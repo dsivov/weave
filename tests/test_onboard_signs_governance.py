@@ -156,20 +156,27 @@ LEDGER_OWNED = {
     "lifecycle_service": "lifecycle",
 }
 
-#: The four governance editors, where the service arrives as a **bare `service`
-#: parameter** rather than a named one.
+#: Routers allowed to call `save()`/`delete()` on a bare `service`, because what
+#: they hold is **not** a ledger-owned artifact. Each entry is a claim someone
+#: made deliberately, and the comment is the claim.
 #:
-#: This map exists because dropping the exclusion list was not enough, and that
-#: is worth recording: the guard matched on *variable name*, so `service.save()`
-#: in `rbac.py` was invisible to it. The exclusion list was hiding a rule that
-#: would have caught nothing in those files anyway — a guard blind twice over,
-#: reading as coverage both times. Proven by reintroducing a direct
-#: `service.save()` into `rbac.py` and watching the guard pass.
-GOVERNANCE_EDITORS = {
-    "rbac.py": "rbac",
-    "ontology.py": "ontology",
-    "lifecycle.py": "lifecycle",
-    "rules.py": "rule",
+#: The rule runs the other way round on purpose (M5 review). An earlier version
+#: listed the four *governance* editors and treated everything else as innocent —
+#: so a new `routers/policy.py` holding its service as `service` would resolve to
+#: no kind and sail through. Defaulting to "offender unless annotated" costs a
+#: comment on a false positive and catches an unsigned governance path on a false
+#: negative, which is the trade worth making.
+#:
+#: This is the third layer of the same lesson: the exclusion list hid the hole,
+#: the matcher could not see what it excluded, and the *reach* was a hand-kept
+#: list that a new file would not be on.
+NON_LEDGER_SERVICE_ROUTERS = {
+    "flows.py": "flow definitions — versioned by the flow store, not the ledger",
+    "diagrams.py": "diagrams — the Studio owns their versioning directly",
+    "users.py": "user accounts — A14 records, not governed artifacts",
+    "projects.py": "ProjectLayout registrations — not a governance artifact",
+    "studio.py": "the Studio itself — it *is* the ledger writer",
+    "workspaces.py": "signs through the engine; asserted separately by D-032",
 }
 
 
@@ -192,7 +199,7 @@ def test_no_router_writes_a_ledger_owned_artifact_directly():
     offenders = []
 
     for path in sorted(_ROUTERS.glob("*.py")):
-        editor_kind = GOVERNANCE_EDITORS.get(path.name)
+        exempt = path.name in NON_LEDGER_SERVICE_ROUTERS
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
         for node in ast.walk(tree):
             if not isinstance(node, ast.Call):
@@ -201,13 +208,21 @@ def test_no_router_writes_a_ledger_owned_artifact_directly():
             if not isinstance(func, ast.Attribute) or func.attr not in ("save", "delete"):
                 continue
             owner = getattr(func.value, "id", None)
-            kind = LEDGER_OWNED.get(owner)
-            if kind is None and editor_kind is not None and owner == "service":
-                kind = editor_kind
-            if kind is not None:
+
+            named = LEDGER_OWNED.get(owner)
+            if named is not None:
                 offenders.append(
                     f"{path.name}:{node.lineno} — {owner}.{func.attr}() changes "
-                    f"'{kind}' without a ledger version"
+                    f"'{named}' without a ledger version"
+                )
+            elif owner == "service" and not exempt:
+                # Unknown by default. A router holding a bare `service` it writes
+                # through is presumed to be editing a governed artifact until
+                # someone says otherwise in NON_LEDGER_SERVICE_ROUTERS.
+                offenders.append(
+                    f"{path.name}:{node.lineno} — service.{func.attr}() writes "
+                    "directly; if this is not a ledger-owned artifact, add the "
+                    "file to NON_LEDGER_SERVICE_ROUTERS with the reason"
                 )
 
     assert not offenders, (

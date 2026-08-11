@@ -1574,7 +1574,7 @@ def create_app(args):
 
         app.include_router(create_actions_routes(
             rag, action_service, rbac_service=rbac_service,
-            lifecycle_service=lifecycle_service, api_key=api_key))
+            lifecycle_service=lifecycle_service, studio_engine=studio_engine, api_key=api_key))
 
     # Workspace manifest API (role-scoped operating context for agents).
     if getattr(args, "use_quadruple", False):
