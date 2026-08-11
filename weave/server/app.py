@@ -485,16 +485,24 @@ def create_app(args):
 
     # Ingress service (event front door: connector → mapper → log → bus).
     # Only in quadruple mode — the P1 platform loop.
+    # One bus for the whole server, built from the configured adapter (A7).
+    # Constructed here rather than inside each subsystem: a module that builds
+    # its own `InProcessBus()` silently opts itself out of cross-worker fan-out
+    # while the startup check goes on passing, because that check only sees the
+    # configured name. The ingress service did precisely that until P3.2.
+    from weave.server.config import create_event_bus
+
+    event_bus = create_event_bus(getattr(args, "event_bus", "inprocess"))
+
     ingress_service = None
     if getattr(args, "use_quadruple", False):
         try:
-            from weave_core.events import InProcessBus
             from weave_core.events.ingress import JsonIngressLog
             from weave.ingress import IngressService
 
             ingress_service = IngressService(
                 JsonIngressLog(os.path.join(str(args.working_dir), "ingress")),
-                InProcessBus(),
+                event_bus,
                 ontology_resolver=(
                     ontology_service.store.load
                     if ontology_service is not None
@@ -600,11 +608,24 @@ def create_app(args):
                         f"(batch {getattr(args, 'dedup_sweep_batch', 10)})"
                     )
 
+                # The PostgreSQL bus has a listener connection to hold open; the
+                # in-process one has nothing to start. Asked by capability rather
+                # than by name, so a third adapter would not need this edited.
+                starter = getattr(event_bus, "start", None)
+                if starter is not None:
+                    await starter()
+
                 ASCIIColors.green("\nServer is ready to accept connections! 🚀\n")
 
                 yield
 
             finally:
+                closer = getattr(event_bus, "close", None)
+                if closer is not None:
+                    try:
+                        await closer()
+                    except Exception as e:  # pragma: no cover - shutdown path
+                        logger.warning(f"event bus close failed: {e}")
                 if dedup_task is not None:
                     dedup_task.cancel()
                 # Clean up all workspace instances
@@ -1599,6 +1620,34 @@ def create_app(args):
 
     app.include_router(create_project_routes(project_registry, api_key=api_key))
     app.include_router(create_ask_routes(rag, api_key=api_key))
+
+    # The live surface (P3). SSE is a third adapter over what the bus already
+    # carries, not a fourth answer surface (A9) — and it is the *client* holding
+    # a connection open, so A15's outbound-only property is untouched.
+    #
+    # Membership is re-consulted per event rather than captured at connect time:
+    # a stream outlives a revocation, and access removed while someone holds one
+    # open has to stop it, or revocation means "applies at the next page load".
+    from weave.live.presence import PresenceRegistry
+    from weave.server.routers.live import create_live_routes
+
+    presence_registry = PresenceRegistry()
+    # Set here rather than where the bus is built: `app` does not exist that
+    # early in create_app.
+    app.state.event_bus = event_bus
+    app.state.presence = presence_registry
+
+    def _is_member(username: str, workspace: str) -> bool:
+        if not username:
+            return False
+        user = user_service.by_username(username)
+        return bool(user and user.is_active and user.may_access(workspace))
+
+    app.include_router(
+        create_live_routes(
+            event_bus, presence_registry, api_key=api_key, membership=_is_member,
+        )
+    )
 
     # Two route groups the source mounted here are deliberately absent, and their
     # absence is the point rather than an omission:

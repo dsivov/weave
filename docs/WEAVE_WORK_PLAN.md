@@ -312,8 +312,11 @@ declared environment.
 - [x] **Contract check (R11)** — re-read `CONSTRAINTS.md` **v4** before the first task. Touches **A7** (the bus adapter must match the deployment — *the pairing is the whole point; a multi-worker deployment on the in-process bus fans out to nothing, with no error and no log*), **A8**, **A9** (SSE is a third adapter over the same handlers, not a fourth answer surface), **A11** (`asyncpg` is already installed — **no new library**, and a broker would breach A1 as well), and **A15** (nothing here may require the server to dial a client). Write the check into the first commit message, naming each ID and its verdict.
 - [x] `weave_core/events/postgres.py` `[new]` — the `LISTEN/NOTIFY` bus adapter via `asyncpg`; **no new library** (A7, A11, D-019)
 - [x] `weave/server/config.py` — bus adapter selected alongside the storage path; refuse to start multi-worker on the in-process bus (A7)
-- [ ] `weave/live/stream.py` `[new]` — SSE endpoint `GET /live/stream`, subscribed to the bus
-- [ ] `weave/live/presence.py` `[new]` — `POST /live/presence`; who is on a board, who is editing what
+- [x] `weave/live/stream.py` `[new]` — SSE endpoint `GET /live/stream`, subscribed to the bus
+- [x] `weave/live/presence.py` `[new]` — `POST /live/presence`; who is on a board, who is editing what
+- [x] **[unplanned]** `weave/server/routers/live.py` `[new]` — the thin HTTP adapter over `weave/live/`, mounted in `app.py`. Split out so the filtering rules stay testable without HTTP. *(Added from P3.2 implementation — R1.)*
+- [x] **[unplanned]** `weave/server/config.py` — `create_event_bus()`, **one construction site for the bus**. The ingress service built its own `InProcessBus()`, which under several workers silently opted that whole subsystem out of fan-out **while the A7 startup check went on passing**, because the check only ever sees the configured name. W4 in structural form: a rule enforced at one construction site protects only the callers who construct there. *(Found by applying W4 to my own work in P3.2 — R1.)*
+- [x] **[unplanned]** `tests/test_live_stream.py` `[new]` — 18 tests: the tenant check runs **per event, not per connection** (a stream outlives a revocation); an unlabelled event does not act as a wildcard; a slow client drops the oldest and counts it; presence expires, is workspace-scoped, and absorbs out-of-order bus updates without resurrecting a stale position. *(Added from P3.2 implementation — R1.)*
 - [ ] `weave/server/routers/studio.py` — version-checked writes: stale write → **409** + merge view (R31)
 - [ ] **UI:** `weave-ui/src/pages/LiveBoard.tsx` `[new]` — board, tasks, fleet and presence over SSE
 - [ ] **UI:** remove every polling loop the stream covers — `grep -r setInterval` in board sources → 0 (R32)

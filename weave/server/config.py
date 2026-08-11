@@ -82,6 +82,30 @@ class BusDeploymentMismatch(RuntimeError):
     """
 
 
+def create_event_bus(event_bus: str):
+    """The one place an event bus is constructed (A7).
+
+    Every publisher and subscriber in the server must be on the *same* adapter,
+    and it must be the one the deployment selected. A module that builds its own
+    `InProcessBus()` is not merely redundant — under several workers it silently
+    opts that whole subsystem out of fan-out, while `assert_bus_matches_deployment`
+    goes on passing because it only ever sees the configured name. The ingress
+    service did exactly that before this factory existed.
+
+    That is watch item W4 in its structural form: a rule enforced at one
+    construction site protects only the callers who construct there. The fix is
+    to leave one site.
+    """
+    if event_bus == POSTGRES_BUS:
+        from weave_core.events.postgres import PostgresEventBus
+
+        return PostgresEventBus()
+
+    from weave_core.events import InProcessBus
+
+    return InProcessBus()
+
+
 def assert_bus_matches_deployment(event_bus: str, workers: int) -> None:
     """Refuse a multi-worker deployment on the in-process bus (A7).
 
