@@ -45,12 +45,12 @@ multi-role support.
   measurement harnesses for every numeric claim.
 
 ## The contract
-- [CONSTRAINTS.md](CONSTRAINTS.md) — **v2, in force**. 15 falsifiable sentences (A1–A15) plus
-  non-goals, tripwires and an amendment log. v2 extends A2/A4 and adds **A7** (the event-bus adapter
-  must match the deployment) — see the amendment rows. 15 falsifiable sentences
-  (A1–A15) plus non-goals and tripwires — including A10 (every role is a Claude Code session) and A13
-  (two LLM paths, never merged: subscription seats vs. the server's metered backend). Loaded every
-  session once in force; drift from it stops the build (R11).
+- [CONSTRAINTS.md](CONSTRAINTS.md) — **v4, in force**. 15 falsifiable sentences (A1–A15) plus non-goals,
+  tripwires and an amendment log. **v2** extended A2/A4 and added **A7** (the event-bus adapter must match the
+  deployment); **v3** scoped A3 to product documents and widened it to generated contracts (D-027); **v4** ranked
+  A4's three storage paths and made Neo4j's single-workspace limit a refusal in code rather than a caveat
+  (D-029). Every amendment has a row and a `D-NN`. Loaded every session; drift from it stops the build (R11).
+  All 15 held at M6, with A1, A10, A13 and A15 verified against the **built** images.
 
 ## Design
 - [WEAVE_ARCHITECTURE.html](WEAVE_ARCHITECTURE.html) — 2026-08-08. Guiding principle (*every surface is
