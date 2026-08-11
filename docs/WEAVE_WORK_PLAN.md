@@ -508,6 +508,14 @@ supervision must not have changed the claim protocol.
 >   *"the tests failed"*, so it writes a **learning** — and P2 made learnings `Insight` nodes that
 >   `/ask/learnings` serves **as fact**. Pick an interpreter that exists (or fail loudly), **and**
 >   distinguish could-not-run from failed so no insight is written for the former.
+> - [ ] **W10 — the front door 404s.** `/` redirects to `/webui` (`weave/server/app.py:1760`) and the
+>   static mount only answers `/webui/` **with** the trailing slash, so a browser hitting the server root
+>   lands on a 404. Found 2026-08-11 by building the UI on the host and actually opening it — the first
+>   time the mounted branch has ever run, because `webui_assets_exist` has been false in every dev
+>   container, so the *unavailable* branch is the only one that had been exercised. The assets
+>   themselves serve correctly (4.1 MB JS, 150 kB CSS, `<title>Weave</title>`). **This is the M6 gate in
+>   miniature:** a clean machine following the published steps reaches a 404 at the first URL a human
+>   would type.
 > - [ ] **W7 — the operator instructions that name commands which do not exist**
 >   (`weave/server/gunicorn.py:103,108`). Harmless while nobody follows them; this is the phase where
 >   published steps are the deliverable and a wrong command ships as documentation.
