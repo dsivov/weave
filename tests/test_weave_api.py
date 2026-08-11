@@ -83,7 +83,7 @@ class TestWeaveApi:
         client, rag, _ = _client()
         s = client.get("/weave/status").json()
         assert s["enabled"] is True and s["installed"] is False
-        assert s["preset"]["object_types"] == 14 and s["preset"]["actions"] == 15
+        assert s["preset"]["object_types"] == 18 and s["preset"]["actions"] == 15
 
         # bootstrap installs governance → supervisors only
         monkeypatch.setattr(weave_routes, "get_principal", lambda req: {"role": "architect"})

@@ -26,7 +26,7 @@ def test_preset_validates():
 def test_preset_summary_counts():
     s = preset.summary()
     assert s["name"] == "weave"
-    assert s["object_types"] == 14        # + PRD · RFC · Diagram · PullRequest · Worker · DevHost · Environment · IntegrationRun
+    assert s["object_types"] == 18        # + PRD · RFC · Diagram · PullRequest · Worker · DevHost · Environment · IntegrationRun, and P2's Feature · Review · Insight · Question (R19)
     assert s["actions"] == 15             # incl. ClaimTask · OpenPullRequest · PublishPlan · RegisterWorker · RegisterDevHost · Deploy · RunIntegration · Promote
     assert s["roles"] == 4               # manager · architect · developer · integrator
     assert s["machines"] == 4            # Task · ChangeRequest · PullRequest · ADR

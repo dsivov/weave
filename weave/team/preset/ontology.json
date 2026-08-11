@@ -1,7 +1,7 @@
 {
-  "_comment": "Weave preset - ontology. The governed vocabulary for a distributed AI dev team (Manager, Architect, Developer, Integrator). Extends the base methodology objects with the planning + code artifacts Weave produces (PRD, RFC, Diagram, PullRequest). Open-world: an unseen keyword is a warning, not an error.",
+  "_comment": "Weave preset - ontology. The governed vocabulary for a distributed AI dev team (Manager, Architect, Developer, Integrator). Extends the base methodology objects with the planning + code artifacts Weave produces (PRD, RFC, Diagram, PullRequest) and the P2 answer-surface objects (Feature, Review, Insight, Question). Open-world: an unseen keyword is a warning, not an error. Artifact nodes carry a locator (repo/path/rev/anchor) and never a copy of the document body (A5, R21).",
   "name": "weave",
-  "version": 1,
+  "version": 2,
   "object_types": [
     {
       "name": "Role",
@@ -12,6 +12,19 @@
       ]
     },
     {
+      "name": "Feature",
+      "description": "A capability the product has - the unit 'what does it do' is answered in. Implemented by tasks, specified by a PRD/RFC, depicted by diagrams. Holds a locator to where it is described, never a copy of the description.",
+      "properties": [
+        {"name": "title", "kind": "string", "required": true},
+        {"name": "status", "kind": "string"},
+        {"name": "summary", "kind": "text"},
+        {"name": "locator_repo", "kind": "string"},
+        {"name": "locator_path", "kind": "string"},
+        {"name": "locator_rev", "kind": "string"},
+        {"name": "locator_anchor", "kind": "string"}
+      ]
+    },
+    {
       "name": "ChangeRequest",
       "description": "A unit of requested change (CR-NNN). Opened by the Manager, designed by the Architect, delivered through Tasks.",
       "properties": [
@@ -19,7 +32,11 @@
         {"name": "status", "kind": "string"},
         {"name": "priority", "kind": "string"},
         {"name": "scope", "kind": "string"},
-        {"name": "project", "kind": "string"}
+        {"name": "project", "kind": "string"},
+        {"name": "locator_repo", "kind": "string"},
+        {"name": "locator_path", "kind": "string"},
+        {"name": "locator_rev", "kind": "string"},
+        {"name": "locator_anchor", "kind": "string"}
       ]
     },
     {
@@ -30,7 +47,11 @@
         {"name": "status", "kind": "string"},
         {"name": "priority", "kind": "string"},
         {"name": "assignee", "kind": "string"},
-        {"name": "risk", "kind": "string"}
+        {"name": "risk", "kind": "string"},
+        {"name": "locator_repo", "kind": "string"},
+        {"name": "locator_path", "kind": "string"},
+        {"name": "locator_rev", "kind": "string"},
+        {"name": "locator_anchor", "kind": "string"}
       ]
     },
     {
@@ -39,7 +60,45 @@
       "properties": [
         {"name": "title", "kind": "string", "required": true},
         {"name": "rationale", "kind": "text"},
-        {"name": "status", "kind": "string"}
+        {"name": "status", "kind": "string"},
+        {"name": "locator_repo", "kind": "string"},
+        {"name": "locator_path", "kind": "string"},
+        {"name": "locator_rev", "kind": "string"},
+        {"name": "locator_anchor", "kind": "string"}
+      ]
+    },
+    {
+      "name": "Review",
+      "description": "A review of a task or pull request - the verdict and its reasoning, recorded as a node so it can be traversed and cited. Was a list field on a task record before P2 (R25). Holds a locator to the review document, never a copy of it.",
+      "properties": [
+        {"name": "verdict", "kind": "string"},
+        {"name": "summary", "kind": "text"},
+        {"name": "reviewer", "kind": "string"},
+        {"name": "locator_repo", "kind": "string"},
+        {"name": "locator_path", "kind": "string"},
+        {"name": "locator_rev", "kind": "string"},
+        {"name": "locator_anchor", "kind": "string"}
+      ]
+    },
+    {
+      "name": "Insight",
+      "description": "Something the team learned, stated once and citable - the unit 'what did we learn' is answered in. Was a `learnings` list field on a task record before P2 (R25).",
+      "properties": [
+        {"name": "statement", "kind": "text", "required": true},
+        {"name": "confidence", "kind": "float", "minimum": 0.0, "maximum": 1.0},
+        {"name": "locator_repo", "kind": "string"},
+        {"name": "locator_path", "kind": "string"},
+        {"name": "locator_rev", "kind": "string"},
+        {"name": "locator_anchor", "kind": "string"}
+      ]
+    },
+    {
+      "name": "Question",
+      "description": "A question someone asked the graph - who asked, when, and what answered it, so a repeat question surfaces the prior answer (R27).",
+      "properties": [
+        {"name": "text", "kind": "text", "required": true},
+        {"name": "asked_by", "kind": "string"},
+        {"name": "asked_at", "kind": "date"}
       ]
     },
     {
@@ -52,9 +111,14 @@
     },
     {
       "name": "Commit",
-      "description": "A git commit recorded against the project, linked to the modules it touched.",
+      "description": "A git commit recorded against the project, linked to the modules it touched. `sha` is the resolving revision (R21).",
       "properties": [
-        {"name": "subject", "kind": "text"}
+        {"name": "sha", "kind": "string"},
+        {"name": "subject", "kind": "text"},
+        {"name": "locator_repo", "kind": "string"},
+        {"name": "locator_path", "kind": "string"},
+        {"name": "locator_rev", "kind": "string"},
+        {"name": "locator_anchor", "kind": "string"}
       ]
     },
     {
@@ -63,7 +127,11 @@
       "properties": [
         {"name": "title", "kind": "string", "required": true},
         {"name": "status", "kind": "string"},
-        {"name": "summary", "kind": "text"}
+        {"name": "summary", "kind": "text"},
+        {"name": "locator_repo", "kind": "string"},
+        {"name": "locator_path", "kind": "string"},
+        {"name": "locator_rev", "kind": "string"},
+        {"name": "locator_anchor", "kind": "string"}
       ]
     },
     {
@@ -72,7 +140,11 @@
       "properties": [
         {"name": "title", "kind": "string", "required": true},
         {"name": "status", "kind": "string"},
-        {"name": "summary", "kind": "text"}
+        {"name": "summary", "kind": "text"},
+        {"name": "locator_repo", "kind": "string"},
+        {"name": "locator_path", "kind": "string"},
+        {"name": "locator_rev", "kind": "string"},
+        {"name": "locator_anchor", "kind": "string"}
       ]
     },
     {
@@ -80,7 +152,11 @@
       "description": "A mermaid diagram artifact for the project - authored visually or from text, versioned in the Studio ledger.",
       "properties": [
         {"name": "title", "kind": "string", "required": true},
-        {"name": "kind", "kind": "string"}
+        {"name": "kind", "kind": "string"},
+        {"name": "locator_repo", "kind": "string"},
+        {"name": "locator_path", "kind": "string"},
+        {"name": "locator_rev", "kind": "string"},
+        {"name": "locator_anchor", "kind": "string"}
       ]
     },
     {
@@ -145,10 +221,15 @@
     {"name": "decided", "source_types": ["Role"], "target_types": ["ArchitectureDecisionRecord"], "cardinality": "1:N", "description": "A role recorded a decision."},
     {"name": "specifies", "source_types": ["PRD"], "target_types": ["ChangeRequest"], "cardinality": "N:1", "description": "A PRD specifies a change request."},
     {"name": "designs", "source_types": ["RFC"], "target_types": ["ChangeRequest"], "cardinality": "N:1", "description": "An RFC designs a change request."},
-    {"name": "depicts", "source_types": ["Diagram"], "target_types": ["ChangeRequest", "Module"], "cardinality": "N:M", "description": "A diagram depicts a change request or module."},
+    {"name": "depicts", "source_types": ["Diagram"], "target_types": ["ChangeRequest", "Module", "Feature"], "cardinality": "N:M", "description": "A diagram depicts a change request, module or feature. The Studio stores this on the diagram (`Diagram.depicts`), which is the write side of this link."},
     {"name": "submitted_as", "source_types": ["Task"], "target_types": ["PullRequest"], "cardinality": "N:1", "description": "A task is submitted as a pull request."},
-    {"name": "reviewed_in", "source_types": ["PullRequest"], "target_types": ["ArchitectureDecisionRecord"], "cardinality": "N:1", "description": "A pull request is reviewed, its outcome recorded as a decision."},
-    {"name": "implemented_by", "source_types": ["Task"], "target_types": ["Commit"], "cardinality": "1:N", "description": "A task is implemented by one or more commits."},
+    {"name": "implemented_by", "source_types": ["Feature"], "target_types": ["Task"], "cardinality": "1:N", "description": "A feature is implemented by one or more tasks (R19). The task-to-commit leg is `produced`."},
+    {"name": "produced", "source_types": ["Task"], "target_types": ["Commit"], "cardinality": "1:N", "description": "A task produced one or more commits."},
+    {"name": "specified_by", "source_types": ["Feature", "ChangeRequest"], "target_types": ["PRD", "RFC"], "cardinality": "N:M", "description": "A feature / change request is specified by a PRD or RFC (R19) - the artifact-first direction `/ask/features` traverses."},
+    {"name": "depicted_by", "source_types": ["Feature", "ChangeRequest", "Module"], "target_types": ["Diagram"], "cardinality": "N:M", "description": "A feature / change request / module is depicted by one or more diagrams (R19) - the artifact-first inverse of `depicts`, which the Studio owns the write side of."},
+    {"name": "reviewed_in", "source_types": ["Task", "PullRequest"], "target_types": ["Review"], "cardinality": "1:N", "description": "A task / pull request is reviewed in one or more reviews. Terminates on a Review node (M2 gate); before P2 it pointed at an ArchitectureDecisionRecord, which is what `justified_by` is for."},
+    {"name": "yielded", "source_types": ["Review"], "target_types": ["Insight"], "cardinality": "1:N", "description": "A review yielded one or more insights - the `/ask/learnings` traversal."},
+    {"name": "answered_by", "source_types": ["Question"], "target_types": ["Insight", "Review", "ArchitectureDecisionRecord"], "cardinality": "N:M", "description": "A question is answered by an insight, a review or a decision (R19, R27), so a repeat question surfaces the prior answer."},
     {"name": "registers", "source_types": ["Role"], "target_types": ["Worker"], "cardinality": "1:N", "description": "A role identity registers a worker into the fleet."},
     {"name": "registers_host", "source_types": ["Role"], "target_types": ["DevHost"], "cardinality": "1:N", "description": "A role identity registers a machine into the dev-host fleet."},
     {"name": "supervises", "source_types": ["DevHost"], "target_types": ["Worker"], "cardinality": "1:N", "description": "A dev host supervises the developer containers running on it."},

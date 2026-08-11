@@ -237,8 +237,15 @@ class WeaveCoordinator:
         touches: Optional[List[str]] = None, by: str = "developer",
     ) -> Dict[str, Any]:
         """Record a commit the loop produced against a task. Appends to the task's
-        chain (source of truth) and reflects a ``Commit`` node + ``implemented_by``
-        audit edge onto the graph (best-effort)."""
+        chain (source of truth) and reflects a ``Commit`` node + ``produced``
+        audit edge onto the graph (best-effort).
+
+        The ontology link type is ``produced`` as of P2: ``implemented_by`` was
+        retargeted to Feature→Task, which is what R19 and the DRP class diagram
+        mean by it. The edge itself is unchanged — graph edges carry a prose
+        relation, not the link-type name — so this was a vocabulary correction
+        and not a data migration.
+        """
         t = self._require(workspace, task_id)
         entry = {"sha": sha, "subject": subject,
                  "touches": list(touches if touches is not None else t.touches)}
