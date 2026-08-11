@@ -130,7 +130,7 @@ def _rbac() -> RbacService:
     policy this product actually ships refuses the thing the gate names.
     """
     rbac = RbacService(InMemoryRbacStore())
-    preset.install("alpha", rbac_service=rbac)
+    rbac.save("alpha", preset.load_part("rbac"))
     return rbac
 
 

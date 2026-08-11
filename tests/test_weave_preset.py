@@ -14,6 +14,8 @@ from weave_core.governance.lifecycle import InMemoryLifecycleStore, LifecycleSer
 from weave_core.governance.ontology import InMemoryOntologyStore, OntologyService
 from weave_core.governance.rbac import InMemoryRbacStore, RbacService
 from weave_core.governance.rules import InMemoryRuleStore, RulesService
+from weave_core.studio.service import DiffEngine
+from weave_core.studio.store import InMemoryStudioStore
 from weave.team import preset
 
 
@@ -52,18 +54,77 @@ def _services():
     )
 
 
+def _engine(svc):
+    """The installer's one collaborator — it already holds all five services."""
+    return DiffEngine(studio_store=InMemoryStudioStore(), **svc)
+
+
+async def _install(svc, **kw):
+    return await preset.install(
+        "proj", _engine(svc), approver=kw.pop("approver", "alice"), **kw)
+
+
 @pytest.mark.offline
-def test_install_writes_all_layers():
+async def test_install_writes_all_layers():
     svc = _services()
-    report = preset.install("proj", **svc)
+    report = await _install(svc)
     assert report["ontology"] == 1 and report["rules"] == 1
     assert report["actions"] == 1 and report["rbac"] == 1 and report["lifecycle"] == 1
 
 
 @pytest.mark.offline
-def test_rbac_enforces_the_pipeline():
+async def test_every_installed_layer_leaves_a_signed_ledger_version():
+    """A8, at the installer rather than at each surface.
+
+    All five preset layers are `DIFF_KINDS` members, and the rules layer is
+    enforced by the gate the moment it lands. Installing one with no version left
+    the runtime enforcing a policy that could not be attributed or rolled back —
+    D-032's finding, surviving in this installer because it writes through a
+    helper rather than through a store call a guard recognises (D-034).
+    """
     svc = _services()
-    preset.install("proj", **svc)
+    engine = _engine(svc)
+    await preset.install("proj", engine, approver="alice", reason="onboarding")
+
+    assert {kind for _part, kind in preset.LAYERS} == {
+        "ontology", "rule", "action", "rbac", "lifecycle"}, (
+        "a layer was added to the installer — it needs a ledger kind too"
+    )
+    for _part, kind in preset.LAYERS:
+        versions = engine.history("proj", kind, kind)
+        assert versions, f"{kind} was installed with no ledger version"
+        sign_off = versions[-1]["sign_off"]
+        assert sign_off["approver"] == "alice", f"{kind} is unattributed"
+        assert sign_off["reason"], f"{kind} was signed with no reason"
+
+
+@pytest.mark.offline
+async def test_install_refuses_rather_than_writing_unsigned():
+    """The refusal is the property. An installer that falls back to a direct
+    write when no ledger is available reintroduces the defect precisely when the
+    ledger is missing — which is the worst moment for it."""
+    svc = _services()
+    with pytest.raises(ValueError, match="studio engine"):
+        await preset.install("proj", None, approver="alice")
+    assert svc["rbac_service"].store.load("proj") is None, (
+        "the refused install still wrote a policy"
+    )
+
+
+@pytest.mark.offline
+async def test_install_refuses_an_unattributed_change():
+    """A6: the principal comes from the authenticated identity. A preset install
+    rewrites who may do what, and 'who took away my access' has to be
+    answerable."""
+    svc = _services()
+    with pytest.raises(ValueError, match="approver"):
+        await preset.install("proj", _engine(svc), approver="")
+
+
+@pytest.mark.offline
+async def test_rbac_enforces_the_pipeline():
+    svc = _services()
+    await _install(svc)
     rbac = svc["rbac_service"]
     # a developer may claim, not merge
     assert rbac.check("proj", "developer", "invoke", "ClaimTask").allowed
@@ -74,9 +135,9 @@ def test_rbac_enforces_the_pipeline():
 
 
 @pytest.mark.offline
-def test_lifecycle_enforces_task_states():
+async def test_lifecycle_enforces_task_states():
     svc = _services()
-    preset.install("proj", **svc)
+    await _install(svc)
     lc = svc["lifecycle_service"]
     # the claim is legal for a developer; an illegal jump is refused
     assert lc.check("proj", "Task", "pending", "in_progress", role="developer").allowed

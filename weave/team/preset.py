@@ -9,8 +9,22 @@ its two new actions (ClaimTask · OpenPullRequest).
 
 The JSON lives under ``preset/`` as package data. :func:`validate` parses every
 part through its schema so a broken preset is caught at build time;
-:func:`install` writes the five governance layers into a workspace via the
-existing services, turning the model from *authored* into *enforced*.
+:func:`install` writes the five governance layers into a workspace, turning the
+model from *authored* into *enforced*.
+
+**It writes them through the signed ledger, and that is not incidental.** All
+five layers — ontology, rules, actions, RBAC, lifecycle — are ``DIFF_KINDS``
+members, and A8 says *what the runtime enforces is the signed ledger version*.
+An installer that called ``rules_service.save`` directly produced a rule the
+rules gate enforces with no signature, no version and no way to roll it back —
+which is D-032's finding exactly, and it survived here after being fixed in the
+wizard because this installer writes through a **helper**, not through a store
+call a reader (or a guard) recognises as one.
+
+That is the same lesson one layer further out: the guard matches
+``<store>.save(...)`` inside a router, and ``preset.install(...)`` is neither.
+So the fix belongs here rather than at each caller — one installer, signing, and
+every surface that onboards a workspace inherits it (A9).
 """
 
 from __future__ import annotations
@@ -92,38 +106,64 @@ def validate() -> List[str]:
     return problems
 
 
-def install(
-    workspace: str,
-    *,
-    ontology_service: Any = None,
-    rules_service: Any = None,
-    action_service: Any = None,
-    rbac_service: Any = None,
-    lifecycle_service: Any = None,
-) -> Dict[str, Any]:
-    """Install the five governance layers into *workspace* via the services.
+#: Preset part → the ledger ``kind`` it is signed as. The order is the order
+#: they are installed in: RBAC last, because it is the layer that can lock the
+#: installing principal out, and a half-installed workspace is easier to finish
+#: than a locked one.
+LAYERS = (
+    ("ontology", "ontology"),
+    ("actions", "action"),
+    ("lifecycle", "lifecycle"),
+    ("rules", "rule"),
+    ("rbac", "rbac"),
+)
 
-    Each layer is optional (a missing service is skipped, so the installer works
-    in reduced test setups). Returns a report of the versions written. Seed
-    entities (the role nodes) are created separately by the project bootstrap /
-    REST installer, since they need the graph store.
+
+async def install(
+    workspace: str,
+    engine: Any,
+    *,
+    approver: str,
+    reason: str = "onboarding: install the Weave governance preset",
+    role: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Install the five governance layers into *workspace*, each signed.
+
+    *engine* is a :class:`weave_core.studio.service.DiffEngine`, which already
+    holds every governance service — so this takes one collaborator rather than
+    five, and cannot be handed a service the ledger does not know about.
+
+    ``approver`` is required and comes from the authenticated principal (A6). A
+    preset install rewrites who may do what; leaving it unattributed makes *"who
+    took away my access"* unanswerable, which is the question the ledger exists
+    to answer.
+
+    A layer whose service is missing from the engine raises rather than being
+    skipped. Silent skipping is how a workspace ends up believing it is governed
+    while one layer is absent — the previous signature made every layer optional,
+    and the reduced setups that motivated it were tests, not deployments.
+
+    Returns the versions written. Seed entities (the role nodes) are created
+    separately by the caller, since they need the graph store.
     """
+    if not approver:
+        raise ValueError("preset install needs an approver — governance is attributed")
+    if engine is None:
+        raise ValueError(
+            "preset install needs a studio engine: the five governance layers are "
+            "ledger-owned, and installing them unsigned would leave the runtime "
+            "enforcing a policy with no version and no way back (A8)")
+
     p = load_preset()
     report: Dict[str, Any] = {"workspace": workspace}
 
-    if ontology_service is not None and "ontology" in p:
-        report["ontology"] = ontology_service.save(workspace, p["ontology"]).version
-    if rules_service is not None and "rules" in p:
-        r = p["rules"]
-        report["rules"] = rules_service.save(
-            workspace, r.get("dsl", ""), r.get("concepts", {}),
-            enabled=bool(r.get("enabled", True))).version
-    if action_service is not None and "actions" in p:
-        report["actions"] = action_service.save(workspace, p["actions"]).version
-    if rbac_service is not None and "rbac" in p:
-        report["rbac"] = rbac_service.save(workspace, p["rbac"]).version
-    if lifecycle_service is not None and "lifecycle" in p:
-        report["lifecycle"] = lifecycle_service.save(workspace, p["lifecycle"]).version
+    for part, kind in LAYERS:
+        if part not in p:
+            continue
+        applied = await engine.sign(
+            workspace, kind, p[part],
+            approver=approver, reason=reason, role=role)
+        report[part] = applied.get("version")
 
     logger.info(f"Weave preset installed into '{workspace}': {report}")
     return report

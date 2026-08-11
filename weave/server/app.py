@@ -1547,7 +1547,8 @@ def create_app(args):
         app.include_router(create_weave_routes(
             rag, ontology_service=ontology_service, rules_service=rules_service,
             action_service=action_service, rbac_service=rbac_service,
-            lifecycle_service=lifecycle_service, coordinator=weave_coordinator,
+            lifecycle_service=lifecycle_service, studio_engine=studio_engine,
+            coordinator=weave_coordinator,
             registry=weave_registry, host_registry=weave_host_registry,
             project_service=weave_project_service, api_key=api_key))
 

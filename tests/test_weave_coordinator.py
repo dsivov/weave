@@ -20,7 +20,7 @@ from weave.team.store import InMemoryWeaveTaskStore
 
 def _coordinator():
     lifecycle = LifecycleService(InMemoryLifecycleStore())
-    preset.install("w", lifecycle_service=lifecycle)   # the Weave Task machine
+    lifecycle.save("w", preset.load_part("lifecycle"))   # the Weave Task machine
     return WeaveCoordinator(InMemoryWeaveTaskStore(), lifecycle_service=lifecycle)
 
 
@@ -127,7 +127,7 @@ class _FakeRag:
 def _coordinator_with_rag(with_integration=False):
     rag = _FakeRag()
     lifecycle = LifecycleService(InMemoryLifecycleStore())
-    preset.install("w", lifecycle_service=lifecycle)
+    lifecycle.save("w", preset.load_part("lifecycle"))
     from weave.team.integration import InMemoryIntegrationStore
     c = WeaveCoordinator(
         InMemoryWeaveTaskStore(), lifecycle_service=lifecycle, rag_resolver=lambda ws: rag,
@@ -173,7 +173,7 @@ async def test_record_decision_is_must_succeed():
             raise RuntimeError("decision index down")
 
     lifecycle = LifecycleService(InMemoryLifecycleStore())
-    preset.install("w", lifecycle_service=lifecycle)
+    lifecycle.save("w", preset.load_part("lifecycle"))
     c = WeaveCoordinator(InMemoryWeaveTaskStore(), lifecycle_service=lifecycle,
                          rag_resolver=lambda ws: _BadRag())
     with pytest.raises(RuntimeError):

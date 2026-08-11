@@ -205,6 +205,7 @@ def create_weave_routes(
     action_service: Any = None,
     rbac_service: Any = None,
     lifecycle_service: Any = None,
+    studio_engine: Any = None,
     coordinator: Any = None,
     registry: Any = None,
     host_registry: Any = None,
@@ -267,12 +268,21 @@ def create_weave_routes(
             raise HTTPException(
                 status_code=503,
                 detail="Weave bootstrap requires Weave mode. Set WEAVE_ENABLE_QUADRUPLE=true.")
+        # Refuse rather than write unsigned. All five preset layers are
+        # ledger-owned, and the rules layer in particular is enforced by the
+        # gate the moment it lands — installing it with no version would make
+        # A8 false for this workspace immediately, not eventually (D-032).
+        if studio_engine is None:
+            raise HTTPException(
+                status_code=503,
+                detail="governance ledger unavailable — bootstrap will not install "
+                       "an unsigned preset. Start the server in Weave mode.")
         try:
-            report = preset.install(
-                ws,
-                ontology_service=ontology_service, rules_service=rules_service,
-                action_service=action_service, rbac_service=rbac_service,
-                lifecycle_service=lifecycle_service)
+            report = await preset.install(
+                ws, studio_engine,
+                approver=_principal_id(request) or role or "unknown",
+                role=role,
+                reason="onboarding: install the Weave governance preset")
         except ValueError as e:
             raise HTTPException(status_code=400, detail=f"preset install failed: {e}")
 

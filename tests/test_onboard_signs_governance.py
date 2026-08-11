@@ -253,6 +253,101 @@ def test_no_router_writes_a_ledger_owned_artifact_directly():
     )
 
 
+#: The service/store names whose `save()` writes a `DIFF_KINDS` artifact —
+#: matched wherever they appear, not only in a router.
+LEDGER_OWNED_ANYWHERE = {
+    "ontology_service": "ontology",
+    "rules_service": "rule",
+    "rbac_service": "rbac",
+    "lifecycle_service": "lifecycle",
+    "action_service": "action",
+    "flow_store": "flow",
+    "diagram_store": "diagram",
+}
+
+#: Modules allowed to write these directly, each because it **is** the writer or
+#: the adapter under it. Anything else calling one of these is a second write
+#: path, which is the whole defect.
+LEDGER_WRITERS = {
+    "weave_core/studio/service.py",   # the ledger — `_persist` is the one writer
+}
+
+
+def _repo_modules():
+    repo = _ROUTERS.parent.parent.parent
+    for package in ("weave", "weave_core"):
+        for path in sorted((repo / package).glob("**/*.py")):
+            if "__pycache__" in path.parts:
+                continue
+            yield path, str(path.relative_to(repo))
+
+
+def test_nothing_outside_the_ledger_writes_a_ledger_owned_artifact():
+    """The same rule, no longer scoped to routers — which is where it leaked.
+
+    `test_no_router_writes_a_ledger_owned_artifact_directly` walks
+    `weave/server/routers/*.py`, so it could only ever catch a write **spelled
+    out in a router**. `weave/team/preset.py` installed all five governance
+    layers by calling `ontology_service.save`, `rules_service.save` and three
+    more — from a helper. `POST /weave/bootstrap` reached it as
+    `preset.install(...)`, a call the matcher has no reason to suspect and no way
+    to follow.
+
+    So the onboarding path installed an *unsigned* preset for four phases after
+    D-032 was fixed in the wizard, and the rules layer among them is enforced by
+    the gate the moment it lands (D-034).
+
+    **The sixth layer of one lesson.** Each previous fix widened *what* was
+    matched — the exclusion list, then the matcher, then the shape, then the
+    justification. This one widens *where*, because the reach of a guard is as
+    much a part of it as its rule: a check that runs over five files cannot see
+    the sixth, however good the rule inside it is.
+    """
+    offenders = []
+
+    for path, rel in _repo_modules():
+        if rel in LEDGER_WRITERS:
+            continue
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            func = node.func
+            if not isinstance(func, ast.Attribute) or func.attr not in ("save", "delete"):
+                continue
+            owner = getattr(func.value, "id", None)
+            kind = LEDGER_OWNED_ANYWHERE.get(owner or "")
+            if kind is None:
+                continue
+            offenders.append(
+                f"{rel}:{node.lineno} — {owner}.{func.attr}() writes '{kind}' "
+                "without a ledger version"
+            )
+
+    assert not offenders, (
+        "a ledger-owned artifact is written outside the ledger. Route it through "
+        "`DiffEngine.sign()` / `sign_removal()` so the runtime enforces a signed "
+        "version (A8, D-032, D-034):\n  " + "\n  ".join(offenders)
+    )
+
+
+def test_the_preset_installer_signs_and_refuses():
+    """The specific hole the rule above generalises, asserted where it was.
+
+    Pinned separately because the structural guard proves only that
+    `preset.install` no longer *calls* a service — not that it signs instead of
+    quietly doing nothing.
+    """
+    from weave.team import preset
+
+    source = pathlib.Path(preset.__file__).read_text(encoding="utf-8")
+    assert "engine.sign(" in source, "the installer no longer signs"
+    assert "engine is None" in source, (
+        "the installer must refuse without a ledger rather than fall back"
+    )
+    assert "D-032" in source, "the reason should survive next to the code"
+
+
 def test_onboard_apply_refuses_rather_than_writing_unsigned():
     """If the Studio engine is missing, onboarding must refuse — not fall back to
     the direct write. A fallback is how a removed second path comes back."""

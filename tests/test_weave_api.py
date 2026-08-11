@@ -61,6 +61,14 @@ def _client(mounted=True, with_coordinator=False):
         rbac_service=RbacService(InMemoryRbacStore()),
         lifecycle_service=LifecycleService(InMemoryLifecycleStore()),
     )
+    # The bootstrap route installs governance through the ledger and refuses to
+    # write unsigned (D-032, D-034), so the engine is part of a mounted router's
+    # normal wiring rather than an extra.
+    from weave_core.studio.service import DiffEngine
+    from weave_core.studio.store import InMemoryStudioStore
+
+    engine = DiffEngine(studio_store=InMemoryStudioStore(),
+                        rag_resolver=lambda ws: rag, **svc)
     coord = reg = None
     if with_coordinator:
         coord = WeaveCoordinator(
@@ -69,7 +77,7 @@ def _client(mounted=True, with_coordinator=False):
         reg = WorkerRegistry(InMemoryWeaveWorkerStore(), rag_resolver=lambda ws: rag)
     if mounted:
         app.include_router(create_weave_routes(
-            rag, **svc, coordinator=coord, registry=reg, api_key=None,
+            rag, **svc, studio_engine=engine, coordinator=coord, registry=reg, api_key=None,
             workspace_resolver=lambda: "proj"))
     client = TestClient(app)
     client.coord = coord            # tests seed governed tasks directly (route is RBAC-gated)
@@ -103,8 +111,11 @@ class TestWeaveApi:
 class TestWeaveCoordinationApi:
     def _setup(self, monkeypatch, role="developer"):
         client, rag, svc = _client(with_coordinator=True)
-        # governance must be installed for RBAC/lifecycle to enforce the claim
-        preset.install("proj", **svc)
+        # Governance must be installed for RBAC/lifecycle to enforce the claim —
+        # through the route, so this exercises the signed installer rather than a
+        # test-only shortcut past it.
+        monkeypatch.setattr(weave_routes, "get_principal", lambda req: {"role": "architect"})
+        assert client.post("/weave/bootstrap").status_code == 200
         # patch the authenticated principal's role (normally from the token)
         monkeypatch.setattr(weave_routes, "get_principal", lambda req: {"role": role})
         return client

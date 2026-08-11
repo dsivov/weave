@@ -619,3 +619,44 @@ Status: `accepted` · `superseded by D-NN` · `reversed`.
   governance change and needs a version, not just an absence. **This is the fourth instance of one lesson** —
   header literals, the ingress bus, the two admission doors, and now this — that asserting the class beats
   asserting the instance, and that the *exclusions* in a class assertion deserve the same scrutiny as the rule.
+
+---
+
+## D-034 · The preset installer signs — the onboarding path was the sixth unsigned write
+- **Date:** 2026-08-11  ·  **Status:** **proposed — pending dsivov's ratification**  ·  **Raised by:** developer (building `weave roles install` for P6)
+- **Context:** P6's CLI is required to *call* `preset.install()` rather than reimplement it (R44), so I read
+  it before wiring a third caller onto it. `weave/team/preset.py` installed all five governance layers by
+  calling `ontology_service.save`, `rules_service.save`, `action_service.save`, `rbac_service.save` and
+  `lifecycle_service.save` directly. All five are `DIFF_KINDS` members. `POST /weave/bootstrap`
+  (`routers/team.py:271`) is its only production caller, and the team router is not passed a `studio_engine`
+  at all — so **the onboarding route has installed an unsigned governance preset since P0**, including the
+  rules layer, which `routers/actions.py` enforces the moment it lands.
+- **Why the guards missed it.** `test_no_router_writes_a_ledger_owned_artifact_directly` walks
+  `weave/server/routers/*.py` looking for `<store>.save(...)`. The write is real, but it is spelled
+  `preset.install(...)` in the router and `rules_service.save(...)` in a helper the guard never opens.
+  Every previous fix in this family widened *what* was matched — the exclusion list (D-033), then the
+  matcher, then the shape, then the truth of a justification (W12). **This one is about *reach*:** a check
+  that runs over five files cannot see the sixth, however good the rule inside it is.
+- **Options:** comply — make the installer sign / amend A8 to exempt onboarding as "initial state, not a
+  change" / defer to a watch item
+- **Decision (proposed):** **Comply.** `preset.install()` becomes `async`, takes a `DiffEngine` instead of
+  five services, signs each layer through `engine.sign()`, requires an `approver` from the authenticated
+  principal, and **raises rather than falling back** when no engine is present. `POST /weave/bootstrap`
+  returns 503 rather than installing unsigned. The class guard is widened from the router directory to
+  **all of `weave/` and `weave_core/`**, with the ledger itself as the sole exemption; verified against the
+  pre-fix file as a negative control, where it reports all five writes.
+- **Why not amend:** "onboarding is initial state, not a change" is the same shape of argument as D-033's
+  "they are the direct surface" — true as intent, false against A8's actual sentence. A preset install
+  decides who may do what in a new workspace; that is the first thing anyone would want attributed, and
+  a workspace whose founding policy has no version cannot be rolled back to anything.
+- **Cost, stated plainly:** this needed a **one-line edit to `tests/test_claim_race.py`**, which the M5 gate
+  pins by hash and whose pin says not to move without a decision. The edit is in `_coordinator`, a fixture
+  helper: `preset.install("w", lifecycle_service=lifecycle)` → `lifecycle.save("w", preset.load_part("lifecycle"))`.
+  No assertion, ordering, lock, `touches` case or test name changed, and the five race properties are still
+  re-asserted by name in `test_the_claim_tests_cover_the_races_that_matter`. The old hash is kept in the file
+  next to the new one so the move is auditable. **This is the part I am not entitled to decide alone**, which
+  is why the decision is proposed rather than accepted — the fix stands or falls on the manager's review.
+- **Consequences:** five callers updated (four fixtures now load a preset part directly, which is what they
+  actually wanted); `test_weave_api.py` installs governance **through the route**, so the signed installer is
+  exercised rather than bypassed. This is the **sixth instance of one lesson**, and the first where the
+  defect was in the guard's reach rather than its rule.

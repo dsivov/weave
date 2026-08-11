@@ -38,13 +38,32 @@ pytestmark = pytest.mark.offline
 _TESTS = pathlib.Path(__file__).resolve().parent
 _CLAIM_TESTS = _TESTS / "test_claim_race.py"
 
-#: sha256 of `tests/test_claim_race.py` as carried and as it stands at M5.
+#: sha256 of `tests/test_claim_race.py` as carried and as it stands at M6.
 #:
 #: If this fails, do **not** update the hash to make it pass. Either the claim
 #: tests were edited — which the M5 gate forbids — or they were legitimately
 #: changed by a reviewed decision, in which case the `D-NN` comes first and this
 #: constant moves with it, in the same commit, with the reason.
-CLAIM_TESTS_SHA256 = "ac4cf323c116d1c9c7874ec62cdf739af620844ba080c94b02064cc80210cae2"
+#:
+#: **Moved once, under D-034 (P6), and the reason is on the record.** The fixture
+#: helper `_coordinator` loaded the lifecycle machine with
+#: `preset.install("w", lifecycle_service=lifecycle)`. D-034 makes that installer
+#: sign through the governance ledger, so it now needs a studio engine — which a
+#: claim-race fixture has no business constructing. The line became
+#: `lifecycle.save("w", preset.load_part("lifecycle"))`: same machine, same
+#: service, one less indirection.
+#:
+#: What did **not** change is the point: no assertion, no ordering, no lock, no
+#: `touches` case, and no test name. `test_the_claim_tests_cover_the_races_that_
+#: matter` below re-asserts the five race properties by name and passes unchanged,
+#: which is the check the hash cannot make on its own.
+#:
+#: D-034 is **proposed, pending the manager's ratification** — flagged in the
+#: milestone report rather than settled by the developer who wanted the edit.
+CLAIM_TESTS_SHA256 = "e4f81dc6df5f005e7cb88cdd90819f1b43fe2a033eda1a7e4724cf542af82c90"
+#: The pre-D-034 hash, kept so the move is auditable rather than merely asserted.
+CLAIM_TESTS_SHA256_BEFORE_D034 = (
+    "ac4cf323c116d1c9c7874ec62cdf739af620844ba080c94b02064cc80210cae2")
 
 
 def _sha(path: pathlib.Path) -> str:

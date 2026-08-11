@@ -36,7 +36,12 @@ from weave.team.store import InMemoryWeaveTaskStore, JsonWeaveTaskStore
 
 def _coordinator(store=None):
     lifecycle = LifecycleService(InMemoryLifecycleStore())
-    preset.install("w", lifecycle_service=lifecycle)
+    # Loads the preset's lifecycle machine straight into the service. Was
+    # `preset.install("w", lifecycle_service=lifecycle)`; that installer now
+    # signs through the governance ledger and needs a studio engine (D-034),
+    # which a claim-race fixture has no business constructing. No assertion,
+    # ordering or lock in this file changes — only how the machine is loaded.
+    lifecycle.save("w", preset.load_part("lifecycle"))
     return WeaveCoordinator(store or InMemoryWeaveTaskStore(), lifecycle_service=lifecycle)
 
 
