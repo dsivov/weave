@@ -508,7 +508,12 @@ supervision must not have changed the claim protocol.
 >   *"the tests failed"*, so it writes a **learning** — and P2 made learnings `Insight` nodes that
 >   `/ask/learnings` serves **as fact**. Pick an interpreter that exists (or fail loudly), **and**
 >   distinguish could-not-run from failed so no insight is written for the former.
-> - [ ] **W10 — the front door 404s.** `/` redirects to `/webui` (`weave/server/app.py:1760`) and the
+> - [~] **W10 — the front door 404s. FIX APPLIED, UNCOMMITTED — developer to commit and test.**
+>   `weave/server/app.py` root redirect now targets `/webui/`; verified live (root → 200, `<title>Weave</title>`).
+>   **Left uncommitted deliberately:** `app.py` also carries the developer's in-flight P6 line
+>   (`studio_engine=studio_engine`), and committing the file would sweep that into a manager commit.
+>   Commit it with your P6 work and run the suite — I changed a route, and no test covers the root
+>   redirect, which is part of why this survived. Original finding: `/` redirects to `/webui` (`weave/server/app.py:1760`) and the
 >   static mount only answers `/webui/` **with** the trailing slash, so a browser hitting the server root
 >   lands on a 404. Found 2026-08-11 by building the UI on the host and actually opening it — the first
 >   time the mounted branch has ever run, because `webui_assets_exist` has been false in every dev
