@@ -554,6 +554,11 @@ def create_app(args):
                 flow_store=flow_store,
                 action_service=action_service,
                 diagram_store=diagram_store,
+                # Governance as ledger kinds (R35, A8): the wizard changes RBAC
+                # and lifecycle by signing a version, never by writing a file
+                # the runtime would have to be restarted to read.
+                rbac_service=rbac_service,
+                lifecycle_service=lifecycle_service,
                 rag_resolver=lambda ws: rag,
                 llm_resolver=lambda ws: getattr(rag, "llm_model_func", None),
             )

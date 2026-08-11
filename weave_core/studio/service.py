@@ -93,6 +93,8 @@ class DiffEngine:
         flow_store: Any = None,
         action_service: Any = None,
         diagram_store: Any = None,
+        rbac_service: Any = None,
+        lifecycle_service: Any = None,
         rag_resolver: Optional[Callable[[str], Any]] = None,
         llm_resolver: Optional[Callable[[str], Any]] = None,
         now: Callable[[], float] = time.time,
@@ -103,6 +105,8 @@ class DiffEngine:
         self._flows = flow_store
         self._actions = action_service
         self._diagrams = diagram_store
+        self._rbac = rbac_service
+        self._lifecycle = lifecycle_service
         self._resolve_rag = rag_resolver
         self._resolve_llm = llm_resolver
         self._now = now
@@ -471,6 +475,16 @@ class DiffEngine:
         if kind == "diagram" and self._diagrams is not None:
             d = self._diagrams.get(ws, artifact_id)
             return d.to_dict() if d is not None else None
+        # Governance as ledger kinds (R35, A8). Same shape as the others on
+        # purpose: `store.load` → dict + `version`, so a governance change is
+        # proposed, diffed, signed and rolled back exactly like an ontology
+        # change, with no separate path for "config".
+        if kind == "rbac" and self._rbac is not None:
+            p = self._rbac.store.load(ws)
+            return {**p.to_dict(), "version": p.version} if p is not None else None
+        if kind == "lifecycle" and self._lifecycle is not None:
+            lc = self._lifecycle.store.load(ws)
+            return {**lc.to_dict(), "version": lc.version} if lc is not None else None
         return None
 
     # ── per-kind: author from NL spec ───────────────────────────────────────
@@ -546,6 +560,19 @@ class DiffEngine:
             from weave_core.studio.diagrams.schema import Diagram
 
             return self._diagrams.save(ws, Diagram.from_dict({**after, "id": artifact_id})).version
+        if kind == "rbac":
+            if self._rbac is None:
+                raise ValueError("no RBAC service to persist a policy")
+            # Straight through the same `save` the /rbac router calls, so the
+            # runtime enforces what was signed and there is no second write path
+            # for governance (A8, A9). `save` validates and raises on a
+            # malformed policy, which is what keeps a wizard from signing off
+            # something that cannot be enforced.
+            return self._rbac.save(ws, after).version
+        if kind == "lifecycle":
+            if self._lifecycle is None:
+                raise ValueError("no lifecycle service to persist a lifecycle")
+            return self._lifecycle.save(ws, after).version
         raise ValueError(f"cannot persist kind '{kind}'")
 
     def _reattach_gate(self, ws: str) -> None:

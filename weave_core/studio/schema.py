@@ -12,7 +12,17 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
 
-DIFF_KINDS = ("ontology", "rule", "flow", "action", "diagram", "app")
+#: The artifact kinds the signed ledger versions.
+#:
+#: `rbac` and `lifecycle` joined in P4 (R35), and the reason is A8: what the
+#: runtime enforces is the signed ledger version, and roles, RBAC and lifecycle
+#: have **no server-file config path**. A wizard that wrote a config file the
+#: runtime does not read would be a second source of truth; making them ledger
+#: kinds is what lets the wizard change governance the only way anything else
+#: does — a diff, a signature, a version, and history to roll back to.
+DIFF_KINDS = (
+    "ontology", "rule", "flow", "action", "diagram", "app", "rbac", "lifecycle",
+)
 DIFF_ORIGINS = ("authoring", "migration", "reapproval")
 
 
