@@ -561,3 +561,31 @@ Status: `accepted` · `superseded by D-NN` · `reversed`.
   migration, and the reason this one does not is specific and checkable. A test must assert that
   nothing writes a `depicted_by` edge, so (3) stays true under later edits rather than depending on
   everyone remembering it.
+
+## D-032 · `/onboard/apply` routes through the ledger — P5's first task, not P4's
+- **Date:** 2026-08-11  ·  **Status:** accepted  ·  **Raised by:** developer (P4, open question), ruled by weave-manager
+- **Context:** `/onboard/apply` (`weave/server/routers/workspaces.py:468`) writes ontology and rules by
+  calling `ontology_service.save()` and `rules_service.save()` directly — no `DiffEngine.apply`, no
+  signature, no version, no history. P4 gave the wizard a **signed** path for the same artifact kinds,
+  so the same kinds now have two write paths with different guarantees.
+- **The developer read this as "nothing false today, but the shape that becomes false." Verified, and
+  it is worse than that.** `weave/server/routers/actions.py` implements
+  `resolve principal → RBAC → lifecycle → **rules gate** → side effect`, with a gate REJECT mapping to
+  422. A rule installed through onboarding is therefore **runtime-enforced while carrying no signature
+  and no ledger version**, which makes A8's first sentence — *"What the runtime enforces is the signed
+  ledger version"* — false today for anything installed that way.
+- **Options:** (a) convert `/onboard/apply` through `DiffEngine.apply` in P5 · (b) record the asymmetry
+  as a watch item · (c) treat it as an M4 finding and fix it now
+- **Decision:** **(a).** It is filed as M4's H1 and becomes **P5's first task**. Not fixed in P4: the
+  surface is pre-existing and carried from the fork, P4 neither introduced nor touched it, and
+  converting it is real scope needing its own tests. (b) is rejected because a watch item is the right
+  home for a risk, not for a constraint that is already false.
+- **Why M4 still merges with a High open.** The merge rule (R4, R5) is about the milestone's own work,
+  and P4's is clean. A pre-existing defect that a review *reveals* becomes a tracked finding against the
+  next phase rather than a veto on the one that surfaced it — otherwise the milestone that found the
+  problem is the one punished for it, and the incentive runs the wrong way. This follows M0 exactly,
+  where H1 was approved, merged, and became P1's first task.
+- **Consequences:** Both write paths produce signed, versioned artifacts once converted. This is the
+  same fix as P3.3's and the same lesson as W4: the guard belongs in the engine both paths share, not in
+  one adapter. P6's onboarding bundle is where an unsigned governance write would have hurt most, which
+  is why this is scheduled now rather than deferred again.

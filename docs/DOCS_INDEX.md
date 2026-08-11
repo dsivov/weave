@@ -60,6 +60,10 @@ multi-role support.
   added constraint A7.
 
 ## Plan & progress
+- [WEAVE_CODE_REVIEW_M4.md](WEAVE_CODE_REVIEW_M4.md) — **M4**, 2026-08-11. 0 Critical · **1 High (pre-existing,
+  P5's first task — D-032)** · 2 Medium. Behavioural gate **run live by the reviewer**: a permission that was
+  allowed became denied, read back by a separate process while the same server pid kept serving. Suite
+  925 / 0 / 0. **A8 drift found in `/onboard/apply`** — runtime-enforced rules with no signature. Merged.
 - [WEAVE_CODE_REVIEW_M3.md](WEAVE_CODE_REVIEW_M3.md) — **M3**, 2026-08-11. **0 Critical · 0 High** · 4 Medium.
   The first gate with **measured** criteria, and both were re-run by the reviewer rather than accepted:
   **p95 2.44 ms** over 100 trials against a 1000 ms gate, and **exactly one winner of 20** with 0 lost writes

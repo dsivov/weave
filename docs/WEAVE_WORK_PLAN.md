@@ -5,7 +5,7 @@
 
 - **Sources:** [WEAVE_DRP.md](WEAVE_DRP.md) · [WEAVE_ARCHITECTURE.html](WEAVE_ARCHITECTURE.html) · [WEAVE_RFC.html](WEAVE_RFC.html)
 - **Contract:** [CONSTRAINTS.md](CONSTRAINTS.md) **v4** — every phase opens with a contract check (R11)
-- **Branch:** work rides a `feature/` branch and the manager merges at each gate — two sessions now share one checkout (D-025's direct-to-`main` waiver superseded in practice; R5 observed). · **Status:** **P0–P3 complete and reviewed. M3 approved 2026-08-11 — 0 Critical, 0 High, merged to `main`. P4 is the active phase.** Both M3 measured criteria were reproduced by the reviewer, not accepted on report.
+- **Branch:** work rides a `feature/` branch and the manager merges at each gate — two sessions now share one checkout (D-025's direct-to-`main` waiver superseded in practice; R5 observed). · **Status:** **P0–P4 complete and reviewed. M4 approved 2026-08-11 — 0 Critical, merged to `main`. P5 is the active phase, and its first task is M4's H1** (`/onboard/apply` through the ledger, D-032 — a pre-existing gap M4 revealed, not P4's defect).
 - **Owner:** dsivov · **Roles:** *manager* owns this plan, the contract, the reviews, git and server startup; *developer* implements the tasks and runs the gate. A task marked **[manager]** is not the developer's to do.
 
 > **This plan builds on working code, not a blank page.** Every task below that moves code names its
@@ -393,7 +393,7 @@ data. It stays open.
 - [x] `tests/test_wizard_rollback.py` `[new]` — rolling back to the prior ledger version restores prior behaviour, re-asserting both checks
 - [x] `tests/test_no_file_config.py` `[new]` — no wizard path writes a server file or requires a restart
 - [x] **[unplanned]** `weave/server/app.py` · `pyproject.toml` — mount `/wizard` and ship `weave/wizards/templates/*.json` as package data. Without the latter an installed wheel has a wizard with no templates, which fails at first use rather than at build. *(Added from P4.2 implementation — R1.)*
-- [ ] **[deferred — manager's ruling wanted before P5]** `/onboard/apply` writes ontology and rules **directly through the services, bypassing the ledger** (`weave/server/routers/workspaces.py`, the `onboard_apply` handler calls `ontology_service.save` / `rules_service.save`). Those changes get **no signature, no version and no history**, while the wizard's do — so the same artifact kinds now have **two write paths with different guarantees**, and the ledger has a blind spot for anything installed through onboarding.
+- [x] **[ruled 2026-08-11 — D-032]** `/onboard/apply` bypasses the ledger. **Ruling: option (a)** — convert it through `DiffEngine.apply`, as **P5's first task**. Re-graded on review: it is not "the shape that becomes false" but **false today** — `routers/actions.py` runs `RBAC → lifecycle → rules gate → side effect`, so an onboarding-installed rule is **runtime-enforced with no signature and no version**, and A8's first sentence fails for it. Not fixed in P4 (pre-existing, untouched by this phase); M4 still merges because the merge rule is about the milestone's own work — see D-032 and the M0 precedent.
       **Developer's read:** A8/A9 **drift, not a defect** — nothing in the contract is false today (no config *file* is involved), but a second write path for kinds the ledger owns is exactly the shape that becomes false. Deliberately **not touched in P4**: pre-existing surface, and converting it is unreviewed scope in a phase that did not plan for it.
       **Options:** **(a)** convert `onboard_apply` to route through `DiffEngine.apply` in P5 — *recommended*: it is the same fix as P3.3's, and P6's onboarding bundle is where an unsigned governance write would hurt most; **(b)** leave it and record the asymmetry as a standing watch item; **(c)** treat it as an M4 finding and fix it before the merge.
 
@@ -424,13 +424,39 @@ and the React page is verified only by type-check.
 **W5 still not triggered** — P4 produced no populated task store carrying reviews or learnings, so
 the P2 migration has still never run on real data.
 
-**Review:** code review; update the checkpoint.
+**Review:** ✅ **M4 reviewed 2026-08-11** → [WEAVE_CODE_REVIEW_M4.md](WEAVE_CODE_REVIEW_M4.md) — 0 Critical, **1 High (H1 — pre-existing, P5's first task, D-032)**, 2 Medium. **Merged to `main`.** Suite **925 / 0 / 0** reproduced independently, and the behavioural gate **run live by the reviewer**: on a fresh install `developer invoke:MergeToMain` was allowed (*"no RBAC policy — permissive"*) and after the wizard was **denied**, read back by a **separate process** while the **same server pid** kept serving — persistence and no-restart proved separately, since either alone proves the wrong thing. Repo working tree untouched. The flip landed on `developer` rather than the developer's `integrator` because the reviewer answered `who_merges: integrator` — **evidence the answers shape the policy** rather than a fixed template.
 
 ---
 
 ## P5 · The senior-developer seat → **M5**
 
-- [ ] **Contract check (R11)** — touches **A6** (principal authenticated), **A12** (no orchestrator model — the seat *operates* the lifecycle, it does not add a model to the dispatch path), **A15** (one hub, never dials out).
+> **Opened 2026-08-11 after the M4 review. Do the carried High first — before any P5 task.**
+>
+> - [ ] **H1 from M4 (D-032) — `/onboard/apply` must route through `DiffEngine.apply`.** Today it calls
+>   `ontology_service.save()` / `rules_service.save()` directly, so a rule installed through onboarding is
+>   **enforced by the runtime** (`actions.py`: `RBAC → lifecycle → rules gate → side effect`) while carrying
+>   **no signature and no version** — A8's first sentence is false for it. Both write paths must produce
+>   signed, versioned artifacts. Same fix as P3.3, same lesson as W4: the guard belongs in the engine both
+>   paths share. Needs its own tests, including one that fails against `b3c743d`.
+>
+> **A15 is the constraint this phase is most likely to break, and it will look like a feature.** Dispatch,
+> pause, resume and redirect all read as *the server telling a worker what to do*. They must not be. The hub
+> **never dials out**: supervisory acts are **state the host reads back** (`desired_workers` on the host
+> record), and hosts reach the server by register/heartbeat. If a task seems to need an inbound connection to
+> a host or worker, that is A15 going false — stop and report, do not design around it.
+>
+> **A12 next:** the seat *operates* the lifecycle; it does not put a model in the dispatch path. Coordination
+> stays deterministic graph logic.
+>
+> **Tripwire, named explicitly:** this phase runs at the claim protocol, the lifecycle guards and the
+> `touches` collision rule. A fleet race there is invisible until it corrupts work. The M5 gate says the
+> **claim tests pass unmodified** — if you find yourself editing one to make something pass, that is the
+> signal to stop and report, not to adjust the test.
+>
+> **W6 still applies:** start the server once before the gate. **W5** remains untriggered — if P5 finally
+> produces a populated task store, re-run the P2 migration against it and record the result.
+
+- [ ] **Contract check (R11)** — re-read `CONSTRAINTS.md` **v4** first. Touches **A6** (principal authenticated), **A12** (no orchestrator model — the seat *operates* the lifecycle, it does not add a model to the dispatch path), **A15** (one hub, never dials out), and **A8** via the carried H1. Write the check into the first commit message with a verdict per ID.
 - [ ] `weave/team/supervisor.py` `[new]` — the supervisory principal: claim, order, dispatch, pause/resume/stop/redirect
 - [ ] `weave/server/routers/team.py` — `POST /team/dispatch`, `POST /workers/{id}/control`; scaling writes `desired_workers` onto the **host record** and never dials the host (R46, R64, A15)
 - [ ] **UI:** `weave-ui/src/pages/FleetView.tsx` — per host: machine, status, control state, **seat health**, desired vs running, per-worker progress and diff (R76)
