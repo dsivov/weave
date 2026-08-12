@@ -84,6 +84,51 @@ Two changes, one principle: **the screens a Weave operator uses daily come first
 
 Everything this CR needs is installed **and already used**: `@radix-ui/*` for dialogs, tabs, select and scroll; `@tanstack/react-table` for the node lists the four questions return; `zustand` for state; `lucide-react` for icons; `sonner` for toasts; `@xyflow/react` if the ontology editor becomes a node/link canvas. **A11 holds with no `D-NN`.** If a form library or a JSON-schema renderer starts to look necessary, that is a drift — stop and report it rather than adding one.
 
+## 4b · The ontology canvas: a LinkType is not an edge — decided here, not in implementation
+
+The premise holds: `@xyflow/react` ^12.10.1 is **already installed** for the diagram editor, which
+already has `Canvas`, `NodeTypes/`, `EdgeTypes/` and `Inspector/`. The ontology has **no inheritance,
+nesting or containment** (`extends`/`parent` appear nowhere in `schema.py`) — the thing that usually
+defeats a node/link canvas is absent.
+
+**One mismatch is real and must be settled before it becomes a task.** `LinkType.source_types` and
+`target_types` are **lists** (`schema.py:263-264`, *empty = any*), so **one LinkType is N edges**.
+Measured against the shipped preset:
+
+| | |
+|---|---|
+| object types | **18** |
+| link types | **23** |
+| **concrete edges on a canvas** | **37** |
+| link types with >1 source or >1 target | **9** (worst: `specified_by`, 2×2 = 4 edges) |
+| link types using the ANY wildcard | **0 today** — but the schema permits it, and one `ANY→ANY` link would be **324** |
+
+`@xyflow` has no hyperedges: an edge is one source handle to one target handle. The two honest options
+fail differently, and picking by default rather than deliberately is how the wrong one gets shipped:
+
+- **Draw 23, one per LinkType** — truthful to the model, but an edge must attach to several nodes at
+  each end, which the library does not do natively.
+- **Draw all 37** — native, but deleting or renaming one edge edits a shared `LinkType` and silently
+  changes up to three others on screen.
+
+**Decision: draw all 37, and make the sharing visible rather than silent.** Edges carrying the same
+`LinkType` render as one group; selecting any one selects them all; the inspector is headed *"this link
+type also connects: …"*. An **edit-one-change-many** surprise is the same class of defect as a signature
+promising a distinction its body never makes — the fix is to stop the UI implying two edges are
+independent when they are one object. **Named fallback if that is too much for a first cut:** render
+multi-type links **read-only** on the canvas and edit them in the structured panel. An edit whose blast
+radius is invisible is worse than an edit the canvas declines to offer.
+
+**Two consequences for the tasks:**
+
+1. **Node properties do not go inline.** 99 object-type properties, mean 5.5, max 9, across six kinds
+   with constraints (enum, min/max, required). That is an inspector panel, and
+   `diagram-editor/components/Inspector/` is the precedent to **reuse**, not a second one to write (R10).
+2. **Link-type properties must round-trip even though the preset has none.** The schema carries them;
+   **0 of 23** preset links use one. An editor that drops them on save loses data for anyone who has
+   authored some — and the preset would never reveal it, because the preset has none. Assert the
+   round-trip against a fixture that *has* link properties, not against the preset.
+
 ## 5 · Impact & risk
 
 | Area | Impact | Risk | Mitigation |
@@ -116,6 +161,8 @@ Everything this CR needs is installed **and already used**: `@radix-ui/*` for di
 - [ ] `governance/` — the shared propose → diff → sign flow, extracted from `Wizard.tsx` so there is **one** implementation (R10), not a second copy beside it.
 - [ ] `Work.tsx` · `Features.tsx` · `Learnings.tsx` · `Projects.tsx` — the primary views.
 - [ ] `OntologyNext.tsx` · `RulesNext.tsx` — structured editors over the shared flow, JSON escape hatch retained.
+- [ ] **Ontology canvas** — `@xyflow` node/link view drawing all 37 concrete edges, with same-`LinkType` edges grouped: select one selects all, inspector headed with the other pairs it connects. Reuse `diagram-editor/components/Inspector/` for the 99 properties rather than writing a second inspector (R10).
+- [ ] `weave-ui/src/**/__tests__` — a fixture whose link types **carry properties** (the preset has none) round-trips through save without loss; and an edit to one edge of a shared `LinkType` visibly affects its siblings.
 - [ ] `Studio.tsx` — history, diff and revert; authoring removed.
 - [ ] `tests/test_ask_ui_parity.py` — the UI's node set for each question equals the API's (**A9**, mirrors `test_mcp_rest_parity.py`).
 - [ ] `weave-ui/src/**/__tests__` — `bun test` coverage for the shared governance flow: a proposal with no reason cannot sign.
