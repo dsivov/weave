@@ -680,3 +680,38 @@ Status: `accepted` · `superseded by D-NN` · `reversed`.
   editing a newly-pinned file, renaming a kept-for property, and adding an unpinned file that claims.
 
 - **Ratified 2026-08-11 by weave-manager, on evidence.** The cost was an edit to a hash-pinned claim test, which the tripwire says to stop for — the developer stopped and asked, correctly. Approved after executing both fixture paths side by side: the pre-D-034 `preset.install(...)` and the new `lifecycle.save("w", preset.load_part("lifecycle"))` produce a **byte-identical lifecycle machine**, the only difference being an `updated_at` timestamp 3.5 ms apart. No assertion, ordering, lock or `touches` case changed. Keeping the pre-D-034 hash beside the new one is the right record. **Reviewer's finding:** the same substitution also landed, undeclared, in `tests/test_weave_coordinator.py` — not concealed, simply outside what the single-file pin watches. Filed as M6's M1.
+
+## D-035 · The lint gate: autofix, own our five, and demote the React-Compiler rules to warnings
+- **Date:** 2026-08-12  ·  **Status:** accepted  ·  **Raised by:** weave-manager (W13)  ·  **Approved by:** dsivov
+- **Context:** The repository got its first remote on 2026-08-12. `.github/workflows/ci.yml` was added at **P0**
+  and, with nowhere to push, **had never executed once**. Its first real run: name-guard ✓, pytest ✓ (green on a
+  clean runner with no conda), **bun test ✗** — *Lint* failing with 335 problems, 326 of them errors.
+- **Measured before deciding, and reproduced by the reviewer** (developer measured, manager verified independently):
+
+  | | |
+  |---|---|
+  | auto-fixable | **258**, from exactly two rules — `@stylistic/js/indent` (180) and `quotes` (78) |
+  | residual | **68 errors + 8 warnings** across 46 files |
+  | authored or edited by this project | **5 problems in 5 files** |
+  | carried at `8610914`, untouched | **71 problems in 41 files** |
+  | from `eslint-plugin-react-hooks` v7 | **65 of the 76** |
+
+  **`--fix` is formatting-only, and that was proven rather than assumed:** original and fixed were parsed with
+  the UI's own TypeScript and compared by **token value**, so quote style and backticks vanish while any change
+  to a string's value survives — 15 rewritten files, 0 differ. Negative-controlled both ways (a changed literal
+  *value* is caught; a changed *quoting* is correctly ignored).
+- **Options:** clear everything (76) / scope lint to authored files / autofix + fix ours + demote the plugin
+- **Decision:** **Autofix, fix the five we own, and set the `react-hooks` v7 rules to `warn`.** CI goes green,
+  no behaviour changes, and the 65 carried problems **stay visible as warnings** rather than being hidden.
+- **Why not the alternatives.** Scoping lint to authored files would stop linting 41 carried files entirely, so a
+  real defect there becomes invisible — trading a red badge for a blind spot. Clearing all 76 means deciding
+  whether 49 `set-state-in-effect` reports are cascading-render bugs or a strict new opinion, which needs each
+  effect read; that is a real job and possibly a behavioural change, and it should not be done under pressure
+  from a badge.
+- **What this admits.** `react-hooks` v7 carries the React-Compiler-era rules, applied at error level to code
+  written before they existed. Demoting them says *we have not adopted this opinion yet*, which is honest;
+  deleting them would say we had considered and rejected it, which is not.
+- **Consequences:** `bun run lint` is `eslint .` with no `--max-warnings`, so warnings do not fail the step —
+  verified. The **documentation claim is corrected separately and unconditionally**: several documents state CI
+  runs on every commit, and until 2026-08-12 it had never run at all. That sentence was false regardless of which
+  option was chosen.
