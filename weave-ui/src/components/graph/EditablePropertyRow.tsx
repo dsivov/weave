@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { updateEntity, updateRelation, checkEntityNameExists } from '@/api/weave'
@@ -58,9 +58,14 @@ const EditablePropertyRow = ({
     sourceEntity: string
   } | null>(null)
 
-  useEffect(() => {
+  // Re-seed the editable draft when the row's value changes upstream, during
+  // render rather than in an effect. As an effect, selecting a different node
+  // rendered this row once with the *previous* node's property value.
+  const [seededFrom, setSeededFrom] = useState(initialValue)
+  if (seededFrom !== initialValue) {
+    setSeededFrom(initialValue)
     setCurrentValue(initialValue)
-  }, [initialValue])
+  }
 
   const handleEditClick = () => {
     if (isEditable && !isEditing) {

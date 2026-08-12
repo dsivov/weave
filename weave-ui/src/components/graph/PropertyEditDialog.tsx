@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   Dialog,
@@ -38,13 +38,19 @@ const PropertyEditDialog = ({
   const [value, setValue] = useState('')
   const [allowMerge, setAllowMerge] = useState(false)
 
-  // Initialize value when dialog opens
-  useEffect(() => {
+  // Initialise the field when the dialog opens, during render rather than in an
+  // effect. As an effect the dialog painted once with the previous property's
+  // text before replacing it — most visible when editing two properties in a
+  // row, where the old value flashed in the new dialog.
+  const [seededFrom, setSeededFrom] = useState<string>(`${isOpen}|${initialValue}`)
+  const seedKey = `${isOpen}|${initialValue}`
+  if (seededFrom !== seedKey) {
+    setSeededFrom(seedKey)
     if (isOpen) {
       setValue(initialValue)
       setAllowMerge(false)
     }
-  }, [isOpen, initialValue])
+  }
 
   // Get translated property name
   const getPropertyNameTranslation = (name: string) => {

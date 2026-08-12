@@ -24,9 +24,17 @@ const ApiKeyAlert = ({ open: opened, onOpenChange: setOpened }: ApiKeyAlertProps
   const [tempApiKey, setTempApiKey] = useState<string>('')
   const message = useBackendState.use.message()
 
-  useEffect(() => {
+  // Seed the draft from the stored key, and re-seed when the key changes or the
+  // dialog reopens. Adjusted during render rather than in an effect: as an
+  // effect this painted the field with the *previous* key for one frame each
+  // time the dialog opened. React re-runs the component before committing, so
+  // that frame no longer exists.
+  const [seededFrom, setSeededFrom] = useState<string>(`${apiKey ?? ''}|${opened}`)
+  const seedKey = `${apiKey ?? ''}|${opened}`
+  if (seededFrom !== seedKey) {
+    setSeededFrom(seedKey)
     setTempApiKey(apiKey || '')
-  }, [apiKey, opened])
+  }
 
   useEffect(() => {
     if (message) {

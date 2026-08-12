@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Check, ChevronsUpDown, Loader2 } from 'lucide-react'
 import { useDebounce } from '@/hooks/useDebounce'
 
@@ -101,37 +101,38 @@ export function AsyncSelect<T>({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectedValue, setSelectedValue] = useState(value)
-  const [selectedOption, setSelectedOption] = useState<T | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const debouncedSearchTerm = useDebounce(searchTerm, preload ? 0 : debounceTime)
   const [originalOptions, setOriginalOptions] = useState<T[]>([])
-  const [initialValueDisplay, setInitialValueDisplay] = useState<React.ReactNode | null>(null)
 
   useEffect(() => {
     setMounted(true)
     setSelectedValue(value)
   }, [value])
 
-  // Add an effect to handle initial value display
-  useEffect(() => {
-    if (value && (!options.length || !selectedOption)) {
-      // Create a temporary display until options are loaded
-      setInitialValueDisplay(<div>{value}</div>)
-    } else if (selectedOption) {
-      // Once we find the actual selectedOption, clear the temporary display
-      setInitialValueDisplay(null)
-    }
-  }, [value, options.length, selectedOption])
+  // `selectedOption` is `selectedValue` looked up in `options`, and nothing else.
+  // It had two writers — an effect watching `value`/`options`, and `handleSelect`
+  // — which is what made it state; both wrote the same lookup, so deriving it
+  // reproduces each exactly and removes the effect. `selectedValue` already
+  // tracks `value`, so the prop is still followed.
+  //
+  // **One behaviour change, and it is a fix.** The old effect assigned only when
+  // a match was found (`if (option) setSelectedOption(option)`) and never
+  // cleared it, so pointing `value` at an id absent from `options` left the
+  // *previous* option selected — and since a non-null `selectedOption` also
+  // cleared the temporary display below, the control showed the wrong label
+  // confidently instead of falling back to the raw value. Derived, it is `null`
+  // when there is no match and the fallback appears as intended.
+  const selectedOption = useMemo(
+    () => (selectedValue && options.length > 0
+      ? options.find((opt) => getOptionValue(opt) === selectedValue) ?? null
+      : null),
+    [selectedValue, options, getOptionValue]
+  )
 
-  // Initialize selectedOption when options are loaded and value exists
-  useEffect(() => {
-    if (value && options.length > 0) {
-      const option = options.find((opt) => getOptionValue(opt) === value)
-      if (option) {
-        setSelectedOption(option)
-      }
-    }
-  }, [value, options, getOptionValue])
+  // A temporary display until the options arrive: the raw value, which is better
+  // than an empty control while the fetch is in flight.
+  const initialValueDisplay = value && !selectedOption ? <div>{value}</div> : null
 
   // Effect for initial fetch
   useEffect(() => {
@@ -191,12 +192,15 @@ export function AsyncSelect<T>({
   const handleSelect = useCallback(
     (currentValue: string) => {
       const newValue = clearable && currentValue === selectedValue ? '' : currentValue
+      // Setting `selectedValue` is enough: `selectedOption` derives from it and
+      // resolves to exactly what this line used to assign.
       setSelectedValue(newValue)
-      setSelectedOption(options.find((option) => getOptionValue(option) === newValue) || null)
       onChange(newValue)
       setOpen(false)
     },
-    [selectedValue, onChange, clearable, options, getOptionValue]
+    // `options` and `getOptionValue` left with the lookup that now derives
+    // `selectedOption`; this callback no longer reads either.
+    [selectedValue, onChange, clearable]
   )
 
   const handleOpenChange = useCallback(

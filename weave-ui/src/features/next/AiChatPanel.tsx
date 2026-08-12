@@ -46,7 +46,16 @@ export default function AiChatPanel({
   const [busy, setBusy] = useState(false)
   const logRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => { setMessages(getHistory(historyKey)) }, [historyKey])
+  // Load this conversation's history when the key changes, during render rather
+  // than in an effect. As an effect, switching conversations rendered the panel
+  // once with the *previous* conversation's messages — the worst version of this
+  // bug in the app, because it briefly shows one workspace's chat under
+  // another's heading.
+  const [loadedKey, setLoadedKey] = useState(historyKey)
+  if (loadedKey !== historyKey) {
+    setLoadedKey(historyKey)
+    setMessages(getHistory(historyKey))
+  }
   useEffect(() => { if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight }, [messages, busy, open])
 
   const update = (msgs: ChatMsg[]) => { setMessages(msgs); saveHistory(historyKey, msgs) }

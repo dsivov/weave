@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import Button from './Button'
 import Input from './Input'
@@ -40,10 +40,14 @@ export default function PaginationControls({
   const { t } = useTranslation()
   const [inputPage, setInputPage] = useState(currentPage.toString())
 
-  // Update input when currentPage changes
-  useEffect(() => {
+  // Follow the page prop, during render rather than in an effect. As an effect
+  // the box showed the previous page number for one frame after every page
+  // change — the one place in this component a user is looking.
+  const [seededFrom, setSeededFrom] = useState(currentPage)
+  if (seededFrom !== currentPage) {
+    setSeededFrom(currentPage)
     setInputPage(currentPage.toString())
-  }, [currentPage])
+  }
 
   // Handle page input change with debouncing
   const handlePageInputChange = useCallback((value: string) => {

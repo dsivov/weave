@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect} from 'react'
+import { useState, useCallback} from 'react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/Popover'
 import Checkbox from '@/components/ui/Checkbox'
 import Button from '@/components/ui/Button'
@@ -64,9 +64,14 @@ const LabeledNumberInput = ({
   // Create unique ID using the label text converted to lowercase with spaces removed
   const id = `input-${label.toLowerCase().replace(/\s+/g, '-')}`;
 
-  useEffect(() => {
+  // Re-seed the editable draft when the prop changes, during render rather than
+  // in an effect — as an effect the input showed the old number for one frame
+  // after every external change.
+  const [seededFrom, setSeededFrom] = useState<number>(value)
+  if (seededFrom !== value) {
+    setSeededFrom(value)
     setCurrentValue(value)
-  }, [value])
+  }
 
   const onValueChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
