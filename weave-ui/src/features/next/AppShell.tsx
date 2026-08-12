@@ -108,23 +108,23 @@ export default function AppShell() {
 
   const content = () => {
     switch (view) {
-      case 'dashboard': return <Dashboard onNavigate={go} />
-      case 'decisions': return <Decisions />
-      case 'documents': return <DocumentsNext />
-      case 'graph': return <GraphViewer />
-      case 'retrieval': return <RetrievalTesting />
-      case 'chunks': return <ChunkInspector />
-      case 'rules': return <RulesNext />
-      case 'ontology': return <OntologyNext />
-      case 'quality': return <GraphQualityNext />
-      case 'studio': return <Studio />
-      case 'wizard': return <Wizard />
-      case 'diagrams': return <DiagramsPage />
-      case 'weave': return <WeaveBoard />
-      case 'users': return <AdminUsers />
-      case 'getstarted': return <GetStarted />
-      case 'api': return <ApiSite />
-      default: return null
+    case 'dashboard': return <Dashboard onNavigate={go} />
+    case 'decisions': return <Decisions />
+    case 'documents': return <DocumentsNext />
+    case 'graph': return <GraphViewer />
+    case 'retrieval': return <RetrievalTesting />
+    case 'chunks': return <ChunkInspector />
+    case 'rules': return <RulesNext />
+    case 'ontology': return <OntologyNext />
+    case 'quality': return <GraphQualityNext />
+    case 'studio': return <Studio />
+    case 'wizard': return <Wizard />
+    case 'diagrams': return <DiagramsPage />
+    case 'weave': return <WeaveBoard />
+    case 'users': return <AdminUsers />
+    case 'getstarted': return <GetStarted />
+    case 'api': return <ApiSite />
+    default: return null
     }
   }
 

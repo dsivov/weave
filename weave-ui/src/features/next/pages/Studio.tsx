@@ -367,7 +367,7 @@ function DiffPane({ title, text, accent }: { title: string; text: string; accent
 function toMermaid(nodes: StudioGraphNode[], edges: StudioGraphEdge[]): string {
   const key: Record<string, string> = {}
   nodes.forEach((n, i) => { key[n.id] = 'n' + i })
-  const esc = (s: string) => (s || '').replace(/"/g, "'")
+  const esc = (s: string) => (s || '').replace(/"/g, '\'')
   const shape = (n: StudioGraphNode) => {
     const l = `"${esc(n.label)}"`
     if (n.kind === 'action') return `(${l})`

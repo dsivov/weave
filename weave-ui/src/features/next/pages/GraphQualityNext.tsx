@@ -69,7 +69,14 @@ export default function GraphQualityNext() {
 
   // Lock every action while one runs — a "Working…" header chip + a spinning
   // loading toast signal progress, so no button fires twice or looks idle.
-  const off = (_k?: string) => busy !== null
+  // Takes no argument, because it never used one. All fourteen call sites passed
+  // a key naming their button — `off("dscan")` and so on — which read as if the
+  // running action stayed enabled while the others locked, and `busy` does hold
+  // exactly that key. It does not work that way: the comment above is the real
+  // design, every action locks, and the parameter had been ignored since it was
+  // written. A signature promising a distinction the body never makes is worse
+  // than no parameter, so it is gone and the call sites say `off()`.
+  const off = () => busy !== null
   const isolatedHigh = (conn?.isolated_pct ?? 0) > 10
 
   return (
@@ -119,22 +126,22 @@ export default function GraphQualityNext() {
           </div>
           <div>
             <Op title="Scan for duplicates" desc="Name variants merge outright; ambiguous pairs queue for the sweep.">
-              <button className="btn sm" disabled={off('dscanp')}
+              <button className="btn sm" disabled={off()}
                 onClick={() => run('dscanp', () => dedupScan(false), (r) => `Preview: would merge ${r.merged}, queue ${r.queued} (of ${r.scanned} scanned)`)}>Preview</button>
-              <button className="btn sm primary" disabled={off('dscan')}
+              <button className="btn sm primary" disabled={off()}
                 onClick={() => run('dscan', () => dedupScan(true), (r) =>
                   r.merged || r.queued
                     ? `Merged ${r.merged}, queued ${r.queued} for review`
                     : `No duplicates found (${r.scanned} entities scanned)`)}>Scan &amp; merge</button>
             </Op>
             <Op title="Run LLM sweep" desc="Adjudicate the gray-band review queue.">
-              <button className="btn sm" disabled={off('dsweep')}
+              <button className="btn sm" disabled={off()}
                 onClick={() => run('dsweep', () => dedupSweep(), (r) => sweepMsg(r))}>Run sweep</button>
             </Op>
             <Op title="Review &amp; audit" desc="Pending pairs and reversible merges.">
-              <button className="btn sm ghost" disabled={off('drev')}
+              <button className="btn sm ghost" disabled={off()}
                 onClick={() => run('drev', () => dedupReview()).then((r) => r && setReview(r))}>Review queue</button>
-              <button className="btn sm ghost" disabled={off('dmerge')}
+              <button className="btn sm ghost" disabled={off()}
                 onClick={() => run('dmerge', () => entityMerges(), (r) => `${r.merges.length} merge(s)`).then((r) => r && setMerges(r.merges))}>Merge audit</button>
             </Op>
           </div>
@@ -165,13 +172,13 @@ export default function GraphQualityNext() {
           </div>
           <div>
             <Op title="Scan for garbage" desc="Git hashes, env-vars, bare numbers, pronouns.">
-              <button className="btn sm" disabled={off('gpre')}
+              <button className="btn sm" disabled={off()}
                 onClick={() => run('gpre', () => garbageScan(false), (r) => `Preview: ${r.quarantined} garbage node(s)`)}>Preview</button>
-              <button className="btn sm warn" disabled={off('gscan')}
+              <button className="btn sm warn" disabled={off()}
                 onClick={() => run('gscan', () => garbageScan(true), (r) => `Removed ${r.removed} (quarantined)`)}>Scan &amp; remove</button>
             </Op>
             <Op title="Quarantine" desc="Everything removed is restorable.">
-              <button className="btn sm ghost" disabled={off('qlist')}
+              <button className="btn sm ghost" disabled={off()}
                 onClick={() => run('qlist', () => quarantineList(), (r) => `${r.summary.count} quarantined`).then((r) => r && setQuarantine(r.items))}>Show quarantine</button>
             </Op>
           </div>
@@ -206,13 +213,13 @@ export default function GraphQualityNext() {
           </div>
           <div>
             <Op title="Rescue isolates" desc="Embedding proposes, the LLM confirms real edges.">
-              <button className="btn sm primary" disabled={off('rescue')}
+              <button className="btn sm primary" disabled={off()}
                 onClick={() => run('rescue', () => connectivityRescue(true, 20), (r) => `Reconnected ${r.connected}/${r.isolates_scanned}, +${r.edges_added} edges`)}>Rescue 20</button>
             </Op>
             <Op title="Prune isolates" desc="Degree-0 only → restorable quarantine.">
-              <button className="btn sm" disabled={off('ppre')}
+              <button className="btn sm" disabled={off()}
                 onClick={() => run('ppre', () => pruneIsolates(false), (r) => `${r.isolates} degree-0 isolate(s) — preview only`)}>Preview</button>
-              <button className="btn sm warn" disabled={off('prune')}
+              <button className="btn sm warn" disabled={off()}
                 onClick={() => { if (confirm('Move all degree-0 isolates to the (restorable) quarantine?')) run('prune', () => pruneIsolates(true), (r) => `Pruned ${r.removed} isolate(s)`) }}>Prune</button>
             </Op>
           </div>
@@ -225,9 +232,9 @@ export default function GraphQualityNext() {
           </div>
           <div>
             <Op title="Build communities" desc="Louvain + LLM summaries for thematic global mode.">
-              <button className="btn sm" disabled={off('cbuild')}
+              <button className="btn sm" disabled={off()}
                 onClick={() => run('cbuild', () => communityBuild(), (r) => `Built ${r.communities} communities`)}>Rebuild</button>
-              <button className="btn sm ghost" disabled={off('clist')}
+              <button className="btn sm ghost" disabled={off()}
                 onClick={() => run('clist', () => communityList(), (r) => `${r.summary.communities} communities`).then((r) => r && setCommunities(r.communities))}>List</button>
             </Op>
           </div>
@@ -244,7 +251,7 @@ export default function GraphQualityNext() {
               <input className="cgqinput" placeholder="Ask a thematic question…" value={cq}
                 onChange={(e) => setCq(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter' && cq.trim()) run('cq', () => communityQuery(cq), () => 'Answered').then((r) => r && setCqAnswer(r)) }} />
-              <button className="btn sm primary" disabled={off('cq') || !cq.trim()}
+              <button className="btn sm primary" disabled={off() || !cq.trim()}
                 onClick={() => run('cq', () => communityQuery(cq), () => 'Answered').then((r) => r && setCqAnswer(r))}>Ask</button>
             </div>
             {cqAnswer && (

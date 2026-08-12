@@ -24,7 +24,7 @@ const COLUMNS: { key: string; label: string; tone: string }[] = [
 const workerTone = (w: WeaveWorker) =>
   w.status === 'offline' ? 'var(--muted)'
     : w.status === 'stopped' ? 'var(--crit)'
-    : w.status === 'paused' ? 'var(--warn)' : 'var(--good)'
+      : w.status === 'paused' ? 'var(--warn)' : 'var(--good)'
 
 export default function WeaveBoard() {
   const workspace = useSettingsStore.use.workspace()

@@ -32,8 +32,8 @@ const seatTone = (seat: string) =>
 const hostTone = (h: WeaveHost) =>
   h.status === 'offline' ? 'var(--muted)'
     : h.status === 'stopped' ? 'var(--crit)'
-    : h.status === 'paused' ? 'var(--warn)'
-    : h.status === 'draining' ? 'var(--comm)' : 'var(--good)'
+      : h.status === 'paused' ? 'var(--warn)'
+        : h.status === 'draining' ? 'var(--comm)' : 'var(--good)'
 
 /** Why a machine is idle, in the words a human would use. */
 function seatExplanation(h: WeaveHost): string | null {
@@ -154,29 +154,29 @@ export default function WeaveProjectPanel({ onError }: { onError?: (m: string) =
           <div style={{ display: 'grid', gap: 8 }}>
             <label className="fieldlabel">Repository — a clone URL the hosts can reach</label>
             <input className="cgqinput" placeholder="git@github.com:acme/app.git"
-                   value={repo} onChange={(e) => setRepo(e.target.value)} />
+              value={repo} onChange={(e) => setRepo(e.target.value)} />
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <div style={{ flex: '1 1 160px' }}>
                 <label className="fieldlabel">Base branch — what each task branches from</label>
                 <input className="cgqinput" style={{ width: '100%' }} placeholder="main"
-                       value={branch} onChange={(e) => setBranch(e.target.value)} />
+                  value={branch} onChange={(e) => setBranch(e.target.value)} />
               </div>
               <div style={{ flex: '1 1 200px' }}>
                 <label className="fieldlabel">Developer image</label>
                 <input className="cgqinput" style={{ width: '100%' }} placeholder="weave-dev:latest"
-                       value={image} onChange={(e) => setImage(e.target.value)} />
+                  value={image} onChange={(e) => setImage(e.target.value)} />
               </div>
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <div style={{ flex: '1 1 200px' }}>
                 <label className="fieldlabel">Test command — what proves the work is good</label>
                 <input className="cgqinput" style={{ width: '100%' }} placeholder="python -m pytest -q"
-                       value={testCmd} onChange={(e) => setTestCmd(e.target.value)} />
+                  value={testCmd} onChange={(e) => setTestCmd(e.target.value)} />
               </div>
               <div style={{ flex: '1 1 200px' }}>
                 <label className="fieldlabel">Setup command — run once per worktree (optional)</label>
                 <input className="cgqinput" style={{ width: '100%' }} placeholder="pip install -e ."
-                       value={setupCmd} onChange={(e) => setSetupCmd(e.target.value)} />
+                  value={setupCmd} onChange={(e) => setSetupCmd(e.target.value)} />
               </div>
             </div>
             <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
@@ -185,7 +185,7 @@ export default function WeaveProjectPanel({ onError }: { onError?: (m: string) =
               </button>
               {!unconfigured && (
                 <button className="btn sm ghost" disabled={busy}
-                        onClick={() => { setEditing(false); void load() }}>Cancel</button>
+                  onClick={() => { setEditing(false); void load() }}>Cancel</button>
               )}
             </div>
           </div>
@@ -248,7 +248,7 @@ export default function WeaveProjectPanel({ onError }: { onError?: (m: string) =
                 <b style={{ fontSize: 14 }}>{h.id}</b>
                 <div style={{ flex: 1 }} />
                 <span className="chip" title={h.seat_detail || h.seat}
-                      style={{ color: seatTone(h.seat) }}>seat: {h.seat}</span>
+                  style={{ color: seatTone(h.seat) }}>seat: {h.seat}</span>
               </div>
               <div style={{ color: 'var(--muted)', fontSize: 12, margin: '6px 0' }}>
                 {h.status}{h.machine ? ` · ${h.machine}` : ''}
@@ -257,7 +257,7 @@ export default function WeaveProjectPanel({ onError }: { onError?: (m: string) =
 
               {seatWarning && (
                 <div style={{ fontSize: 11, color: 'var(--crit)', display: 'flex',
-                              gap: 5, marginBottom: 6 }}>
+                  gap: 5, marginBottom: 6 }}>
                   <AlertTriangleIcon className="" style={{ width: 13, flexShrink: 0 }} />
                   <span>{seatWarning}</span>
                 </div>
@@ -266,13 +266,13 @@ export default function WeaveProjectPanel({ onError }: { onError?: (m: string) =
               {/* Intent, not a command: the machine reconciles on its next heartbeat. */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
                 <button className="btn sm ghost" title="one fewer developer"
-                        disabled={h.desired_workers <= 0}
-                        onClick={() => act(() => weaveScaleHost(h.id, h.desired_workers - 1))}>
+                  disabled={h.desired_workers <= 0}
+                  onClick={() => act(() => weaveScaleHost(h.id, h.desired_workers - 1))}>
                   <MinusIcon className="" />
                 </button>
                 <b style={{ fontSize: 15, minWidth: 18, textAlign: 'center' }}>{h.desired_workers}</b>
                 <button className="btn sm ghost" title="one more developer"
-                        onClick={() => act(() => weaveScaleHost(h.id, h.desired_workers + 1))}>
+                  onClick={() => act(() => weaveScaleHost(h.id, h.desired_workers + 1))}>
                   <PlusIcon className="" />
                 </button>
                 <span style={{ fontSize: 11, color: 'var(--muted)' }}>wanted here</span>
@@ -296,11 +296,11 @@ export default function WeaveProjectPanel({ onError }: { onError?: (m: string) =
                   <div style={{ display: 'grid', gap: 4, marginBottom: 8 }}>
                     {mine.map((w) => (
                       <div key={w.id} style={{ fontSize: 11, display: 'flex',
-                                               alignItems: 'center', gap: 6 }}>
+                        alignItems: 'center', gap: 6 }}>
                         <span className="dot" style={{
                           background: w.status === 'offline' ? 'var(--muted)'
                             : w.control === 'pause' ? 'var(--warn)'
-                            : w.control === 'stop' ? 'var(--crit)' : 'var(--good)'
+                              : w.control === 'stop' ? 'var(--crit)' : 'var(--good)'
                         }} />
                         <code className="mono">{w.id}</code>
                         <span style={{ color: 'var(--muted)' }}>
@@ -310,11 +310,11 @@ export default function WeaveProjectPanel({ onError }: { onError?: (m: string) =
                         </span>
                         <div style={{ flex: 1 }} />
                         <button className="btn sm ghost"
-                                title={w.control === 'pause'
-                                  ? 'resume after the current step'
-                                  : 'pause between steps — never mid-edit'}
-                                onClick={() => act(() => weaveControlWorkerAction(
-                                  w.id, w.control === 'pause' ? 'resume' : 'pause'))}>
+                          title={w.control === 'pause'
+                            ? 'resume after the current step'
+                            : 'pause between steps — never mid-edit'}
+                          onClick={() => act(() => weaveControlWorkerAction(
+                            w.id, w.control === 'pause' ? 'resume' : 'pause'))}>
                           {w.control === 'pause'
                             ? <PlayIcon className="" />
                             : <PauseIcon className="" />}
@@ -327,19 +327,19 @@ export default function WeaveProjectPanel({ onError }: { onError?: (m: string) =
 
               <div className="btns">
                 <button className="btn sm" title="finish current work, take nothing new"
-                        onClick={() => act(() => weaveControlHost(h.id, 'drain'))}>
+                  onClick={() => act(() => weaveControlHost(h.id, 'drain'))}>
                   <DropletIcon className="" />
                 </button>
                 <button className="btn sm" title="stop containers now"
-                        onClick={() => act(() => weaveControlHost(h.id, 'pause'))}>
+                  onClick={() => act(() => weaveControlHost(h.id, 'pause'))}>
                   <PauseIcon className="" />
                 </button>
                 <button className="btn sm" title="back into service"
-                        onClick={() => act(() => weaveControlHost(h.id, 'resume'))}>
+                  onClick={() => act(() => weaveControlHost(h.id, 'resume'))}>
                   <PlayIcon className="" />
                 </button>
                 <button className="btn sm" title="stop this machine for good"
-                        onClick={() => act(() => weaveControlHost(h.id, 'stop'))}>
+                  onClick={() => act(() => weaveControlHost(h.id, 'stop'))}>
                   <SquareIcon className="" />
                 </button>
               </div>

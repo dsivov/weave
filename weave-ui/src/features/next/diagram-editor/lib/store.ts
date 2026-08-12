@@ -1,4 +1,4 @@
-import { create } from "zustand";
+import { create } from 'zustand';
 import {
   addEdge,
   applyEdgeChanges,
@@ -10,46 +10,46 @@ import {
   type EdgeMarkerType,
   type Node,
   type NodeChange,
-} from "@xyflow/react";
+} from '@xyflow/react';
 
 // ─── Node shape types ────────────────────────────────────────────────────────
 export type NodeShape =
-  | "rectangle"
-  | "rounded"
-  | "stadium"
-  | "subroutine"
-  | "cylinder"
-  | "circle"
-  | "double-circle"
-  | "diamond"
-  | "hexagon"
-  | "parallelogram"
-  | "parallelogram-alt"
-  | "trapezoid"
-  | "trapezoid-alt"
-  | "asymmetric";
+  | 'rectangle'
+  | 'rounded'
+  | 'stadium'
+  | 'subroutine'
+  | 'cylinder'
+  | 'circle'
+  | 'double-circle'
+  | 'diamond'
+  | 'hexagon'
+  | 'parallelogram'
+  | 'parallelogram-alt'
+  | 'trapezoid'
+  | 'trapezoid-alt'
+  | 'asymmetric';
 
 // ─── Edge style types ─────────────────────────────────────────────────────────
-export type EdgeStyle = "solid" | "dashed" | "thick";
-export type ArrowType = "arrow" | "none" | "bidirectional" | "circle" | "cross";
+export type EdgeStyle = 'solid' | 'dashed' | 'thick';
+export type ArrowType = 'arrow' | 'none' | 'bidirectional' | 'circle' | 'cross';
 
 // ─── Diagram-level settings ───────────────────────────────────────────────────
-export type Direction = "TD" | "LR" | "BT" | "RL";
-export type Theme = "default" | "dark" | "forest" | "neutral" | "base";
-export type Look = "classic" | "handDrawn";
+export type Direction = 'TD' | 'LR' | 'BT' | 'RL';
+export type Theme = 'default' | 'dark' | 'forest' | 'neutral' | 'base';
+export type Look = 'classic' | 'handDrawn';
 export type CurveStyle =
-  | "basis"
-  | "bumpX"
-  | "bumpY"
-  | "cardinal"
-  | "catmullRom"
-  | "linear"
-  | "monotoneX"
-  | "monotoneY"
-  | "natural"
-  | "step"
-  | "stepAfter"
-  | "stepBefore";
+  | 'basis'
+  | 'bumpX'
+  | 'bumpY'
+  | 'cardinal'
+  | 'catmullRom'
+  | 'linear'
+  | 'monotoneX'
+  | 'monotoneY'
+  | 'natural'
+  | 'step'
+  | 'stepAfter'
+  | 'stepBefore';
 
 // ─── Data types ───────────────────────────────────────────────────────────────
 export interface FlowNodeData extends Record<string, unknown> {
@@ -105,7 +105,7 @@ interface FlowState {
   updateNodeStyle: (
     id: string,
     style: Partial<
-      Pick<FlowNodeData, "fillColor" | "strokeColor" | "textColor">
+      Pick<FlowNodeData, 'fillColor' | 'strokeColor' | 'textColor'>
     >,
   ) => void;
   setNodes: (nodes: Node<FlowNodeData>[]) => void;
@@ -154,8 +154,8 @@ function computeMarkers(arrowType: ArrowType): {
   markerEnd?: EdgeMarkerType;
   markerStart?: EdgeMarkerType;
 } {
-  if (arrowType === "none") return {};
-  if (arrowType === "bidirectional") {
+  if (arrowType === 'none') return {};
+  if (arrowType === 'bidirectional') {
     return {
       markerEnd: { type: MarkerType.ArrowClosed },
       markerStart: { type: MarkerType.ArrowClosed },
@@ -166,7 +166,7 @@ function computeMarkers(arrowType: ArrowType): {
 
 // ─── Store ────────────────────────────────────────────────────────────────────
 export const useFlowStore = create<FlowState>((set, get) => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   const withHistory = <T extends (...args: any[]) => void>(fn: T): T => {
     return ((...args: Parameters<T>) => {
       const { nodes: beforeNodes, edges: beforeEdges } = get();
@@ -194,10 +194,10 @@ export const useFlowStore = create<FlowState>((set, get) => {
   return {
     nodes: [],
     edges: [],
-    direction: "TD",
-    theme: "default",
-    look: "classic",
-    curveStyle: "basis",
+    direction: 'TD',
+    theme: 'default',
+    look: 'classic',
+    curveStyle: 'basis',
     past: [],
     future: [],
     clipboard: null,
@@ -253,40 +253,40 @@ export const useFlowStore = create<FlowState>((set, get) => {
       }),
 
     onConnect: withHistory((connection) => {
-      const markers = computeMarkers("arrow");
+      const markers = computeMarkers('arrow');
       set({
         edges: addEdge(
           {
             ...connection,
-            type: "flowEdge",
+            type: 'flowEdge',
             ...markers,
-            data: { edgeStyle: "solid", arrowType: "arrow" },
+            data: { edgeStyle: 'solid', arrowType: 'arrow' },
           },
           get().edges,
         ) as Edge<FlowEdgeData>[],
       });
     }),
 
-    addNode: withHistory((shape: NodeShape = "rectangle") => {
+    addNode: withHistory((shape: NodeShape = 'rectangle') => {
       const id = `node_${nodeCounter++}`;
       const offset = (nodeCounter * 30) % 200;
       const newNode: Node<FlowNodeData> = {
         id,
-        type: "flowNode",
+        type: 'flowNode',
         position: { x: 150 + offset, y: 100 + offset },
-        data: { label: "Node", shape },
+        data: { label: 'Node', shape },
       };
       set({ nodes: [...get().nodes, newNode] });
     }),
 
     addNodeAtPosition: withHistory(
-      (position, shape: NodeShape = "rectangle", width?: number, height?: number) => {
+      (position, shape: NodeShape = 'rectangle', width?: number, height?: number) => {
         const id = `node_${nodeCounter++}`;
         const newNode: Node<FlowNodeData> = {
           id,
-          type: "flowNode",
+          type: 'flowNode',
           position,
-          data: { label: "Node", shape },
+          data: { label: 'Node', shape },
           ...(width && height ? { style: { width, height } } : {}),
         };
         set({ nodes: [...get().nodes, newNode] });
@@ -331,10 +331,10 @@ export const useFlowStore = create<FlowState>((set, get) => {
         edges: get().edges.map((e) =>
           e.id === id
             ? {
-                ...e,
-                ...markerUpdates,
-                data: { ...(e.data ?? {}), ...updates } as FlowEdgeData,
-              }
+              ...e,
+              ...markerUpdates,
+              data: { ...(e.data ?? {}), ...updates } as FlowEdgeData,
+            }
             : e,
         ),
       });
@@ -345,19 +345,19 @@ export const useFlowStore = create<FlowState>((set, get) => {
     }),
 
     loadDiagram: withHistory((nodes, edges) => {
-      const stampedNodes = nodes.map((n) => ({ ...n, type: "flowNode" }));
+      const stampedNodes = nodes.map((n) => ({ ...n, type: 'flowNode' }));
       const stampedEdges = edges.map((e) => ({
         ...e,
-        type: "flowEdge",
+        type: 'flowEdge',
       })) as Edge<FlowEdgeData>[];
       set({ nodes: stampedNodes, edges: stampedEdges });
     }),
 
     importDiagram: withHistory((nodes, edges, settings) => {
-      const stampedNodes = nodes.map((n) => ({ ...n, type: "flowNode" }));
+      const stampedNodes = nodes.map((n) => ({ ...n, type: 'flowNode' }));
       const stampedEdges = edges.map((e) => ({
         ...e,
-        type: "flowEdge",
+        type: 'flowEdge',
       })) as Edge<FlowEdgeData>[];
       // Advance nodeCounter to avoid ID collisions with imported nodes
       const maxId = stampedNodes.reduce((max, n) => {
@@ -375,14 +375,14 @@ export const useFlowStore = create<FlowState>((set, get) => {
       });
     }),
 
-    addSubgraph: withHistory((title = "Group") => {
+    addSubgraph: withHistory((title = 'Group') => {
       const id = `sg_${nodeCounter++}`;
       const offset = (nodeCounter * 30) % 200;
       const newNode: Node<FlowNodeData> = {
         id,
-        type: "flowNode",
+        type: 'flowNode',
         position: { x: 200 + offset, y: 150 + offset },
-        data: { label: title, shape: "rectangle", isSubgraph: true },
+        data: { label: title, shape: 'rectangle', isSubgraph: true },
         style: { width: 320, height: 220 },
         zIndex: -1,
       };

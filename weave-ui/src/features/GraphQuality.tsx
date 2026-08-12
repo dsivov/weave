@@ -208,7 +208,7 @@ export default function GraphQuality() {
         <CardHeader><CardTitle>Connectivity repair</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           <p className="text-sm text-muted-foreground">
-            Reconnect isolated nodes with LLM-verified real edges. Prune the ones that can't be connected (opt-in, restorable).
+            Reconnect isolated nodes with LLM-verified real edges. Prune the ones that can&apos;t be connected (opt-in, restorable).
           </p>
           <div className="flex flex-wrap gap-2">
             <Button size="sm" disabled={disabled('rescue')}

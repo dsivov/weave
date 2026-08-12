@@ -238,7 +238,7 @@ export default function GetStarted() {
 
               <Separator />
               <div className="space-y-2">
-                <div className="text-sm font-medium">First change request (the agent's starting point)</div>
+                <div className="text-sm font-medium">First change request (the agent&apos;s starting point)</div>
                 <Input
                   value={proposal.first_cr?.title || ''}
                   placeholder="CR title"

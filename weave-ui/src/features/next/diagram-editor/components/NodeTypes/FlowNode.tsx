@@ -390,32 +390,32 @@ export function FlowNode({ id, data, selected }: NodeProps) {
   let extraClass = ''
 
   switch (shape) {
-    case 'rounded':
-      extraStyle = { borderRadius: 12 }
-      break
-    case 'stadium':
-      extraStyle = { borderRadius: 9999, paddingLeft: 20, paddingRight: 20 }
-      break
-    case 'subroutine':
-      extraStyle = {
-        borderRadius: 3,
-        outline: `2px solid ${strokeColor}`,
-        outlineOffset: 4,
-      }
-      break
-    case 'circle':
-      extraStyle = { borderRadius: '50%' }
-      extraClass = '!min-w-[80px] !min-h-[80px] !aspect-square'
-      break
-    case 'double-circle':
-      extraStyle = {
-        borderRadius: '50%',
-        boxShadow: `0 0 0 3px ${fillColor}, 0 0 0 5px ${strokeColor}`,
-      }
-      extraClass = '!min-w-[80px] !min-h-[80px] !aspect-square'
-      break
-    default: // rectangle
-      extraStyle = { borderRadius: 4 }
+  case 'rounded':
+    extraStyle = { borderRadius: 12 }
+    break
+  case 'stadium':
+    extraStyle = { borderRadius: 9999, paddingLeft: 20, paddingRight: 20 }
+    break
+  case 'subroutine':
+    extraStyle = {
+      borderRadius: 3,
+      outline: `2px solid ${strokeColor}`,
+      outlineOffset: 4,
+    }
+    break
+  case 'circle':
+    extraStyle = { borderRadius: '50%' }
+    extraClass = '!min-w-[80px] !min-h-[80px] !aspect-square'
+    break
+  case 'double-circle':
+    extraStyle = {
+      borderRadius: '50%',
+      boxShadow: `0 0 0 3px ${fillColor}, 0 0 0 5px ${strokeColor}`,
+    }
+    extraClass = '!min-w-[80px] !min-h-[80px] !aspect-square'
+    break
+  default: // rectangle
+    extraStyle = { borderRadius: 4 }
   }
 
   const isCircleShape = shape === 'circle' || shape === 'double-circle'

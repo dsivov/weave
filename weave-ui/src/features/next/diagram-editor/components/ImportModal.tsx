@@ -96,7 +96,7 @@ export function ImportModal({ onClose }: ImportModalProps) {
             value={value}
             onChange={(e) => setValue(e.target.value)}
             className="flex-1 w-full font-mono text-xs text-gray-800 bg-gray-50 border border-gray-200 rounded-lg p-3 resize-none outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            placeholder={`flowchart TD\n  A["Start"] --> B{"Decision?"}\n  B --> |"Yes"| C["Do it"]\n  B --> |"No"| D["Skip"]`}
+            placeholder={'flowchart TD\n  A["Start"] --> B{"Decision?"}\n  B --> |"Yes"| C["Do it"]\n  B --> |"No"| D["Skip"]'}
             spellCheck={false}
             rows={14}
             aria-label="Mermaid Syntax"

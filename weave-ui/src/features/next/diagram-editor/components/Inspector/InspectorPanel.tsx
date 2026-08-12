@@ -148,24 +148,24 @@ export function InspectorPanel({ syntax, onCollapse }: InspectorPanelProps) {
           {/* Collapse */}
           <button
             onClick={onCollapse}
-          title="Collapse inspector"
-          aria-label="Collapse inspector"
-          style={{
-            background: NEU_BG,
-            border: 'none',
-            borderRadius: 10,
-            boxShadow: 'var(--neu-shadow-raised)',
-            width: 28,
-            height: 28,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            color: '#9ca3af',
-            fontSize: 14,
-            transition: 'box-shadow 0.15s',
-          }}
-        >
+            title="Collapse inspector"
+            aria-label="Collapse inspector"
+            style={{
+              background: NEU_BG,
+              border: 'none',
+              borderRadius: 10,
+              boxShadow: 'var(--neu-shadow-raised)',
+              width: 28,
+              height: 28,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              color: '#9ca3af',
+              fontSize: 14,
+              transition: 'box-shadow 0.15s',
+            }}
+          >
             ×
           </button>
         </div>

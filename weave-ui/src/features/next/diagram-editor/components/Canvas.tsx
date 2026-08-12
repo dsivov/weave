@@ -236,11 +236,11 @@ function CanvasInner({ onOpenPalette }: CanvasInnerProps) {
   const previewRect =
     dragStart && dragCurrent
       ? {
-          left: Math.min(dragStart.x, dragCurrent.x),
-          top: Math.min(dragStart.y, dragCurrent.y),
-          width: Math.abs(dragCurrent.x - dragStart.x),
-          height: Math.abs(dragCurrent.y - dragStart.y),
-        }
+        left: Math.min(dragStart.x, dragCurrent.x),
+        top: Math.min(dragStart.y, dragCurrent.y),
+        width: Math.abs(dragCurrent.x - dragStart.x),
+        height: Math.abs(dragCurrent.y - dragStart.y),
+      }
       : null
 
   // Offset preview rect relative to wrapper element
@@ -248,11 +248,11 @@ function CanvasInner({ onOpenPalette }: CanvasInnerProps) {
   const wrapperRect = wrapperRef.current?.getBoundingClientRect()
   const relativePreview = previewRect && wrapperRect
     ? {
-        left: previewRect.left - wrapperRect.left,
-        top: previewRect.top - wrapperRect.top,
-        width: previewRect.width,
-        height: previewRect.height,
-      }
+      left: previewRect.left - wrapperRect.left,
+      top: previewRect.top - wrapperRect.top,
+      width: previewRect.width,
+      height: previewRect.height,
+    }
     : null
 
   return (
@@ -296,7 +296,7 @@ function CanvasInner({ onOpenPalette }: CanvasInnerProps) {
           <div className="text-center text-gray-400">
             <p className="text-lg font-medium">Canvas is empty</p>
             <p className="text-sm mt-1">
-                Select a shape above and drag to draw, double-click canvas, or press{' '}
+              Select a shape above and drag to draw, double-click canvas, or press{' '}
               <kbd className="px-1 py-0.5 rounded bg-gray-100 text-gray-500 text-xs font-mono">N</kbd>{' '}
               to add a node. Drag on empty canvas to select multiple nodes.
             </p>

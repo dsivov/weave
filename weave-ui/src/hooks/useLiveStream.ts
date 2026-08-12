@@ -106,7 +106,11 @@ export function useLiveStream(onEvent: (event: LiveEvent) => void) {
           }
         }
         throw new Error('live stream closed')
-      } catch (e) {
+      } catch {
+        // The error is deliberately not inspected: every failure here — network
+        // drop, server restart, a closed stream — has the same answer, which is
+        // to reconnect with backoff. Binding it and ignoring it said the
+        // opposite, that something was meant to be done with it.
         if (stopped || abort.signal.aborted) return
         setConnected(false)
         timer = setTimeout(connect, backoff)

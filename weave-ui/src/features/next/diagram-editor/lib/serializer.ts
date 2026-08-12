@@ -18,7 +18,7 @@ function sanitizeId(id: string): string {
 }
 
 function escapeLabel(label: string): string {
-  return label.replace(/"/g, "'")
+  return label.replace(/"/g, '\'')
 }
 
 const SHAPE_TEMPLATES: Record<NodeShape, [string, string]> = {
@@ -51,27 +51,27 @@ function shapeWrap(id: string, label: string, shape: NodeShape): string {
 function edgeConnector(edgeStyle: EdgeStyle, arrowType: ArrowType): string {
   if (edgeStyle === 'dashed') {
     switch (arrowType) {
-      case 'none':          return '-.-'
-      case 'bidirectional': return '<-.->'
-      case 'circle':        return '-.-o'
-      case 'cross':         return '-.-x'
-      default:              return '-.->'
+    case 'none':          return '-.-'
+    case 'bidirectional': return '<-.->'
+    case 'circle':        return '-.-o'
+    case 'cross':         return '-.-x'
+    default:              return '-.->'
     }
   }
   if (edgeStyle === 'thick') {
     switch (arrowType) {
-      case 'none':          return '==='
-      case 'bidirectional': return '<===>'
-      default:              return '==>'
+    case 'none':          return '==='
+    case 'bidirectional': return '<===>'
+    default:              return '==>'
     }
   }
   // solid (default)
   switch (arrowType) {
-    case 'none':          return '---'
-    case 'bidirectional': return '<-->'
-    case 'circle':        return '--o'
-    case 'cross':         return '--x'
-    default:              return '-->'
+  case 'none':          return '---'
+  case 'bidirectional': return '<-->'
+  case 'circle':        return '--o'
+  case 'cross':         return '--x'
+  default:              return '-->'
   }
 }
 
@@ -92,7 +92,7 @@ export function serialize(
   const { direction = 'TD', theme = 'default', look = 'classic', curveStyle = 'basis' } = options
 
   if (nodes.length === 0) {
-    return `flowchart TD\n  %% Add nodes to get started`
+    return 'flowchart TD\n  %% Add nodes to get started'
   }
 
   const lines: string[] = []
@@ -133,7 +133,7 @@ export function serialize(
       const label = child.data.label || child.id
       lines.push(`    ${shapeWrap(child.id, label, shape)}`)
     }
-    lines.push(`  end`)
+    lines.push('  end')
   }
 
   // ── Node styles (only for custom-coloured nodes) ──────────────────────────

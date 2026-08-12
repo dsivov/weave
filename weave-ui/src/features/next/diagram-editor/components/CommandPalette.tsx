@@ -81,9 +81,9 @@ export function CommandPalette({ onClose }: CommandPaletteProps) {
 
   const filtered = query.trim()
     ? allCommands.filter((c) =>
-        c.label.toLowerCase().includes(query.toLowerCase()) ||
+      c.label.toLowerCase().includes(query.toLowerCase()) ||
         (c.description?.toLowerCase() ?? '').includes(query.toLowerCase())
-      )
+    )
     : allCommands
 
   // Keep activeIdx in bounds when filtered list shrinks

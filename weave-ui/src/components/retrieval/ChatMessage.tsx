@@ -60,13 +60,22 @@ export const ChatMessage = ({
   // Directly use props passed from the parent.
   const { thinkingContent, displayContent, thinkingTime, isThinking } = message
 
-  // Reset expansion state when new thinking starts
-  useEffect(() => {
-    if (isThinking) {
-      // When thinking starts, always reset to collapsed state
-      setIsThinkingExpanded(false)
-    }
-  }, [isThinking, message.id])
+  // Reset expansion state when new thinking starts.
+  //
+  // Adjusted during render rather than in an effect, which is React's documented
+  // pattern for "reset state when a prop changes" and is the one place among the
+  // four `set-state-in-effect` sites we own where the rule was reporting a real
+  // defect. As an effect this rendered the expanded panel *once* with the
+  // previous message's content before collapsing it — visible as a flicker
+  // whenever a new answer started while the previous one's thinking was open.
+  // React discards this render pass instead of committing it, so the flicker
+  // cannot happen.
+  const [thinkingKey, setThinkingKey] = useState<string>(`${message.id}:${isThinking}`)
+  const currentThinkingKey = `${message.id}:${isThinking}`
+  if (thinkingKey !== currentThinkingKey) {
+    setThinkingKey(currentThinkingKey)
+    if (isThinking) setIsThinkingExpanded(false)
+  }
 
   // The content to display is now non-ambiguous.
   const finalThinkingContent = thinkingContent
@@ -227,40 +236,40 @@ export const ChatMessage = ({
       {finalDisplayContent && (
         <div className="relative">
           <div className={`prose dark:prose-invert max-w-none text-sm break-words prose-headings:mt-4 prose-headings:mb-2 prose-p:my-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-1 [&_.katex]:text-current [&_.katex-display]:my-4 [&_.katex-display]:max-w-full [&_.katex-display_>.base]:overflow-x-auto [&_sup]:text-[0.75em] [&_sup]:align-[0.1em] [&_sup]:leading-[0] [&_sub]:text-[0.75em] [&_sub]:align-[-0.2em] [&_sub]:leading-[0] [&_mark]:bg-yellow-200 [&_mark]:dark:bg-yellow-800 [&_u]:underline [&_del]:line-through [&_ins]:underline [&_ins]:decoration-green-500 [&_.footnotes]:mt-8 [&_.footnotes]:pt-4 [&_.footnotes]:border-t [&_.footnotes_ol]:text-sm [&_.footnotes_li]:my-1 ${
-              message.role === 'user' ? 'text-primary-foreground' : 'text-foreground'
-            } ${
-              message.role === 'user'
-                ? '[&_.footnotes]:border-primary-foreground/30 [&_a[href^="#fn"]]:text-primary-foreground [&_a[href^="#fn"]]:no-underline [&_a[href^="#fn"]]:hover:underline [&_a[href^="#fnref"]]:text-primary-foreground [&_a[href^="#fnref"]]:no-underline [&_a[href^="#fnref"]]:hover:underline'
-                : '[&_.footnotes]:border-border [&_a[href^="#fn"]]:text-primary [&_a[href^="#fn"]]:no-underline [&_a[href^="#fn"]]:hover:underline [&_a[href^="#fnref"]]:text-primary [&_a[href^="#fnref"]]:no-underline [&_a[href^="#fnref"]]:hover:underline'
-            }`}>
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm, remarkFootnotes, remarkMath]}
-            rehypePlugins={[
-              rehypeRaw,
-              ...((katexPlugin && (message.latexRendered ?? true)) ? [[
-                katexPlugin,
-                {
-                  errorColor: theme === 'dark' ? '#ef4444' : '#dc2626',
-                  throwOnError: false,
-                  displayMode: false,
-                  strict: false,
-                  trust: true,
-                  // Add silent error handling to avoid console noise
-                  errorCallback: (error: string, latex: string) => {
+            message.role === 'user' ? 'text-primary-foreground' : 'text-foreground'
+          } ${
+            message.role === 'user'
+              ? '[&_.footnotes]:border-primary-foreground/30 [&_a[href^="#fn"]]:text-primary-foreground [&_a[href^="#fn"]]:no-underline [&_a[href^="#fn"]]:hover:underline [&_a[href^="#fnref"]]:text-primary-foreground [&_a[href^="#fnref"]]:no-underline [&_a[href^="#fnref"]]:hover:underline'
+              : '[&_.footnotes]:border-border [&_a[href^="#fn"]]:text-primary [&_a[href^="#fn"]]:no-underline [&_a[href^="#fn"]]:hover:underline [&_a[href^="#fnref"]]:text-primary [&_a[href^="#fnref"]]:no-underline [&_a[href^="#fnref"]]:hover:underline'
+          }`}>
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm, remarkFootnotes, remarkMath]}
+              rehypePlugins={[
+                rehypeRaw,
+                ...((katexPlugin && (message.latexRendered ?? true)) ? [[
+                  katexPlugin,
+                  {
+                    errorColor: theme === 'dark' ? '#ef4444' : '#dc2626',
+                    throwOnError: false,
+                    displayMode: false,
+                    strict: false,
+                    trust: true,
+                    // Add silent error handling to avoid console noise
+                    errorCallback: (error: string, latex: string) => {
                     // Only show detailed errors in development environment
-                    if (process.env.NODE_ENV === 'development') {
-                      console.warn('KaTeX rendering error in main content:', error, 'for LaTeX:', latex);
+                      if (process.env.NODE_ENV === 'development') {
+                        console.warn('KaTeX rendering error in main content:', error, 'for LaTeX:', latex);
+                      }
                     }
                   }
-                }
-              ] as any] : []),
-              rehypeReact
-            ]}
-            skipHtml={false}
-            components={mainMarkdownComponents}
-          >
-            {finalDisplayContent}
-          </ReactMarkdown>
+                ] as any] : []),
+                rehypeReact
+              ]}
+              skipHtml={false}
+              components={mainMarkdownComponents}
+            >
+              {finalDisplayContent}
+            </ReactMarkdown>
           </div>
         </div>
       )}

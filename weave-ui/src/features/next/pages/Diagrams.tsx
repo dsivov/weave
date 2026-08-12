@@ -170,7 +170,7 @@ export default function Diagrams() {
                   <div style={{ marginTop: 6, borderTop: '1px solid var(--line)', paddingTop: 6 }}>
                     {history.rows.map((h) => (
                       <button key={h.version} className="btn sm ghost" style={{ display: 'block', width: '100%', textAlign: 'left', fontSize: 11 }}
-                              onClick={() => void open(d.id, h.version)}>
+                        onClick={() => void open(d.id, h.version)}>
                         v{h.version} · {h.sign_off?.approver || 'unsigned'}
                         {h.sign_off?.reason ? ` — ${h.sign_off.reason}` : ''}
                       </button>

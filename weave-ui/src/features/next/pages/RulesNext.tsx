@@ -118,8 +118,8 @@ export default function RulesNext() {
           <button className="btn ghost" onClick={refresh}><RefreshCwIcon className="" />Refresh</button>
           {summary?.exists
             ? <span className={'chip ' + (summary.enabled ? 'good' : '')} style={{ alignSelf: 'center' }}>
-                {summary.enabled && <span className="cd" />}{summary.enabled ? 'enabled' : 'disabled'} · v{summary.version}
-              </span>
+              {summary.enabled && <span className="cd" />}{summary.enabled ? 'enabled' : 'disabled'} · v{summary.version}
+            </span>
             : <span className="chip" style={{ alignSelf: 'center' }}>no policy</span>}
         </div>
       </div>
