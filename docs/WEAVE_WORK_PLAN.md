@@ -82,7 +82,7 @@ flowchart LR
 - [x] `weave-ui/package.json` — bun, carried from the source app's manifest.
 - [x] `scripts/nameguard.sh` — fail on any `lightrag` / `context graph` hit outside a
       `<!-- nameguard:allow lineage -->` passage in `docs/BLOG_*.html`; report honoured markers (R2a, R3a).
-- [x] `.github/workflows/ci.yml` — run `nameguard.sh`, `pytest`, `bun test` on every commit.
+- [x] ~~`.github/workflows/ci.yml` — run `nameguard.sh`, `pytest`, `bun test` on every commit.~~ **Removed 2026-08-12 (D-036)** — it ran exactly once in the project's life (W13) and this repository now publishes documentation only. The three checks are run by hand.
 - [x] `tests/test_nameguard.py` — a seeded violation must fail the guard.
 - [x] `tests/test_dependency_set.py` `[new]` — the installed set matches `environment.yml`, and **none of the 13 omitted libraries is present**; guards A11 and A13 at the manifest level rather than only at import time. *(Added 2026-08-08 from P0 implementation — R1: the plan carries the work, not the other way round.)*
 

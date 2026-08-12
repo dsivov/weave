@@ -715,3 +715,28 @@ Status: `accepted` · `superseded by D-NN` · `reversed`.
   verified. The **documentation claim is corrected separately and unconditionally**: several documents state CI
   runs on every commit, and until 2026-08-12 it had never run at all. That sentence was false regardless of which
   option was chosen.
+
+## D-036 · GitHub Actions removed; the repository publishes documentation, and checks run locally
+- **Date:** 2026-08-12  ·  **Status:** accepted  ·  **Raised by:** dsivov  ·  **Approved by:** dsivov
+- **Context:** The repository got its first remote on 2026-08-12 and CI ran for the first time in the
+  project's life (W13): name-guard ✓, pytest ✓, `bun test` ✗ on carried lint debt. dsivov's decision is that
+  this repository exists to publish the HTML documentation — **GitHub Pages only, no Actions.**
+- **Decision:** Delete `.github/workflows/ci.yml`. Serve `docs/` through GitHub Pages, with
+  `docs/index.html` as the landing page for the three HTML artifacts.
+- **What this trades away, stated plainly.** **D-004 chose a CI name-guard as the mechanism enforcing the
+  rebrand**, and D-014/D-027 built on it — *"a grep runs on every commit and fails the build on a non-zero
+  result."* There is **no local pre-commit hook**; the guard has been run by hand all along, and after this
+  nothing runs it automatically. **A3 remains true, but the thing that checked it is gone.** The same applies
+  to `pytest` and the UI build: the suite is green at 1091 and was verified on a clean runner once, on
+  2026-08-12, and that is now a fact about a moment rather than a standing property.
+- **Why accept it anyway:** this is a documentation-publishing repository with one contributor and no
+  release. CI on a public repo is a promise to whoever reads the badge; a red badge over two apostrophes,
+  or a green one nobody is watching, are both worse than saying plainly that checks are local. The honest
+  version is the one that does not claim a gate it is not running — which is the same failure W13 exposed,
+  arriving from the other direction.
+- **Consequences:** Every "CI runs on every commit" sentence in these documents is now false twice over and
+  is corrected in the same commit. `scripts/nameguard.sh` **must be run by hand before any commit touching
+  documents or strings** — the discipline replaces the mechanism, which is exactly the arrangement D-014 was
+  written to avoid, so it is recorded here rather than left implied. **W13 is closed by this decision, not by
+  fixing the three remaining carried lint errors**; they stay in the tree as warnings-adjacent debt with no
+  gate behind them.

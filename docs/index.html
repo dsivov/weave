@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Weave — documentation</title>
+<link rel="stylesheet" href="assets/house.css">
+<style>
+  .cards { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr)); margin: 1.5rem 0 2.5rem; }
+  .card { display: block; padding: 1.1rem 1.25rem; border: 1px solid var(--line, #2a3550); border-radius: 10px;
+          background: var(--panel, #141c2e); text-decoration: none; }
+  .card:hover { border-color: var(--accent, #5b8def); }
+  .card h3 { margin: 0 0 .35rem; font-size: 1.02rem; }
+  .card p  { margin: 0; font-size: .88rem; opacity: .82; line-height: 1.45; }
+  .kicker  { font-size: .72rem; letter-spacing: .09em; text-transform: uppercase; opacity: .6; display: block; margin-bottom: .3rem; }
+  .md li   { margin: .3rem 0; font-size: .92rem; }
+  .note    { font-size: .86rem; opacity: .78; border-left: 3px solid var(--accent, #5b8def); padding: .6rem 0 .6rem .9rem; margin: 1.5rem 0; }
+</style>
+</head>
+<body>
+<article>
+
+<h1>Weave</h1>
+<p class="pull">A multi-user, multi-role system for running an AI development team: humans and
+autonomous agents planning, building and reviewing on one governed graph.</p>
+
+<p>Built docs-first — vision, then proposal and requirements, then a binding architecture contract,
+then a plan whose milestones each pass a test gate before the next begins. Seven phases, seven
+milestones, every gate reproduced by a reviewer rather than accepted on report.</p>
+
+<div class="cards">
+  <a class="card" href="BLOG_THE_TEAM_IS_THE_PRODUCT.html">
+    <span class="kicker">Vision</span>
+    <h3>The team is the product</h3>
+    <p>Why an AI development team needs governance on a graph rather than a better prompt — and what
+    changes when every role is a Claude Code session.</p>
+  </a>
+  <a class="card" href="WEAVE_RFC.html">
+    <span class="kicker">Proposal</span>
+    <h3>Weave RFC</h3>
+    <p>The approach and the phased build plan: a one-way copy of a proven engine, rebranded under a
+    name-guard, plus the six things the source lacked.</p>
+  </a>
+  <a class="card" href="WEAVE_ARCHITECTURE.html">
+    <span class="kicker">Design</span>
+    <h3>Architecture</h3>
+    <p>Every surface is an adapter over one governed core. Components, data model, the governed-write
+    and fleet flows, three boundaries, and the trade-offs.</p>
+  </a>
+</div>
+
+<h2>The written record</h2>
+<p>These are Markdown and render on GitHub rather than here — they are the working documents, not
+the presentation layer.</p>
+<ul class="md">
+  <li><a href="https://github.com/dsivov/weave/blob/main/docs/CONSTRAINTS.md">CONSTRAINTS.md</a> —
+      the architecture contract: 15 falsifiable sentences, non-goals, tripwires and an amendment log.
+      <strong>v4, in force.</strong> Drift from it stops the build.</li>
+  <li><a href="https://github.com/dsivov/weave/blob/main/docs/WEAVE_DRP.md">WEAVE_DRP.md</a> —
+      64 numbered requirements, 7 flagged assumptions and how each gets verified, 43 acceptance
+      criteria grouped by milestone.</li>
+  <li><a href="https://github.com/dsivov/weave/blob/main/docs/WEAVE_WORK_PLAN.md">WEAVE_WORK_PLAN.md</a> —
+      phases P0–P6 to milestones M0–M6, each with an explicit test gate. The checkboxes are the
+      progress trace.</li>
+  <li><a href="https://github.com/dsivov/weave/blob/main/docs/DECISIONS.md">DECISIONS.md</a> —
+      every non-trivial choice and reversal, D-001 to D-035, with the reasoning that produced it.</li>
+  <li><a href="https://github.com/dsivov/weave/blob/main/docs/DEMO_SCENARIO.md">DEMO_SCENARIO.md</a> —
+      the demo tenant: Weave's own build history, recorded in Weave, with every locator resolving to
+      a real file.</li>
+  <li>Milestone reviews —
+      <a href="https://github.com/dsivov/weave/blob/main/docs/WEAVE_CODE_REVIEW.md">M0</a> ·
+      <a href="https://github.com/dsivov/weave/blob/main/docs/WEAVE_CODE_REVIEW_M1.md">M1</a> ·
+      <a href="https://github.com/dsivov/weave/blob/main/docs/WEAVE_CODE_REVIEW_M2.md">M2</a> ·
+      <a href="https://github.com/dsivov/weave/blob/main/docs/WEAVE_CODE_REVIEW_M3.md">M3</a> ·
+      <a href="https://github.com/dsivov/weave/blob/main/docs/WEAVE_CODE_REVIEW_M4.md">M4</a> ·
+      <a href="https://github.com/dsivov/weave/blob/main/docs/WEAVE_CODE_REVIEW_M5.md">M5</a> ·
+      <a href="https://github.com/dsivov/weave/blob/main/docs/WEAVE_CODE_REVIEW_M6.md">M6</a>
+      — each with a verdict per constraint and the gate reproduced independently.</li>
+  <li><a href="https://github.com/dsivov/weave/blob/main/docs/DOCS_INDEX.md">DOCS_INDEX.md</a> —
+      the full map of <code>docs/</code>.</li>
+</ul>
+
+<p class="note"><strong>Checks run locally, not in CI (D-036).</strong> This repository publishes
+documentation only; its GitHub Actions workflow was removed. The name-guard, the Python suite and the
+UI build are run by hand before a commit — see
+<a href="https://github.com/dsivov/weave/blob/main/docs/DECISIONS.md">D-036</a> for what that trades
+away and why.</p>
+
+</article>
+</body>
+</html>

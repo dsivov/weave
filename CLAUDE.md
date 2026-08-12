@@ -90,7 +90,7 @@ the dev-agent container image.
    heartbeat; supervisory acts are *state the host reads back* (`desired_workers`), not commands
    sent to it. Anything requiring an inbound connection to a host breaks remote fleets.
 
-**The name-guard.** `scripts/nameguard.sh` runs every commit and fails the build on any surviving
+**The name-guard.** `scripts/nameguard.sh` **must be run by hand before every commit** — it fails on any surviving
 parent product name. Sole exemption: a `docs/BLOG_*.html` lineage passage carrying
 `<!-- nameguard:allow lineage -->` (D-014).
 

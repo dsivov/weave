@@ -109,7 +109,7 @@ of 14 node types; any `weave` command (`scripts/` is empty, all four console ent
 | R1 | The selected modules are copied into this repository; the parent is never imported at runtime and never written to. | must | D-002/D-003. A dependency would drag the parent's naming and cadence along and make R2 impossible. |
 | R2 | No occurrence of `lightrag` or `context graph` (any case, any separator) survives in a filename, module path, environment variable, storage identifier, database object name, log string, UI string or document. | must | D-004. A half-rebrand teaches the old vocabulary anyway. |
 | R2a | Sole exemption to R2: a lineage passage in `docs/BLOG_*.html` marked `<!-- nameguard:allow lineage -->`. The guard scans everything else, including all other documentation. | must | The project's history is true and worth telling; the exemption is narrow, marked and greppable, so it can never quietly widen. |
-| R3 | A name-guard (`scripts/nameguard.sh`) runs on every commit and fails the build on a non-zero result outside the marked exemption. | must | Left to humans, R2 decays within a phase. |
+| R3 | A name-guard (`scripts/nameguard.sh`) is **run by hand before every commit** and fails on a non-zero result outside the marked exemption. | must | Left to humans, R2 decays within a phase. |
 | R3a | The guard reports which exemption markers it honoured on each run. | should | An exemption nobody sees is an exemption that spreads. |
 | R4 | `PROVENANCE.md` records the exact source commit, the module selection, and the date of each deliberate port from the parent. | must | Makes the fork auditable and later ports reviewable rather than accidental. |
 | R5 | The copied test suites come across with the code and pass at the same count. | must | The only way P0 can be honestly gated as behaviour-preserving. |
@@ -514,7 +514,7 @@ Weave/
 │   ├── measure_live_latency.py     # gate M3
 │   ├── measure_claim_concurrency.py# gate M3
 │   ├── measure_onboarding.py       # gate M6
-│   └── nameguard.sh                # gate M0, runs every commit
+│   └── nameguard.sh                # gate M0, run by hand before every commit (D-036)
 ├── deploy/
 │   ├── compose.yml                 # server + Postgres (+ Neo4j)
 │   ├── compose.devhost.yml         # the dev-host bundle — deployed per dev machine
@@ -575,7 +575,7 @@ do both survive a milestone.
 
 | Risk / question | Impact | Plan |
 |-----------------|:------:|------|
-| Rebrand decays after P0 | med | Name-guard in CI on every commit, not a one-time sweep (R3) |
+| Rebrand decays after P0 | med | Name-guard before every commit, not a one-time sweep (R3). **Weakened by D-036** — it is discipline now, not CI. |
 | **The source moved during planning** (AS8). The pinned head `608401b8` no longer describes the working tree; `coordinator.py` has uncommitted work in the claim path. | high | Pin a **commit**, never a working tree. Before P0 starts, re-check `git status` in the source: if it is dirty in a copied module, that work is committed first, or explicitly excluded and ported later with a `D-NN`. `PROVENANCE.md` records the sha actually copied (D-022). |
 | **The new `release()` path interacts with two planned changes** — it writes `learnings` entries and adds `attempts`/`blocked` to the claim protocol. | med | R25's migration must cover `learnings` written by `release()`, not only by the P3 artifact-chain writers. R41's "claim tests pass unmodified" is evaluated against the copied version of the protocol, whichever sha is pinned. |
 | String-keyed dynamic lookups survive the rename (the `STORAGES` name→module map) | high | AS6 — explicitly tested on all three storage paths at M0 |
