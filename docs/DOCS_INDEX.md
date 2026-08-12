@@ -59,6 +59,12 @@ multi-role support.
   (import · credential · network), and the trade-offs — including the event fan-out decision that
   added constraint A7.
 
+## Change requests
+- [WEAVE_UI_CHANGE_REQUEST.md](WEAVE_UI_CHANGE_REQUEST.md) — **CR-001, proposed**, 2026-08-12. The UI becomes
+  Weave's rather than the engine's: Weave concepts as the primary navigation (today "Weave" is item 13 of 16),
+  and the raw ontology/rules JSON textareas replaced by the wizard's **interview → proposal → diff → sign**.
+  **No new dependency, no new endpoint, no contract amendment** — it surfaces what P4–P6 already built.
+
 ## Plan & progress
 - [WEAVE_CODE_REVIEW_M6.md](WEAVE_CODE_REVIEW_M6.md) — **M6**, 2026-08-11, **the final milestone**. 0 Critical ·
   0 High · 2 Medium. Suite **1083 / 0 / 0**. The Docker half the developer's container could not run was run by the

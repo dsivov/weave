@@ -740,3 +740,25 @@ Status: `accepted` · `superseded by D-NN` · `reversed`.
   written to avoid, so it is recorded here rather than left implied. **W13 is closed by this decision, not by
   fixing the three remaining carried lint errors**; they stay in the tree as warnings-adjacent debt with no
   gate behind them.
+
+## D-037 · The UI is re-scoped around Weave — raised as CR-001, not as a defect
+- **Date:** 2026-08-12  ·  **Status:** proposed (CR-001 awaiting approval)  ·  **Raised by:** dsivov
+- **Context:** dsivov observed that Weave "still seems kind of plugin, not main function". Checked against the
+  artifacts rather than from memory, and the observation is exact: **"Weave" is item 13 of 16** in its own
+  navigation, and `Ontology`/`Rules` are `<textarea>` elements holding `JSON.stringify(doc, null, 2)`.
+- **The finding is where it came from.** P0.5 copied the 26,659-LOC web UI verbatim; P0 adopted the house tokens
+  *"for **new** screens"*; the BLOG promises a wizard *"**beside** the graph-vocabulary editors"*. The plan was
+  **additive by specification**, and five screens were added exactly as written. **Nothing in the BLOG, RFC, DRP
+  or work plan asks for Weave to be the primary surface** — so no milestone review could have caught it. A
+  contract check tests whether what was written stayed true; it cannot test whether the right thing was written.
+- **Decision:** Handle it as a **change request on the existing architecture** (CR-001), not as a defect and not
+  as a UI sweep. It is new scope, it needs a gate, and the methodology's answer to new scope is a document first.
+- **Why it matters beyond this UI:** this is the first gap in the project that reviews were structurally unable
+  to find. Every other finding — six unsigned write paths, the collapsed tenant boundary, the front-door 404 —
+  was a written intention the code failed to meet. This one is a requirement that never became an intention, and
+  the only thing that surfaced it was a human looking at the running product. **Worth remembering that the
+  pipeline's blind spot is the requirement nobody wrote down, and the only detector for it is use.**
+- **Consequences:** CR-001 needs no contract amendment and no new library; it surfaces capability P4–P6 already
+  shipped (D-032/D-033/D-034 made all seven ledger kinds sign through `DiffEngine`, and the wizard proved the
+  authoring pattern). Its highest risk is not design but verification: after D-036 nothing runs `bun test` or the
+  UI build automatically, so the gate says both are run by hand and reported.
