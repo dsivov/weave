@@ -76,16 +76,18 @@ async def _open(args: argparse.Namespace):
     make an operator configure a model to move their own data.
     """
     from weave.team.store import JsonWeaveTaskStore
-    from weave_core.graph.storage import STORAGES
+    from weave_core.graph.storage import storage_class
     from weave_core.namespace import NameSpace
     from weave_core.store.locks import initialize_share_data
 
     initialize_share_data(1)
     working_dir = _working_dir(args)
 
+    # Through the registry's own resolver (AS6). This used to glue the prefix
+    # onto a relative path by hand — a second copy of the convention, which broke
+    # the moment the registry stopped using it.
     storage_name = os.environ.get("WEAVE_GRAPH_STORAGE", "NetworkXStorage")
-    module = __import__(f"weave_core{STORAGES[storage_name]}", fromlist=[storage_name])
-    graph = getattr(module, storage_name)(
+    graph = storage_class(storage_name)(
         namespace=NameSpace.GRAPH_STORE_CHUNK_ENTITY_RELATION,
         workspace=args.workspace,
         embedding_func=None,

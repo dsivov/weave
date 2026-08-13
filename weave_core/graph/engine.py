@@ -101,7 +101,6 @@ from weave_core.utils import (
     EmbeddingFunc,
     always_get_an_event_loop,
     compute_mdhash_id,
-    lazy_external_import,
     priority_limit_async_func_call,
     get_content_summary,
     sanitize_text_for_encoding,
@@ -1096,28 +1095,18 @@ class WeaveEngine:
         )
 
     def _get_storage_class(self, storage_name: str) -> Callable[..., Any]:
-        # Direct imports for default storage implementations
-        if storage_name == "JsonKVStorage":
-            from weave_core.graph.storage.files import JsonKVStorage
+        """One lookup for all nine implementations (A4).
 
-            return JsonKVStorage
-        elif storage_name == "NanoVectorDBStorage":
-            from weave_core.graph.storage.files import NanoVectorDBStorage
+        This used to hardcode the four file-based classes and send everything
+        else through a dynamic import. The default deployment therefore never
+        touched the dynamic path — so when that path broke, every test and every
+        host run stayed green while **PostgreSQL and Neo4j could not start at
+        all**. The asymmetry was the bug's hiding place, so it is gone: the
+        registry resolves every backend the same way.
+        """
+        from weave_core.graph.storage import storage_class
 
-            return NanoVectorDBStorage
-        elif storage_name == "NetworkXStorage":
-            from weave_core.graph.storage.files import NetworkXStorage
-
-            return NetworkXStorage
-        elif storage_name == "JsonDocStatusStorage":
-            from weave_core.graph.storage.files import JsonDocStatusStorage
-
-            return JsonDocStatusStorage
-        else:
-            # Fallback to dynamic import for other storage implementations
-            import_path = STORAGES[storage_name]
-            storage_class = lazy_external_import(import_path, storage_name)
-            return storage_class
+        return storage_class(storage_name)
 
     def insert(
         self,

@@ -17,11 +17,9 @@ from weave_core.utils import logger
 from weave_core.graph.base import BaseGraphStorage
 from weave_core.types import KnowledgeGraph, KnowledgeGraphNode, KnowledgeGraphEdge
 from weave_core.store.locks import get_data_init_lock
-import pipmaster as pm
-
-if not pm.is_installed("neo4j"):
-    pm.install("neo4j")
-
+# No install-on-import: `neo4j>=5.0.0,<7.0.0` is in `environment.yml` and in
+# `deploy/requirements.txt`, so a missing driver means the image was built
+# wrong — and installing it here would hide that instead of reporting it (A11).
 from neo4j import (  # type: ignore
     AsyncGraphDatabase,
     exceptions as neo4jExceptions,

@@ -2133,11 +2133,21 @@ def check_and_install_dependencies():
         # Add other required packages here
     ]
 
-    for package in required_packages:
-        if not pm.is_installed(package):
-            print(f"Installing {package}...")
-            pm.install(package)
-            print(f"{package} installed successfully")
+    # These are all declared in `environment.yml` and `deploy/requirements.txt`,
+    # so a missing one means the environment was built wrong. Reporting that is
+    # useful; installing it at startup is not — a process whose dependency set is
+    # not its manifest is exactly what A11 exists to prevent, and the install
+    # needs network the server may not have (it did not, in the image). Fail
+    # here, loudly, rather than three imports later in a restart loop.
+    missing = [p for p in required_packages if not pm.is_installed(p)]
+    if missing:
+        raise SystemExit(
+            "This environment is missing declared dependencies: "
+            + ", ".join(missing)
+            + ".\n  They are in environment.yml and deploy/requirements.txt — "
+            "rebuild the environment rather than\n  expecting the server to "
+            "install them at startup (A11)."
+        )
 
 
 def main():

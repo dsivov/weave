@@ -2,13 +2,27 @@ from collections.abc import AsyncIterator
 import os
 import re
 
-import pipmaster as pm
-
-# install specific modules
-if not pm.is_installed("ollama"):
-    pm.install("ollama")
-
-import ollama
+# `ollama` is NOT installed at import any more (A11).
+#
+# This used to run `pm.install("ollama")` while the module loaded. Two problems,
+# and the crash was the smaller one: the image had no network, so the install
+# failed and `import ollama` took the process down in a restart loop with the
+# real cause three lines up the log.
+#
+# The larger one is that `ollama` is not in `environment.yml`. A process that
+# installs its own dependencies has a dependency set that is not its manifest —
+# which is what A11 exists to prevent, arriving at runtime instead of in a diff.
+# So: say what is missing, say what to do, and do not reach for the network.
+try:
+    import ollama
+except ImportError as e:  # pragma: no cover - depends on the deployment
+    raise ImportError(
+        "The Ollama binding needs the `ollama` package, which Weave does not "
+        "declare: it is not in `environment.yml`, and adding it is a decision "
+        "that needs a `D-NN` (A11).\n\n"
+        "  Either install it deliberately in your image, or point "
+        "WEAVE_LLM_BINDING at a declared backend (openai, google-genai)."
+    ) from e
 
 from tenacity import (
     retry,

@@ -1903,23 +1903,16 @@ def export_data(
     )
 
 
-def lazy_external_import(module_name: str, class_name: str) -> Callable[..., Any]:
-    """Lazily import a class from an external module based on the package of the caller."""
-    # Get the caller's module and package
-    import inspect
-
-    caller_frame = inspect.currentframe().f_back
-    module = inspect.getmodule(caller_frame)
-    package = module.__package__ if module else None
-
-    def import_class(*args: Any, **kwargs: Any):
-        import importlib
-
-        module = importlib.import_module(module_name, package=package)
-        cls = getattr(module, class_name)
-        return cls(*args, **kwargs)
-
-    return import_class
+# `lazy_external_import` was removed here (AS6).
+#
+# It resolved a *relative* module path against the `__package__` of whichever
+# frame happened to call it. That is a landmine: correct from one caller, broken
+# from another, and silent until a deployment selects the backend that uses it —
+# which is precisely how `No module named 'weave_core.graph.graph'` reached a
+# released image. `STORAGES` now holds absolute paths and
+# `weave_core.graph.storage.storage_class()` resolves them, so there is nothing
+# for a caller's frame to change. It had exactly one caller; leaving it for the
+# next one to find is how this recurs.
 
 
 async def update_chunk_cache_list(

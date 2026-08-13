@@ -37,12 +37,11 @@ from weave_core.namespace import NameSpace, is_namespace
 from weave_core.utils import logger
 from weave_core.store.locks import get_data_init_lock
 
-import pipmaster as pm
+# No install-on-import (A11). These are declared in `environment.yml`, so a
+# missing one means the environment was built wrong — and installing it here
+# hides that, needs network the process may not have, and gives the running
+# system a dependency set that is not its manifest.
 
-if not pm.is_installed("asyncpg"):
-    pm.install("asyncpg")
-if not pm.is_installed("pgvector"):
-    pm.install("pgvector")
 
 import asyncpg  # type: ignore
 from asyncpg import Pool  # type: ignore

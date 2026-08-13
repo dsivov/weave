@@ -176,7 +176,7 @@ async def _open_graph(args: argparse.Namespace):
 
     storage_name = os.environ.get("WEAVE_GRAPH_STORAGE", "NetworkXStorage")
     module = __import__(
-        f"weave_core{STORAGES[storage_name]}", fromlist=[storage_name]
+        STORAGES[storage_name], fromlist=[storage_name]
     )
     storage_cls = getattr(module, storage_name)
 

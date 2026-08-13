@@ -4,12 +4,12 @@ import logging
 
 from collections.abc import AsyncIterator
 
-import pipmaster as pm
+# No install-on-import (A11). These are declared in `environment.yml`, so a
+# missing one means the environment was built wrong — and installing it here
+# hides that, needs network the process may not have, and gives the running
+# system a dependency set that is not its manifest.
 import tiktoken
 
-# install specific modules
-if not pm.is_installed("openai"):
-    pm.install("openai")
 
 from openai import (
     APIConnectionError,

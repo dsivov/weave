@@ -4,10 +4,7 @@ if sys.version_info < (3, 9):
     from typing import AsyncIterator
 else:
     from collections.abc import AsyncIterator
-import pipmaster as pm  # Pipmaster for dynamic library install
 
-if not pm.is_installed("aiohttp"):
-    pm.install("aiohttp")
 
 import aiohttp
 from tenacity import (

@@ -79,17 +79,51 @@ STORAGE_ENV_REQUIREMENTS: dict[str, list[str]] = {
 
 # Implementation name -> module, relative to ``weave_core``.
 # Resolved by ``importlib.import_module(path, package="weave_core")``.
+#: **Absolute module paths, deliberately.**
+#:
+#: These were relative (``.graph.storage.postgres``) and resolved by a helper
+#: that read the *caller's* ``__package__`` out of the stack frame. The only
+#: caller lives in ``weave_core.graph``, so every lookup doubled into
+#: ``weave_core.graph.graph.storage.…`` and every PostgreSQL and Neo4j start
+#: died with ``No module named 'weave_core.graph.graph'``.
+#:
+#: A registry whose entries only resolve correctly depending on **who is asking**
+#: is the fragility here, not the rename that exposed it. Absolute paths cannot
+#: be wrong from a different caller, and `importlib.import_module` needs no
+#: ``package`` argument for them — so there is nothing left to get wrong.
 STORAGES = {
-    "JsonKVStorage": ".graph.storage.files",
-    "JsonDocStatusStorage": ".graph.storage.files",
-    "NanoVectorDBStorage": ".graph.storage.files",
-    "NetworkXStorage": ".graph.storage.files",
-    "PGKVStorage": ".graph.storage.postgres",
-    "PGVectorStorage": ".graph.storage.postgres",
-    "PGGraphStorage": ".graph.storage.postgres",
-    "PGDocStatusStorage": ".graph.storage.postgres",
-    "Neo4JStorage": ".graph.storage.neo4j",
+    "JsonKVStorage": "weave_core.graph.storage.files",
+    "JsonDocStatusStorage": "weave_core.graph.storage.files",
+    "NanoVectorDBStorage": "weave_core.graph.storage.files",
+    "NetworkXStorage": "weave_core.graph.storage.files",
+    "PGKVStorage": "weave_core.graph.storage.postgres",
+    "PGVectorStorage": "weave_core.graph.storage.postgres",
+    "PGGraphStorage": "weave_core.graph.storage.postgres",
+    "PGDocStatusStorage": "weave_core.graph.storage.postgres",
+    "Neo4JStorage": "weave_core.graph.storage.neo4j",
 }
+
+
+def storage_class(storage_name: str):
+    """Resolve an implementation name to its class — the one lookup (A4).
+
+    Every backend goes through here, including the file-based four. They used to
+    be hardcoded `if` branches in the engine while the other five went through a
+    dynamic path, which meant **the default deployment never exercised the
+    resolver** — so the resolver could be broken for years and only a PostgreSQL
+    or Neo4j start would say so. That asymmetry is why this survived the rename
+    and every test after it.
+    """
+    import importlib
+
+    try:
+        module = importlib.import_module(STORAGES[storage_name])
+    except KeyError:
+        raise ValueError(
+            f"unknown storage implementation '{storage_name}'; "
+            f"known: {', '.join(sorted(STORAGES))}"
+        ) from None
+    return getattr(module, storage_name)
 
 
 def verify_storage_implementation(storage_type: str, storage_name: str) -> None:

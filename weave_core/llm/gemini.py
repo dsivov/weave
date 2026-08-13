@@ -29,13 +29,12 @@ from weave_core.utils import (
     wrap_embedding_func_with_attrs,
 )
 
-import pipmaster as pm
+# No install-on-import (A11). These are declared in `environment.yml`, so a
+# missing one means the environment was built wrong — and installing it here
+# hides that, needs network the process may not have, and gives the running
+# system a dependency set that is not its manifest.
 
 # Install the Google Gemini client and its dependencies on demand
-if not pm.is_installed("google-genai"):
-    pm.install("google-genai")
-if not pm.is_installed("google-api-core"):
-    pm.install("google-api-core")
 
 from google import genai  # type: ignore
 from google.genai import types  # type: ignore
