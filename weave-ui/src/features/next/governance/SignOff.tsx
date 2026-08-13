@@ -30,6 +30,25 @@ import type { WizardApplied, WizardDiff } from '@/api/weave'
 /** What a screen must give us to sign: the diffs, and how to apply them. */
 export type ApplyFn = (diffs: WizardDiff[], reason: string) => Promise<{ applied: WizardApplied[] }>
 
+/**
+ * **The rule, as one function both call sites use.**
+ *
+ * There is no DOM harness in this project — `@types/bun` and nothing else — and
+ * adding `@testing-library/react` to assert that a button is disabled would be a
+ * new dependency, which A11 forbids without a `D-NN` and CR-001 names as drift.
+ * So the decision is lifted out of the component instead of the assertion being
+ * lifted into a browser: a pure predicate can be tested by `bun test`, and *that
+ * both places use it* can be checked by reading the source.
+ *
+ * Better than the alternative anyway. Before this, "can this be signed?" existed
+ * twice — once as `canSign` in the panel and once as an early return in the
+ * hook — and D-038 was precisely a case of the right rule living in one file
+ * while the wrong one shipped in another.
+ */
+export function canSign(reason: string, diffs: WizardDiff[], busy = false): boolean {
+  return !busy && reason.trim().length > 0 && diffs.length > 0
+}
+
 export interface SignOffState {
   reason: string
   setReason: (r: string) => void
@@ -58,7 +77,7 @@ export function useSignOff(apply: ApplyFn): SignOffState {
   const sign = useCallback(async (diffs: WizardDiff[]) => {
     // The second guard. `SignOffPanel` disables its button without a reason, but
     // a disabled button is a suggestion — this is the one that holds.
-    if (!reason.trim() || !diffs.length) return null
+    if (!canSign(reason, diffs)) return null
     setBusy(true)
     setError(null)
     try {
@@ -97,7 +116,7 @@ export function SignOffPanel({
   signLabel?: string
 }) {
   if (!diffs.length) return null
-  const canSign = !state.busy && !!state.reason.trim()
+  const enabled = canSign(state.reason, diffs, state.busy)
 
   return (
     <div className="card" style={{ marginBottom: 12 }}>
@@ -144,8 +163,11 @@ export function SignOffPanel({
       <button
         className="btn"
         onClick={() => void state.sign(diffs)}
-        disabled={!canSign}
-        title={state.reason.trim() ? '' : 'A governance change needs a reason'}
+        disabled={!enabled}
+        // Derived from the same decision, not a second guess at it. It also
+        // used to be wrong while a request was in flight: a busy button said
+        // "needs a reason" to someone who had typed one.
+        title={enabled ? '' : (state.busy ? 'Signing…' : 'A governance change needs a reason')}
         style={{ marginTop: 8 }}
       >
         <FileSignatureIcon className="" /> {signLabel}
