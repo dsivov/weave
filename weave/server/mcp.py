@@ -87,7 +87,7 @@ def _require_quadruple(rag) -> None:
     actual = rag._get_current_rag() if hasattr(rag, "_get_current_rag") else rag
     if not isinstance(actual, WeaveGraph):
         raise ToolError(
-            "This tool requires Weave mode (WEAVE_ENABLE_QUADRUPLE=true)"
+            "This tool requires the governance engine (WEAVE_ENABLE_QUADRUPLE=true, separate from WEAVE_ENABLE_TEAM)"
         )
 
 
@@ -591,7 +591,7 @@ def create_mcp_server(
         _require_quadruple(rag)
         graph = getattr(rag, "chunk_entity_relation_graph", None)
         if graph is None:
-            raise ToolError("the answer surface requires Weave mode")
+            raise ToolError("the answer surface requires the governance engine (WEAVE_ENABLE_QUADRUPLE=true)")
         return graph
 
     @mcp.tool()

@@ -1,6 +1,6 @@
 """Weave API — the feature-flagged surface (P0).
 
-Mounted only when ``ENABLE_WEAVE=true`` (so a stock server exposes zero Weave
+Mounted only when ``WEAVE_ENABLE_TEAM=true`` (so a stock server exposes zero Weave
 routes). P0 ships the two endpoints that prove the foundation:
 
   GET  /weave/status   — is Weave on, what does its preset define, is this
@@ -267,7 +267,7 @@ def create_weave_routes(
         if not hasattr(rag, "rules_gate"):
             raise HTTPException(
                 status_code=503,
-                detail="Weave bootstrap requires Weave mode. Set WEAVE_ENABLE_QUADRUPLE=true.")
+                detail="Installing governance requires the governance engine. Set WEAVE_ENABLE_QUADRUPLE=true — the Weave surface (WEAVE_ENABLE_TEAM) is already on, or you would not be here.")
         # Refuse rather than write unsigned. All five preset layers are
         # ledger-owned, and the rules layer in particular is enforced by the
         # gate the moment it lands — installing it with no version would make

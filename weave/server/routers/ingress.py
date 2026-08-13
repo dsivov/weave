@@ -45,7 +45,7 @@ def _require_quadruple(rag) -> None:
     if not hasattr(rag, "rules_gate"):
         raise HTTPException(
             status_code=503,
-            detail="Ingress requires Weave mode. Set WEAVE_ENABLE_QUADRUPLE=true.",
+            detail="Ingress requires the governance engine. Set WEAVE_ENABLE_QUADRUPLE=true (separate from WEAVE_ENABLE_TEAM).",
         )
 
 

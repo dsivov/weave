@@ -1897,3 +1897,38 @@ export const resolveLocator = async (
   repo: string, path: string, rev = '', content = false
 ): Promise<ResolvedLocator> =>
   (await axiosInstance.get('/projects/resolve', { params: { repo, path, rev, content } })).data
+
+// ── What governance is in force, derived from the artifacts (U17) ────────────
+//
+// **Derived, never stored.** A `current_mode` field somewhere would be a second
+// source of truth, which is what A8 forbids: edit the ontology or rules directly
+// through Studio and the stored label would go on claiming "reviewed" while the
+// runtime enforced something else. That is the wizard-writes-what-the-runtime-
+// does-not-read failure arriving from the other direction.
+//
+// `/rbac` and `/lifecycle` carry the `name` and `version` the wizard signed and
+// the runtime enforces, so they cannot disagree with reality.
+
+export interface RbacSummary {
+  workspace: string
+  exists: boolean
+  name?: string | null
+  version?: number | null
+  updated_at?: number | null
+  roles: Record<string, string[]>
+}
+
+export interface LifecycleSummary {
+  workspace: string
+  exists: boolean
+  name?: string | null
+  version?: number | null
+  updated_at?: number | null
+  machines: Record<string, any>
+}
+
+export const getRbac = async (): Promise<RbacSummary> =>
+  (await axiosInstance.get('/rbac')).data
+
+export const getLifecycle = async (): Promise<LifecycleSummary> =>
+  (await axiosInstance.get('/lifecycle')).data

@@ -97,7 +97,7 @@ def _require_cg(rag) -> None:
     if not hasattr(rag, "rules_gate"):
         raise HTTPException(
             status_code=503,
-            detail="Ontology requires Weave mode. Set WEAVE_ENABLE_QUADRUPLE=true.",
+            detail="The ontology requires the governance engine. Set WEAVE_ENABLE_QUADRUPLE=true (separate from WEAVE_ENABLE_TEAM).",
         )
 
 

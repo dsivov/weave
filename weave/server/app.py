@@ -1566,7 +1566,7 @@ def create_app(args):
             rag, studio_engine, diagram_store, api_key=api_key))
 
     # Weave API (distributed AI dev-team subsystem). Off by default; mounted only
-    # when ENABLE_WEAVE=true. Composes the governance services above + the pull
+    # when WEAVE_ENABLE_TEAM=true. Composes the governance services above + the pull
     # scheduler / atomic-claim coordinator.
     if getattr(args, "enable_weave", False):
         from weave.server.routers.team import create_weave_routes

@@ -8,6 +8,7 @@ import {
 } from '@/api/weave'
 import { useSettingsStore } from '@/stores/settings'
 import { ActionMessages, useAction } from '@/features/next/governance/ActionFeedback'
+import { useInForce } from '@/features/next/governance/InForceNow'
 import { useLiveStream } from '@/hooks/useLiveStream'
 import Modal from '@/features/next/Modal'
 import WeaveProjectPanel from '@/features/next/WeaveProjectPanel'
@@ -52,7 +53,7 @@ export default function WeaveBoard() {
       }
       setErr(null)
     } catch (e: any) {
-      setErr(e?.response?.data?.detail ? String(e.response.data.detail) : 'Weave is unavailable (is ENABLE_WEAVE set?)')
+      setErr(e?.response?.data?.detail ? String(e.response.data.detail) : 'Weave is unavailable. The server needs WEAVE_ENABLE_TEAM=true, and governance also needs WEAVE_ENABLE_QUADRUPLE=true.')
     }
     setLoading(false)
   }, [])
@@ -93,6 +94,10 @@ export default function WeaveBoard() {
   // modal's action state renders inside the modal (U2).
   const bootstrapping = useAction()
 
+  // Which governance shape is in force — read from `/rbac` and `/lifecycle`
+  // rather than stored anywhere (U17).
+  const inForce = useInForce()
+
   const act = useCallback(async (fn: () => Promise<any>, succeeded?: string) => {
     const ok = await modalAction.run(fn, succeeded)
     if (ok) { await load(); if (open) await openChain(open) }
@@ -118,7 +123,14 @@ export default function WeaveBoard() {
         <div style={{ flex: 1 }} />
         {status && (
           <span className="badge" style={{ background: status.installed ? 'var(--good-dim)' : 'var(--warn-dim)' }}>
-            {status.enabled ? (status.installed ? 'installed' : 'not bootstrapped') : 'disabled'}
+            {/* Names the shape, not just that there is one (U17). "installed"
+                is true of both Solo and Reviewed, and which one you are in is
+                the thing a person actually needs. Derived from the signed
+                artifacts, so it cannot claim a mode the runtime is not
+                enforcing. */}
+            {status.enabled
+              ? (status.installed ? (inForce.mode ?? 'installed') : 'not bootstrapped')
+              : 'disabled'}
           </span>
         )}
         {/* The stream's state, shown rather than assumed. A dropped connection
@@ -164,7 +176,7 @@ export default function WeaveBoard() {
             className="btn"
             disabled={bootstrapping.busy}
             onClick={() => void bootstrapping.run(
-              async () => { await weaveBootstrap(); await load() },
+              async () => { await weaveBootstrap(); await load(); inForce.refresh() },
               'Governance installed. The board below is live.'
             )}
           >

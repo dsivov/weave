@@ -69,7 +69,7 @@ def _require_graph(rag):
     if graph is None:
         raise HTTPException(
             status_code=503,
-            detail="The answer surface requires Weave mode. Set WEAVE_ENABLE_QUADRUPLE=true.",
+            detail="The answer surface requires the governance engine. Set WEAVE_ENABLE_QUADRUPLE=true (this is separate from WEAVE_ENABLE_TEAM, which may already be on).",
         )
     return graph
 

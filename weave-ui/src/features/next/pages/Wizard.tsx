@@ -28,6 +28,7 @@ import { useSettingsStore } from '@/stores/settings'
 // rules use the same one rather than a copy of it (CR-001, R10). The wizard
 // keeps the interview; everything from "what will change" down is shared.
 import { AppliedPanel, SignOffPanel, useSignOff } from '@/features/next/governance/SignOff'
+import { InForceNow, useInForce } from '@/features/next/governance/InForceNow'
 
 type Answers = Record<string, unknown>
 
@@ -39,6 +40,10 @@ export default function Wizard() {
   const [answers, setAnswers] = useState<Answers>({})
   const [proposal, setProposal] = useState<WizardProposal | null>(null)
   const signOff = useSignOff(wizardApply)
+  // What is already in force — read from the signed artifacts, so the chooser
+  // below can mark the installed shape rather than presenting five equal
+  // options to someone who has already chosen (U17).
+  const inForce = useInForce()
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
@@ -89,6 +94,13 @@ export default function Wizard() {
         </div>
       )}
 
+      {/* Before the chooser, because the first question a returning user has is
+          "what did I install last time?" — and until now the only way to answer
+          it was to curl the ledger (U17). */}
+      <div style={{ marginBottom: 12 }}>
+        <InForceNow state={inForce} />
+      </div>
+
       {/* 1 · choose a shape */}
       <div className="card" style={{ marginBottom: 12 }}>
         <h3 style={{ marginTop: 0 }}>1 · How does your team work?</h3>
@@ -105,7 +117,18 @@ export default function Wizard() {
               }}
             >
               <strong>{t.title}</strong>
+              {inForce.mode === t.id && (
+                <span className="badge" style={{ marginLeft: 6 }}>in force</span>
+              )}
               <div style={{ color: 'var(--muted)', fontSize: 13 }}>{t.when_to_use}</div>
+              {inForce.mode && inForce.mode !== t.id && (
+                // Re-picking is a real change to a workspace that already has
+                // governance, and the diff shows the *target* rather than the
+                // delta — so the warning is here, where the choice is made.
+                <div style={{ color: 'var(--warn)', fontSize: 12, marginTop: 4 }}>
+                  Replaces <strong>{inForce.mode}</strong> — read the diff before signing.
+                </div>
+              )}
             </button>
           ))}
         </div>
@@ -172,7 +195,17 @@ export default function Wizard() {
       {proposal && (
         <SignOffPanel
           diffs={proposal.diffs}
-          state={signOff}
+          // Signing changes what is in force, so the panel above has to be
+          // re-read — otherwise the screen that exists to say "this is current"
+          // is stale the moment it matters most (U17).
+          state={{
+            ...signOff,
+            sign: async (diffs) => {
+              const applied = await signOff.sign(diffs)
+              if (applied) { setProposal(null); inForce.refresh() }
+              return applied
+            },
+          }}
           title="3 · What will change"
         />
       )}

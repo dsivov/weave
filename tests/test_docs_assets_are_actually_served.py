@@ -73,6 +73,13 @@ def client(tmp_path_factory: pytest.TempPathFactory) -> TestClient:
     # cannot fan out across workers. Constructing the app runs the real startup
     # checks, which is most of why building it in a test is worth doing at all.
     args.workers = 1
+    # And a real signing secret, for the same reason: `parse_args()` reads the
+    # environment, so in a shell with no `WEAVE_TOKEN_SECRET` this inherits the
+    # published default and `create_app` refuses to start — correctly (S1).
+    # Without this the file errors on any machine that has not exported one,
+    # which is every clean checkout. Set here rather than in the environment so
+    # the test carries its own preconditions.
+    args.token_secret = "a-signing-secret-for-tests-only-not-the-published-default"
     with TestClient(create_app(args)) as c:
         yield c
 

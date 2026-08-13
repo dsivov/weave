@@ -340,7 +340,7 @@ def _require_quadruple(rag):
         raise HTTPException(
             status_code=503,
             detail=(
-                "This endpoint requires Weave mode. "
+                "This endpoint requires the governance engine. "
                 "Set WEAVE_ENABLE_QUADRUPLE=true in your .env or configuration."
             ),
         )
@@ -401,7 +401,7 @@ def create_reasoning_routes(
                 "content": {
                     "application/json": {
                         "example": {
-                            "detail": "This endpoint requires Weave mode. Set WEAVE_ENABLE_QUADRUPLE=true."
+                            "detail": "This endpoint requires the governance engine. Set WEAVE_ENABLE_QUADRUPLE=true (separate from WEAVE_ENABLE_TEAM)."
                         }
                     }
                 },
