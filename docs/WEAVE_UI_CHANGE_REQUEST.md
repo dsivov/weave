@@ -119,6 +119,16 @@ independent when they are one object. **Named fallback if that is too much for a
 multi-type links **read-only** on the canvas and edit them in the structured panel. An edit whose blast
 radius is invisible is worse than an edit the canvas declines to offer.
 
+**Reconnaissance done 2026-08-13 — grouping is feasible and the read-only fallback is not needed.**
+Selection in the diagram editor is **not opaque xyflow state**: `onEdgesChange` (`diagram-editor/lib/store.ts:250`)
+is `applyEdgeChanges(changes, get().edges)` written straight back to the store array, and `selected` is a plain
+boolean read elsewhere as a filter (`:422`). **That is the interception point.** When a `select` change arrives
+for edge *X*, set `selected: true` on every edge sharing `X.data.linkType` before committing the array —
+selecting one selects the group, natively, with no fight against the library. So: each edge carries
+`data.linkType`; `onEdgesChange` widens the selection to its siblings; the inspector reads `data.linkType` and
+heads itself with the other pairs it connects. **The fallback stays pre-approved but should not be taken** unless
+the inspector work proves harder than this suggests.
+
 **Two consequences for the tasks:**
 
 1. **Node properties do not go inline.** 99 object-type properties, mean 5.5, max 9, across six kinds
