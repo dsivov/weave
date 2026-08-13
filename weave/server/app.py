@@ -347,6 +347,19 @@ def create_app(args):
 
     assert_signing_secret_is_safe(args.token_secret)
 
+    # Quadruple mode cannot run on every vector store yet (A4 v5, D-039).
+    #
+    # Checked here — before the engine, the pool or a single storage object
+    # exists — because the failure it replaces was `ValueError: Unknown
+    # namespace: decisions` from deep inside the engine, naming neither the
+    # backend nor the mode nor the fact that it is a known gap. An operator
+    # meeting that has followed the bundle's own defaults.
+    from weave_core.graph.storage import assert_quadruple_supported
+
+    assert_quadruple_supported(
+        getattr(args, "vector_storage", ""), getattr(args, "use_quadruple", False)
+    )
+
     # The event-bus adapter has to match the deployment shape (A7, D-019), and
     # the mismatch it guards is silent: on the in-process bus behind more than
     # one worker, a client on worker 2 never receives an event published on

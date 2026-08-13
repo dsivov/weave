@@ -146,3 +146,61 @@ def verify_storage_implementation(storage_type: str, storage_name: str) -> None:
             f"Storage implementation '{storage_name}' is not compatible with {storage_type}. "
             f"Compatible implementations are: {', '.join(storage_info['implementations'])}"
         )
+
+
+# ── quadruple mode is not supported on every backend yet (A4 v5, D-039) ──────
+
+#: Vector-store implementations that cannot serve quadruple mode, and the
+#: namespaces they are missing.
+#:
+#: Quadruple mode creates `decisions` and `communities` vector stores
+#: unconditionally (`graph/quadruple.py`). `PGVectorStorage` has no tables for
+#: either — they are absent from `NAMESPACE_TABLE_MAP`, there is no DDL, and
+#: `upsert` dispatches over three namespaces only. So the pair has never worked
+#: on any commit, while `deploy/compose.yml` ships exactly that pair as its
+#: default.
+#:
+#: **This map is deleted by P9, not widened.** The tempting way to close a gap
+#: like this is to keep adding exceptions until the error stops; the fix is the
+#: two tables, and then this goes away.
+QUADRUPLE_UNSUPPORTED_VECTOR_STORES = {
+    "PGVectorStorage": ("decisions", "communities"),
+}
+
+
+class QuadrupleUnsupported(RuntimeError):
+    """Raised at startup, before anything is constructed (D-039)."""
+
+
+def assert_quadruple_supported(vector_storage: str, quadruple_enabled: bool) -> None:
+    """Refuse a combination that cannot start, at the moment it is chosen.
+
+    Not a warning and not a degraded mode. Without this the server reaches
+    `ValueError: Unknown namespace: decisions` from forty frames inside the
+    engine, on the *first* vector store it happens to build — an error that
+    names neither the backend, nor quadruple mode, nor the fact that the pair is
+    a known gap.
+    """
+    if not quadruple_enabled:
+        return
+    missing = QUADRUPLE_UNSUPPORTED_VECTOR_STORES.get(vector_storage)
+    if not missing:
+        return
+
+    raise QuadrupleUnsupported(
+        f"{vector_storage} cannot run Weave's governance mode yet.\n\n"
+        f"  Quadruple mode needs a vector store for each of: "
+        f"{', '.join(missing)}.\n"
+        f"  {vector_storage} has no table for either, so the server would start "
+        f"and then fail\n  on the first governed write.\n\n"
+        "  You have not misconfigured anything — `deploy/compose.yml` ships this "
+        "pair as its\n  default, and it has never worked. It is a known gap with "
+        "a phase behind it (D-039,\n  A4 v5); P9 adds the tables and removes this "
+        "refusal.\n\n"
+        "  Until then, either:\n"
+        "    · set WEAVE_ENABLE_QUADRUPLE=false to run retrieval without "
+        "governance, or\n"
+        "    · use the file-based vector store (WEAVE_VECTOR_STORAGE="
+        "NanoVectorDBStorage) —\n      single-operator only, because its writes "
+        "are whole-file read-modify-write (A4)."
+    )
