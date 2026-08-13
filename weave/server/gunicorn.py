@@ -130,6 +130,12 @@ def main():
     # - Master cleanup already handled by gunicorn_config.on_exit()
 
     # Display startup information
+    # Same ordering as `app.main()` (W19): nothing announces a configured
+    # server before the checks that can refuse to start one.
+    from weave.server.app import refuse_readably
+
+    refuse_readably(global_args)
+
     display_splash_screen(global_args)
 
     print("🚀 Starting WeaveEngine with Gunicorn")

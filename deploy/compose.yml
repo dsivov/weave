@@ -78,7 +78,23 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    restart: unless-stopped
+    # `on-failure:3`, NOT `unless-stopped` (W19).
+    #
+    # The server refuses to start on a bad configuration — a shared signing
+    # secret, an event bus that cannot fan out, quadruple mode on a backend with
+    # no tables for it. **Those are deterministic: restarting cannot fix them.**
+    # Under `unless-stopped` this container reprinted its banner and its refusal
+    # twelve times in under a minute, until the one line explaining the problem
+    # had scrolled out of reach.
+    #
+    # Three attempts still covers the transient case worth covering — the
+    # database accepting connections a moment later than the server asked. After
+    # that the container stays dead and readable, which is the only state in
+    # which a configuration error is any use to anybody.
+    #
+    # The databases below keep `unless-stopped` on purpose: a database that dies
+    # really can be worth restarting, and that is the whole distinction.
+    restart: on-failure:3
 
   postgres:
     image: pgvector/pgvector:pg16

@@ -67,4 +67,17 @@ services:
     # would let the server dial this machine, which is precisely what A15 forbids
     # and what `tests/test_devhost_outbound.py` asserts is impossible.
 
+    # `unless-stopped` here, unlike the server (W19). The difference is real and
+    # worth stating rather than looking like an oversight:
+    #
+    #   · This daemon **already survives the server being away** — it waits and
+    #     retries rather than exiting, and leaves running containers alone. So an
+    #     exit here is not the routine transient case; there is no crash-loop to
+    #     cause. Its config errors exit with a single line, not a 53-line banner.
+    #   · A dev host must come back **after the machine reboots**, and
+    #     `on-failure` does not do that — only `unless-stopped` and `always` do.
+    #     A laptop that restarts overnight and silently leaves the fleet is worse
+    #     than a container that retries.
+    #
+    # Different failure shape, different policy.
     restart: unless-stopped

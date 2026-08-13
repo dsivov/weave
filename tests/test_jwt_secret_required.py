@@ -112,8 +112,14 @@ def test_creating_the_app_refuses_the_default_secret(monkeypatch):
 
     from weave.server import app as app_module
 
+    # The call moved into `assert_startup_preconditions` (W19) so the entry
+    # points could run it *before the splash screen*. The property is unchanged
+    # and is what this asserts: the secret is checked before anything is built.
     source = inspect.getsource(app_module.create_app)
     head = source[: source.find("webui_assets_exist")]
-    assert "assert_signing_secret_is_safe" in head, (
-        "create_app must assert the signing secret before it builds anything"
+    assert "assert_startup_preconditions" in head, (
+        "create_app must assert the startup preconditions before it builds anything"
     )
+    assert "assert_signing_secret_is_safe" in inspect.getsource(
+        app_module.assert_startup_preconditions
+    ), "the signing-secret check is no longer among the startup preconditions"

@@ -149,13 +149,22 @@ def test_the_check_runs_at_the_top_of_create_app():
 
     from weave.server.app import create_app
 
-    source = inspect.getsource(create_app)
-    head = source[: source.index("assert_quadruple_supported(") + 200]
-    assert "assert_signing_secret_is_safe" in head, (
+    from weave.server.app import assert_startup_preconditions
+
+    # Both checks live in `assert_startup_preconditions` now (W19), which the
+    # entry points run *before the splash* and `create_app` re-runs before it
+    # builds anything. The property is the same: this fires before any storage
+    # exists.
+    preconditions = inspect.getsource(assert_startup_preconditions)
+    assert "assert_quadruple_supported" in preconditions
+    assert "assert_signing_secret_is_safe" in preconditions, (
         "the quadruple check has drifted away from the other startup "
-        "preconditions — it must run before anything is constructed"
+        "preconditions — they must all run before anything is constructed"
     )
+
+    source = inspect.getsource(create_app)
+    head = source[: source.index("assert_startup_preconditions(") + 120]
     assert "workspace_pool" not in head, (
-        "the quadruple check now runs after the workspace pool is built; the "
-        "whole point is that it fires before any storage exists"
+        "the preconditions now run after the workspace pool is built; the whole "
+        "point is that they fire before any storage exists"
     )

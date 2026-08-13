@@ -337,25 +337,36 @@ async def _dedup_sweep_loop(workspace_pool, args) -> None:
             logger.error(f"[dedup-sweep] scheduler error: {e}", exc_info=True)
 
 
-def create_app(args):
-    # The signing secret is checked before anything else exists.
-    #
-    # Every token this server issues carries the role RBAC enforces against, so
-    # a known secret is not a weak default — it is an open door with a sign on
-    # it. Failing here, loudly, beats starting and warning into a log (S1, A6).
-    from weave.server.auth import assert_signing_secret_is_safe
+def assert_startup_preconditions(args):
+    """Every reason this process may refuse to start, checked before it claims to.
 
+    **These ran inside `create_app`, which runs after the splash screen.** So a
+    container printing *"📡 Server Configuration"* and then dying 53 lines later
+    told the operator it was starting and then that it could not — and with
+    `restart: unless-stopped` it did that twelve times in a minute, until the
+    message explaining the refusal had scrolled out of reach (W19).
+
+    A banner is a claim about outcome, and nothing should make it before the
+    things that can falsify it have run. So the preconditions live here, and both
+    entry points call this **before** `display_splash_screen`.
+
+    Idempotent on purpose: `create_app` still calls it, because
+    `get_application()` under gunicorn reaches the app without going through
+    either entry point. Guarding one path and not the other is W4's shape.
+    """
+    from weave.server.auth import InsecureSigningSecret, assert_signing_secret_is_safe
+    from weave.server.config import assert_bus_matches_deployment
+    from weave_core.graph.storage import (
+        QuadrupleUnsupported,
+        assert_quadruple_supported,
+    )
+
+    # Every token this server issues carries the role RBAC enforces against,
+        # so a known secret is not a weak default — it is an open door with a
+        # sign on it (S1, A6).
     assert_signing_secret_is_safe(args.token_secret)
 
     # Quadruple mode cannot run on every vector store yet (A4 v5, D-039).
-    #
-    # Checked here — before the engine, the pool or a single storage object
-    # exists — because the failure it replaces was `ValueError: Unknown
-    # namespace: decisions` from deep inside the engine, naming neither the
-    # backend nor the mode nor the fact that it is a known gap. An operator
-    # meeting that has followed the bundle's own defaults.
-    from weave_core.graph.storage import assert_quadruple_supported
-
     assert_quadruple_supported(
         getattr(args, "vector_storage", ""), getattr(args, "use_quadruple", False)
     )
@@ -363,17 +374,39 @@ def create_app(args):
     # The event-bus adapter has to match the deployment shape (A7, D-019), and
     # the mismatch it guards is silent: on the in-process bus behind more than
     # one worker, a client on worker 2 never receives an event published on
-    # worker 1 — no error, no log, the board just stops updating for some users.
-    #
-    # Asserted here, in `create_app`, because every path into a running server
-    # goes through it — uvicorn's `main()` and each forked gunicorn worker alike.
-    # Putting it in one entry point would leave the other one unguarded, which is
-    # the whole shape of watch item W4.
-    from weave.server.config import assert_bus_matches_deployment
-
+    # worker 1 — no error, no log, the board just stops updating.
     assert_bus_matches_deployment(
         getattr(args, "event_bus", "inprocess"), int(getattr(args, "workers", 1) or 1)
     )
+
+
+def refuse_readably(args) -> None:
+    """Run the preconditions and present a refusal as an answer (W19).
+
+    **The wrapping belongs here, not in `assert_startup_preconditions`.** Putting
+    `SystemExit` there changed what `create_app` raises, and callers legitimately
+    catch the typed exceptions — `tests/test_jwt_secret_required.py` expects
+    `InsecureSigningSecret` from the app factory, which is the right contract for
+    a library boundary.
+
+    An entry point is different: it is talking to a person. `SystemExit` prints
+    its argument with no traceback and exits non-zero, so the sentence explaining
+    the problem is the first thing read rather than the eleventh line.
+    """
+    from weave.server.auth import InsecureSigningSecret
+    from weave_core.graph.storage import QuadrupleUnsupported
+
+    try:
+        assert_startup_preconditions(args)
+    except (InsecureSigningSecret, QuadrupleUnsupported, ValueError) as refusal:
+        raise SystemExit(f"\nWeave will not start.\n\n{refusal}\n") from None
+
+
+def create_app(args):
+    # Re-asserted here because every path into a running server goes through
+    # `create_app` — uvicorn's `main()`, gunicorn's `get_application()`, and the
+    # tests. The entry points call it earlier so the splash cannot precede it.
+    assert_startup_preconditions(args)
 
     # Check frontend build first and get status
     webui_assets_exist, is_frontend_outdated = check_frontend_build()
@@ -2190,6 +2223,12 @@ def main():
     # Configure logging before parsing args
     configure_logging()
     update_uvicorn_mode_config()
+    # Preconditions before the banner (W19). A splash announcing a configured
+    # server, followed by a refusal, tells the operator two contradictory things
+    # in the wrong order — and under a restart policy it repeats until the
+    # useful line is gone.
+    refuse_readably(global_args)
+
     display_splash_screen(global_args)
 
     # Note: Signal handlers are NOT registered here because:
