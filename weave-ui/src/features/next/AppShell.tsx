@@ -4,9 +4,11 @@ import {
   GavelIcon, BoxesIcon, SparklesIcon, Code2Icon, RocketIcon,
   BellIcon, SunIcon, MoonIcon, PanelLeftIcon, LayersIcon, PencilRulerIcon, UsersIcon, ShapesIcon,
   UserCogIcon, WandSparklesIcon,
-  FolderGitIcon
+  FolderGitIcon, LogOutIcon
 } from 'lucide-react'
 import { useSettingsStore } from '@/stores/settings'
+import { useAuthStore } from '@/stores/state'
+import { navigationService } from '@/services/navigation'
 import { setUiMode } from '@/lib/uiMode'
 import WorkspaceSelector from '@/components/WorkspaceSelector'
 import './next.css'
@@ -117,6 +119,28 @@ export default function AppShell() {
   const workspace = useSettingsStore.use.workspace()
   const setCurrentTab = useSettingsStore.use.setCurrentTab()
 
+  // Who is signed in, and how to stop being them (U11 · U12 · U13).
+  //
+  // `role` comes from the **token**, which is what the server enforces against
+  // (D5) — not from the user record. Those can differ, and when they do it is
+  // the whole of U1: a role changed in Admin ▸ Users is saved and not yet in
+  // force. Showing the token's role makes that visible rather than baffling.
+  const { username, role, isAuthenticated, logout } = useAuthStore()
+
+  const initials = (username ?? '?')
+    .split(/[\s._-]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]!.toUpperCase())
+    .join('') || '?'
+
+  const signOut = () => {
+    // Clear the session, then hand over to the same navigation the classic
+    // header used — one logout, not a second implementation of it (R10).
+    logout()
+    navigationService.navigateToLogin()
+  }
+
   const go = (v: ViewId) => {
     setView(v)
     const tab = TAB_OF[v]
@@ -193,14 +217,35 @@ export default function AppShell() {
               </div>
             ))}
           </nav>
+          {/* The session block (U11 · U12 · U13, one change).
+              `AppShell` is the whole app in `next` mode — `SiteHeader` is never
+              rendered — and it owned the only logout and the only display of who
+              you are. So this shell showed a hardcoded `CG` avatar (the parent's
+              initials, U13) beside the word "Weave", and offered no way to sign
+              out at all.
+              That is not three cosmetic bugs. Without logout a token cannot be
+              re-minted, so a user who changes their own role in Admin ▸ Users
+              saves it, keeps the old role in force, and has no way to pick up the
+              new one — the deadlock in U1. Identity belonged here from the
+              start. */}
           <div className="foot">
-            <div className="avatar">CG</div>
-            <div className="who" style={{ flex: 1 }}>
-              Weave<small>Workspace · {workspace}</small>
+            <div className="avatar" title={username ?? 'not signed in'}>
+              {initials}
+            </div>
+            <div className="who" style={{ flex: 1, minWidth: 0 }}>
+              {username ?? 'Not signed in'}
+              <small>
+                {role ? `${role} · ` : ''}Workspace · {workspace}
+              </small>
             </div>
             <button className="iconbtn" title="Back to classic UI" onClick={() => setUiMode('classic')}>
               <PanelLeftIcon className="" />
             </button>
+            {isAuthenticated && (
+              <button className="iconbtn" title={`Sign out (${username ?? ''})`} onClick={signOut}>
+                <LogOutIcon className="" />
+              </button>
+            )}
           </div>
         </aside>
 

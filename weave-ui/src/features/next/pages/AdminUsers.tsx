@@ -52,6 +52,7 @@ export default function AdminUsers() {
   const [rows, setRows] = useState<WeaveUser[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
   const [q, setQ] = useState('')
   const [creating, setCreating] = useState(false)
   const [draft, setDraft] = useState<Draft>(EMPTY)
@@ -93,6 +94,7 @@ export default function AdminUsers() {
 
   const act = async (fn: () => Promise<unknown>) => {
     setError(null)
+    setNotice(null)
     try {
       await fn()
       await load()
@@ -133,8 +135,22 @@ export default function AdminUsers() {
       updateUser(user.id, { status: user.status === 'active' ? 'disabled' : 'active' })
     )
 
-  const onChangeRole = (user: WeaveUser, role: string) =>
-    act(() => updateUser(user.id, { role }))
+  // A role change is saved immediately and takes effect at the user's **next
+  // sign-in** — the server enforces the role carried in the token (D5), and the
+  // token they are holding was minted before this (D-040).
+  //
+  // Saying so is the whole of U1. Without it the change looks applied, nothing
+  // behaves differently, and the owner concludes the write was lost — it was
+  // not; it is on disk and out of force. Silence here is what turned three
+  // small defects into an installation nobody could configure.
+  const onChangeRole = async (user: WeaveUser, role: string) => {
+    if (!(await act(() => updateUser(user.id, { role })))) return
+    setNotice(
+      `${user.username} is now ${role}. It takes effect the next time they sign in — ` +
+      'the role is carried in their token, and the one they are holding was issued ' +
+      'before this change.'
+    )
+  }
 
   const onEditWorkspaces = async (user: WeaveUser) => {
     const next = window.prompt(
@@ -176,6 +192,14 @@ export default function AdminUsers() {
       {error && (
         <div className="callout warn" role="alert">
           {error}
+        </div>
+      )}
+
+      {notice && (
+        // In place, next to the control that caused it — not a toast that has
+        // gone by the time someone looks up (U10).
+        <div className="callout" role="status" style={{ marginBottom: 10 }}>
+          {notice}
         </div>
       )}
 

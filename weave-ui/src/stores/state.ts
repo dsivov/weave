@@ -31,6 +31,7 @@ interface AuthState {
   coreVersion: string | null;
   apiVersion: string | null;
   username: string | null; // login username
+  role: string | null;     // the role the token carries — what the server enforces (D5)
   webuiTitle: string | null; // Custom title
   webuiDescription: string | null; // Title description
   lastTokenRenewal: string | null; // Human-readable local time of last token renewal (for debugging and monitoring)
@@ -189,6 +190,16 @@ const getUsernameFromToken = (token: string): string | null => {
   return payload.sub || null;
 };
 
+// The role the token carries — which is the role the *server* enforces against
+// (D5). Surfacing it matters beyond decoration: a user who changes their own
+// role in Admin ▸ Users sees the new one saved and the old one still in force,
+// because the token was minted before the change. Showing the token's role is
+// what makes that visible instead of baffling (U1, U12).
+const getRoleFromToken = (token: string): string | null => {
+  const payload = parseTokenPayload(token);
+  return payload.role || null;
+};
+
 const isGuestToken = (token: string): boolean => {
   const payload = parseTokenPayload(token);
   return payload.role === 'guest';
@@ -199,7 +210,7 @@ const getTokenExpiresAt = (token: string): number | null => {
   return payload.exp ? payload.exp * 1000 : null; // Convert to milliseconds
 };
 
-const initAuthState = (): { isAuthenticated: boolean; isGuestMode: boolean; coreVersion: string | null; apiVersion: string | null; username: string | null; webuiTitle: string | null; webuiDescription: string | null; lastTokenRenewal: string | null; tokenExpiresAt: number | null } => {
+const initAuthState = (): { isAuthenticated: boolean; isGuestMode: boolean; coreVersion: string | null; apiVersion: string | null; username: string | null; role: string | null; webuiTitle: string | null; webuiDescription: string | null; lastTokenRenewal: string | null; tokenExpiresAt: number | null } => {
   const token = localStorage.getItem('WEAVE-API-TOKEN');
   const coreVersion = localStorage.getItem('WEAVE-CORE-VERSION');
   const apiVersion = localStorage.getItem('WEAVE-API-VERSION');
@@ -207,6 +218,7 @@ const initAuthState = (): { isAuthenticated: boolean; isGuestMode: boolean; core
   const webuiDescription = localStorage.getItem('WEAVE-WEBUI-DESCRIPTION');
   const lastTokenRenewal = localStorage.getItem('WEAVE-LAST-TOKEN-RENEWAL');
   const username = token ? getUsernameFromToken(token) : null;
+  const role = token ? getRoleFromToken(token) : null;
   const tokenExpiresAt = token ? getTokenExpiresAt(token) : null;
 
   if (!token) {
@@ -216,6 +228,7 @@ const initAuthState = (): { isAuthenticated: boolean; isGuestMode: boolean; core
       coreVersion: coreVersion,
       apiVersion: apiVersion,
       username: null,
+      role: null,
       webuiTitle: webuiTitle,
       webuiDescription: webuiDescription,
       lastTokenRenewal: null,
@@ -229,6 +242,7 @@ const initAuthState = (): { isAuthenticated: boolean; isGuestMode: boolean; core
     coreVersion: coreVersion,
     apiVersion: apiVersion,
     username: username,
+    role: role,
     webuiTitle: webuiTitle,
     webuiDescription: webuiDescription,
     lastTokenRenewal: lastTokenRenewal,
@@ -246,6 +260,7 @@ export const useAuthStore = create<AuthState>(set => {
     coreVersion: initialState.coreVersion,
     apiVersion: initialState.apiVersion,
     username: initialState.username,
+    role: initialState.role,
     webuiTitle: initialState.webuiTitle,
     webuiDescription: initialState.webuiDescription,
     lastTokenRenewal: initialState.lastTokenRenewal,
@@ -274,6 +289,7 @@ export const useAuthStore = create<AuthState>(set => {
       }
 
       const username = getUsernameFromToken(token);
+      const role = getRoleFromToken(token);
       const tokenExpiresAt = getTokenExpiresAt(token);
       const now = Date.now();
       const formattedTime = formatTimestampToLocalString(now);
@@ -285,6 +301,7 @@ export const useAuthStore = create<AuthState>(set => {
         isAuthenticated: true,
         isGuestMode: isGuest,
         username: username,
+        role: role,
         coreVersion: coreVersion,
         apiVersion: apiVersion,
         webuiTitle: webuiTitle,
@@ -307,6 +324,7 @@ export const useAuthStore = create<AuthState>(set => {
         isAuthenticated: false,
         isGuestMode: false,
         username: null,
+        role: null,
         coreVersion: coreVersion,
         apiVersion: apiVersion,
         webuiTitle: webuiTitle,
