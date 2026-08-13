@@ -2,7 +2,7 @@
 
 # Weave — Change Request (CR-001): the UI becomes Weave's, not the engine's
 
-- **Project:** Weave  ·  **Date:** 2026-08-12  ·  **Status:** **proposed**
+- **Project:** Weave  ·  **Date:** 2026-08-12  ·  **Status:** **approved** — 2026-08-13 by dsivov; assigned as **P7 → M7**
 - **Affects:** [WEAVE_ARCHITECTURE.html](WEAVE_ARCHITECTURE.html) §components, §key flows · [WEAVE_DRP.md](WEAVE_DRP.md) §3.4, §3.6
 - **Requested by:** dsivov
 

@@ -60,7 +60,7 @@ multi-role support.
   added constraint A7.
 
 ## Change requests
-- [WEAVE_UI_CHANGE_REQUEST.md](WEAVE_UI_CHANGE_REQUEST.md) — **CR-001, proposed**, 2026-08-12. The UI becomes
+- [WEAVE_UI_CHANGE_REQUEST.md](WEAVE_UI_CHANGE_REQUEST.md) — **CR-001, approved** 2026-08-13, assigned as **P7 → M7**. The UI becomes
   Weave's rather than the engine's: Weave concepts as the primary navigation (today "Weave" is item 13 of 16),
   and the raw ontology/rules JSON textareas replaced by the wizard's **interview → proposal → diff → sign**.
   **No new dependency, no new endpoint, no contract amendment** — it surfaces what P4–P6 already built.

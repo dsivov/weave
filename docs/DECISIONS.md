@@ -742,7 +742,7 @@ Status: `accepted` · `superseded by D-NN` · `reversed`.
   gate behind them.
 
 ## D-037 · The UI is re-scoped around Weave — raised as CR-001, not as a defect
-- **Date:** 2026-08-12  ·  **Status:** proposed (CR-001 awaiting approval)  ·  **Raised by:** dsivov
+- **Date:** 2026-08-12  ·  **Status:** accepted — CR-001 approved 2026-08-13 by dsivov, assigned as P7 → M7  ·  **Raised by:** dsivov
 - **Context:** dsivov observed that Weave "still seems kind of plugin, not main function". Checked against the
   artifacts rather than from memory, and the observation is exact: **"Weave" is item 13 of 16** in its own
   navigation, and `Ontology`/`Rules` are `<textarea>` elements holding `JSON.stringify(doc, null, 2)`.

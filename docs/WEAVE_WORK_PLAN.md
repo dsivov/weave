@@ -5,7 +5,7 @@
 
 - **Sources:** [WEAVE_DRP.md](WEAVE_DRP.md) · [WEAVE_ARCHITECTURE.html](WEAVE_ARCHITECTURE.html) · [WEAVE_RFC.html](WEAVE_RFC.html)
 - **Contract:** [CONSTRAINTS.md](CONSTRAINTS.md) **v4** — every phase opens with a contract check (R11)
-- **Branch:** work rides a `feature/` branch and the manager merges at each gate — two sessions now share one checkout (D-025's direct-to-`main` waiver superseded in practice; R5 observed). · **Status:** **COMPLETE — P0–P6 built, M0–M6 all reviewed and merged.** M6 approved 2026-08-11: 0 Critical, 0 High, suite 1083 / 0 / 0, all three deployables built and A1/A10/A13/A15 verified against the built images. D-032 and D-033 both closed: every governance write now goes through the ledger.
+- **Branch:** work rides a `feature/` branch and the manager merges at each gate — two sessions now share one checkout (D-025's direct-to-`main` waiver superseded in practice; R5 observed). · **Status:** **P0–P6 built and reviewed (M0–M6 all merged). P7 is the active phase** — CR-001 approved 2026-08-13: the UI becomes Weave's rather than the engine's.** M6 approved 2026-08-11: 0 Critical, 0 High, suite 1083 / 0 / 0, all three deployables built and A1/A10/A13/A15 verified against the built images. D-032 and D-033 both closed: every governance write now goes through the ledger.
 - **Owner:** dsivov · **Roles:** *manager* owns this plan, the contract, the reviews, git and server startup; *developer* implements the tasks and runs the gate. A task marked **[manager]** is not the developer's to do.
 
 > **This plan builds on working code, not a blank page.** Every task below that moves code names its
@@ -30,6 +30,7 @@
 | P4 | Team-vocabulary wizards | Wizard + templates; RBAC & lifecycle as ledger kinds | **M4** | fresh install → governed workspace, 0 file edits, 0 restarts; 403 that was a 200 |
 | P5 | Senior-developer seat | Supervisory principal; dispatch, pause/resume/redirect | **M5** | pause honoured between steps; claim tests pass unmodified |
 | P6 | Onboarding bundle & productisation | `weave` CLI; compose bundles; dev-host + agent images | **M6** | clean machine → live fleet by published steps only; onboarding measured |
+| P7 | **The UI becomes Weave's** (CR-001) | Weave-first navigation; ontology/rules authored propose → diff → sign; the four questions get a UI | **M7** | first screen answers a Weave question; every `/ask` reachable and matching the API; governance signed with a reason; 0 endpoints changed |
 
 ```mermaid
 flowchart LR
@@ -591,6 +592,44 @@ dev-agent image builds from the rebranded packages carrying no git credentials a
 **Review:** ✅ **M6 reviewed 2026-08-11** → [WEAVE_CODE_REVIEW_M6.md](WEAVE_CODE_REVIEW_M6.md) — **0 Critical, 0 High**, 2 Medium. **Merged.** Suite **1083 / 0 / 0** reproduced independently. The Docker half, which the developer's container could not run, was run by the reviewer: **all three deployables build**, and **A13** (no `anthropic` in the dev-agent image), **A10** (`/usr/local/bin/claude` present), **A15** (no git credentials; `compose.devhost.yml` publishes no ports) verified **against the built artifacts** for the first time. D-034 ratified on evidence. **The build is complete.**
 
 ---
+
+## P7 · The UI becomes Weave's → **M7**
+
+> **Opened 2026-08-13. Source: [WEAVE_UI_CHANGE_REQUEST.md](WEAVE_UI_CHANGE_REQUEST.md) (CR-001, approved) · D-037.**
+> Read the CR before the first task — it carries the scope, the explicit *unchanged* list, the risk table and
+> **§4b, which decides the ontology canvas rather than leaving it to implementation**. Nothing here is a licence
+> to redesign the engine's screens: §3 names them unchanged, and touching them needs its own CR.
+>
+> **This phase's highest risk is verification, not design.** After D-036 nothing runs `bun test` or the UI build
+> automatically. **Run both by hand and report the numbers** — a UI phase whose UI was never built is the failure
+> W10 already caught once.
+>
+> **A9 is the constraint most at risk.** A screen that needs something the API cannot answer is a *finding*, not
+> a licence to add an endpoint. The gate asserts `git diff` on `weave/server/routers/` is empty.
+
+- [ ] **Contract check (R11)** — re-read `CONSTRAINTS.md` **v4**. Touches **A9** (no UI-only endpoint), **A11** (no new library — everything needed is installed), **A8** (governance writes stay signed), **A6**. Verdict per ID in the first commit message.
+- [ ] `AppShell.tsx` — Weave-first `NAV` groups and ordering; `ViewId` extended. Nothing deleted; the engine's views keep their labels and routes.
+- [ ] `features/next/governance/` `[new]` — the shared **propose → diff → sign** flow, **extracted** from `Wizard.tsx` so there is one implementation rather than a second copy beside it (R10).
+- [ ] `pages/Work.tsx` · `pages/Features.tsx` · `pages/Learnings.tsx` · `pages/Projects.tsx` `[new]` — the primary views. The four `/ask` questions have existed since P2 with **no UI at all**.
+- [ ] `OntologyNext.tsx` · `RulesNext.tsx` — structured editors over the shared flow; the JSON textarea retained as a labelled escape hatch.
+- [ ] **Ontology canvas** (§4b) — `@xyflow` node/link view drawing **all 37** concrete edges, same-`LinkType` edges grouped: selecting one selects all, inspector headed with the other pairs it connects. Reuse `diagram-editor/components/Inspector/` for the 99 properties (R10). Fallback if grouping proves too much for a first cut: multi-type links **read-only** on the canvas, edited in the panel.
+- [ ] `Studio.tsx` — history, diff and revert; authoring removed.
+- [ ] `tests/test_ask_ui_parity.py` `[new]` — the UI's node set per question equals the API's (**A9**; mirrors `test_mcp_rest_parity.py`).
+- [ ] `weave-ui/src/**/__tests__` `[new]` — **one fixture exercising what the preset does not**: link-type properties (0 of 23 have any) **and** an `ANY` wildcard link (0 of 23 use one). Assert properties round-trip through save, the wildcard renders, and editing one edge of a shared `LinkType` visibly affects its siblings. Plus: a proposal with no reason cannot sign.
+- [ ] **Run `bun run build`, `bun test`, `tsc --noEmit`, `eslint .`, the Python suite and the name-guard by hand** and report every number (D-036).
+
+**Gate (M7):** from a fresh login the first screen answers a **Weave** question, not a document one; each of
+`/ask/{changes,why,features,learnings}` is reachable and returns the **same node set as the API** for the same
+workspace, with every node linking to its locator; ontology and rules changes show a diff, refuse to sign without
+a reason, and land as a **new ledger version verified by reading `history()` back**; the JSON escape hatch
+round-trips a document the structured editor cannot express; **all sixteen current views remain reachable**;
+`git diff weave/server/routers/` is **empty**; `bun run build` and `bun test` pass; `tsc` and `eslint` exit 0;
+Python **1091+ passed**; name-guard clean.
+
+**Review:** code review of the CR diff; log the outcome in `DECISIONS.md`.
+
+---
+
 
 ## Definition of Done (every task)
 
