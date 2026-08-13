@@ -195,6 +195,49 @@ its documentation viewer is broken.
 
 ---
 
+## U14 · A new project starts with no ontology and no rules, and the UI tells you to make an HTTP request
+
+Raised by dsivov, 2026-08-13: *"ontology and rules are very complicated, but for a software project they
+are pretty much the same — we have to ensure initial seeding for each new project creates those
+definitions by default."* **Verified against the running server, and the concern is correct.**
+
+A workspace that has never been touched:
+
+```
+GET /weave/status   installed: false   (the preset is described, not installed)
+GET /ontology       exists: false  ·  object_types: []  ·  link_types: []
+GET /rules          exists: false  ·  enabled: false  ·  rules: []
+```
+
+The preset itself is complete and well-formed — **18 object types, 23 link types, 15 actions, 4 roles,
+3 concepts** — and it is exactly the "pretty much the same for every software project" content dsivov
+means. It is simply not installed. `preset.install()` has exactly two callers, both deliberate acts:
+`POST /weave/bootstrap` and `weave roles install`. **Nothing installs on workspace creation.**
+
+And the affordance is a sentence, not a control (`WeaveBoard.tsx:140`):
+
+> *This workspace isn't bootstrapped for Weave yet. Run `POST /weave/bootstrap` as a manager/architect.*
+
+**That instructs a human role to issue an HTTP request from a screen that could simply do it.** A10 says
+human roles are Claude Code sessions and the web UI — neither of which is a `curl` prompt.
+
+### Why this is not a one-line "install on create", and what to do instead
+
+**Auto-installing everywhere would install RBAC everywhere, and W16 says an RBAC-enabled workspace denies
+every MCP agent** — `rbac_service.check(ws, None, …)` fails closed because MCP carries no role. So
+"seed every new workspace" and "dev agents can work in a new workspace" are, today, in direct conflict.
+The demo tenant has been usable by agents *precisely because* nothing was installed in it.
+
+Two steps, in order:
+
+1. **A button, now.** The board already knows `installed: false`, the endpoint exists, and it is correctly
+   gated to supervisors. This is the cheap, obviously-right half — and it is a P10-class defect: *the
+   application knew the answer and did not put it where the person was looking.*
+2. **Default-on at workspace creation — after W16.** Installing signs five ledger layers with an approver
+   and a reason (A8), which is attributable to the creator and fine. The blocker is not signing; it is
+   that RBAC-on-by-default locks agents out until MCP can carry a role. **Sequence it behind W16, or the
+   fix for empty governance becomes the cause of an empty fleet.**
+
 ## Severity and sequence
 
 | ID | Defect | Severity | Why that severity |
