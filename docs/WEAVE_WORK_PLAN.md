@@ -756,6 +756,7 @@ prompt is rewritten as a measured change, and that is **P11**, not P10.
 - [ ] `tests/` — assert no example entity name from the prompt appears in extraction output on the fixed corpus, and that the declared entity types match the ontology. The test asserts the **class** — any example entity, not the five we know.
 - [ ] Re-extract the demo tenant; confirm the 5 leaked entities are gone and the answer surfaces still resolve.
 - [ ] `docs/` — record the before/after numbers where the claim is made (R2/R6). Parity is an honest result; an unverified improvement is not.
+- [ ] **Sweep the other inherited content, not just the prompt** (developer's pointer, accepted): `weave/wizards/templates/*.json` and the preset's seed entities. **The wizard templates are the sharper of the two** — an operator adopts them wholesale into a real workspace, so parent-chosen content there does not merely teach the extractor, it becomes someone's governance.
 
 **Gate (M11):** `scripts/measure_extraction.py` reports before and after on the same corpus, the five leaked
 entities are absent from a re-extracted demo graph, entity types match the ontology, and the suite is green.
@@ -812,3 +813,5 @@ milestone that would turn it into one.
 [WEAVE_DRP.md](WEAVE_DRP.md) §3 or a gate criterion in §5. New work gets a task here **first**
 (R1); a new library gets a row in the DRP's table **first**, with its justification against what is
 already installed (R10).
+
+| W21 | **Two token-write paths, and only one refreshes the displayed identity.** `weave-ui/src/api/weave.ts:314` writes a renewed token *and* calls `useAuthStore.login()`; the `x-new-token` response interceptor at **`:369` writes it to `localStorage` and does not**. **Not a defect today** — `weave/server/utils.py:204` re-mints with the *same* `role` taken from `token_info`, so nothing observable drifts, and this was checked before reporting. **It becomes one the moment renewal ever re-reads the user's current role** — which is precisely the obvious future fix for U1's remaining friction (*"don't make them sign in again"*). At that point the footer would display a role the server no longer enforces: silently, and as the exact inverse of the bug the session block just fixed. | Manager's M10 browser pass, 2026-08-13 | **Whenever token renewal is next touched**, and before anyone tries to make a role change take effect without a re-login. One line in the interceptor, or the store updated there too. |
