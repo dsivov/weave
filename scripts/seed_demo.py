@@ -186,6 +186,18 @@ def main() -> int:
     api.login(args.user, args.password)
     print(f"seeding workspace '{args.workspace}' at {args.url}")
 
+    # 0 · bootstrap the workspace's governance FIRST.
+    #
+    # Without this the board reads "not bootstrapped" and every governed action
+    # is refused — the tenant has tasks and nodes but no ontology, RBAC,
+    # lifecycle, rules or actions to enforce them against. Installing is a
+    # supervisor act (manager/architect), which is why this script authenticates
+    # as one. It signs all five layers into the ledger (D-034), so the demo's
+    # governance is attributable from its first version rather than from its
+    # second.
+    api.post("/weave/bootstrap", {}, tolerate=(409,))
+    print("  governance bootstrapped — ontology, rbac, lifecycle, rules, actions")
+
     # 1 · the project the locators resolve against (P2, R22)
     api.post("/projects", {
         "name": REPO,
