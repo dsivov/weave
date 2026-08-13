@@ -728,6 +728,8 @@ The startup refusal is gone from the source, not merely unreachable. Suite green
 - [x] **U9 — the API tab renders.** `/static/swagger-ui/*` 404s; ship or mount the assets, and a test that fetches both.
 - [x] **U5 — the features anchor stops pretending to be a question box**, and its empty state distinguishes *nothing matched* from *nothing exists*.
 - [x] **U3 — no raw node id is ever shown to a reader** (`AnswerView.tsx:31`). Re-seed first and confirm the shape; the fallback may be masking a data defect rather than causing one.
+- [ ] **U15 — `ENABLE_WEAVE` does not exist; the variable is `WEAVE_ENABLE_TEAM`.** One UI string (`WeaveBoard.tsx:55`) and two comments (`routers/team.py:3`, `app.py:1569`). Proven by experiment, not grep. **Blocks P8**, which documents turning Weave on.
+- [ ] **U16 — the bootstrap 503 says "requires Weave mode" when Weave mode is on** and quadruple mode is what is missing. Fix the sentence; the recommended flag is already right.
 - [ ] **[manager]** drive all thirteen in a real browser, signed in as each of two roles. Not `curl`.
 
 **Gate (M10):** every U-number in `WEAVE_UI_DEFECTS.md` reproduced before the fix and driven after it, **in

@@ -263,6 +263,46 @@ Two steps, in order:
    that RBAC-on-by-default locks agents out until MCP can carry a role. **Sequence it behind W16, or the
    fix for empty governance becomes the cause of an empty fleet.**
 
+## U15 · The one message shown when Weave is missing names a variable that does nothing
+
+**Found by accident during U14's browser pass**, by starting a server the way a new operator would
+and reading what the screen said. `WeaveBoard.tsx:55`:
+
+> *Weave is unavailable (is `ENABLE_WEAVE` set?)*
+
+**`ENABLE_WEAVE` is read by nothing.** The server reads **`WEAVE_ENABLE_TEAM`** (`config.py:575`).
+Proven rather than grepped — two servers, identical but for one variable:
+
+```
+ENABLE_WEAVE=true       → args.enable_weave = False   (no Weave surface at all)
+WEAVE_ENABLE_TEAM=true  → args.enable_weave = True
+```
+
+Two code comments repeat the wrong name (`routers/team.py:3`, `app.py:1569`), which is presumably
+where the UI string came from.
+
+**Why this is worse than its size.** It is the *only* message a person sees when the entire Weave
+surface is absent — every board, every governance screen, gone — and following its advice changes
+nothing, which reads as *"this product is broken"* rather than *"you set the wrong flag"*. It is
+W7's class (printed advice naming something that does not exist) on the most consequential screen.
+**P8 will document turning Weave on**, so this must be right before the guide is written, or the
+guide inherits it.
+
+## U16 · The bootstrap refusal blames the flag that is set and names the one that is not
+
+Same pass, one click later. With `WEAVE_ENABLE_TEAM=true` but quadruple mode off, **Install
+governance** returns 503 and renders — correctly, in place, which is U14's rule working:
+
+> *Weave bootstrap requires Weave mode. Set `WEAVE_ENABLE_QUADRUPLE=true`.*
+
+Weave mode **is** on; `/weave/status` says `enabled: true`. What is missing is quadruple mode, and
+the sentence names the right fix while asserting the wrong cause. A reader who trusts the first half
+goes and checks the flag that is already correct.
+
+Also a **genuine onboarding fact nobody has written down**: governance needs *both*
+`WEAVE_ENABLE_TEAM` and `WEAVE_ENABLE_QUADRUPLE`. That belongs in the guide regardless of the
+wording fix.
+
 ## Severity and sequence
 
 | ID | Defect | Severity | Why that severity |
