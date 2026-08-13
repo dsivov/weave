@@ -716,7 +716,7 @@ The startup refusal is gone from the source, not merely unreachable. Suite green
 > (*a control that will not act says why, in place*) and three are the same omission (*the new shell
 > re-implemented the chrome and dropped what the old one owned*). Fix the rules; the instances follow.
 
-- [ ] **Contract check (R11)** — **A6** (the principal stays authenticated; showing the user their own identity is not self-stamping it), **A9** (no new endpoint — every fix is in the shell or an existing handler), **A11** (no new library; U9 is a static-asset mount, not a docs dependency), **A3** (U13, and note the guard sees spellings not initials).
+- [x] **Contract check (R11)** — **A6** (the principal stays authenticated; showing the user their own identity is not self-stamping it), **A9** (no new endpoint — every fix is in the shell or an existing handler), **A11** (no new library; U9 is a static-asset mount, not a docs dependency), **A3** (U13, and note the guard sees spellings not initials).
 - [x] **U11 · U12 · U13 — the session block.** `AppShell.tsx:196–203`: the signed-in user's initials, name and role, and logout. One change, three defects, and the place identity belonged from the start. Delete the `CG` literal.
 - [x] **A test that the new shell keeps what the classic one owned** — derive the control set from `SiteHeader.tsx`, assert the shell offers each. The M7 miss was that view-reachability was checked and chrome-parity was not; a passing count is not a passing shell.
 - [x] **U2 — the refusal renders where the click happened.** `WeaveBoard.tsx`: `act()`'s error belongs inside the `Modal`, not at page level behind it.
