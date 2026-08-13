@@ -41,7 +41,15 @@ def _code() -> str:
 def test_the_predicate_exists_and_is_exported():
     """Exported because the `bun test` imports it. A rule that cannot be reached
     by a test is a rule that will be tested by nobody."""
-    assert re.search(r"export function canSign\(", _code())
+    code = _code()
+    assert re.search(r"export function canSign\(", code)
+    # `signOffBlockers` is the same rule as a list of reasons, so the button and
+    # the sentence explaining it cannot drift apart (U6/U7).
+    assert re.search(r"export function signOffBlockers\(", code)
+    assert "signOffBlockers(" in code[code.index("export function canSign("):], (
+        "canSign no longer derives from signOffBlockers — two implementations "
+        "of one rule is the shape this file exists to prevent"
+    )
 
 
 def test_the_hook_defers_to_the_predicate():
@@ -61,9 +69,13 @@ def test_the_panel_defers_to_the_same_predicate():
     code = _code()
     panel = code[code.index("export function SignOffPanel("):]
     panel = panel[:panel.index("export function AppliedPanel(")]
-    assert "canSign(" in panel, (
-        "SignOffPanel no longer calls canSign — the button and the rule can now "
-        "disagree, which is how a change gets signed with no reason"
+    # `canSign` or `signOffBlockers` — they are one list and one rule; the panel
+    # uses the blockers form because it renders the reasons as well as disabling
+    # the button (U6/U7). What must not happen is a third opinion.
+    assert "canSign(" in panel or "signOffBlockers(" in panel, (
+        "SignOffPanel no longer defers to the shared rule — the button and the "
+        "explanation can now disagree, which is how a change gets signed with no "
+        "reason"
     )
 
 

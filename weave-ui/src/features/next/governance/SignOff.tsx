@@ -26,6 +26,7 @@ import { useCallback, useState } from 'react'
 import { CheckIcon, FileSignatureIcon } from 'lucide-react'
 
 import type { WizardApplied, WizardDiff } from '@/api/weave'
+import { Blockers } from './ActionFeedback'
 
 /** What a screen must give us to sign: the diffs, and how to apply them. */
 export type ApplyFn = (diffs: WizardDiff[], reason: string) => Promise<{ applied: WizardApplied[] }>
@@ -45,8 +46,20 @@ export type ApplyFn = (diffs: WizardDiff[], reason: string) => Promise<{ applied
  * hook — and D-038 was precisely a case of the right rule living in one file
  * while the wrong one shipped in another.
  */
+export function signOffBlockers(
+  reason: string, diffs: WizardDiff[], busy = false
+): string[] {
+  const blocking: string[] = []
+  if (!diffs.length) blocking.push('There is nothing proposed to sign.')
+  if (!reason.trim()) {
+    blocking.push('A governance change needs a reason — it is recorded against your name.')
+  }
+  if (busy) blocking.push('Signing…')
+  return blocking
+}
+
 export function canSign(reason: string, diffs: WizardDiff[], busy = false): boolean {
-  return !busy && reason.trim().length > 0 && diffs.length > 0
+  return signOffBlockers(reason, diffs, busy).length === 0
 }
 
 export interface SignOffState {
@@ -116,7 +129,9 @@ export function SignOffPanel({
   signLabel?: string
 }) {
   if (!diffs.length) return null
-  const enabled = canSign(state.reason, diffs, state.busy)
+  // One list, two uses: it disables the button and it is what the reader sees.
+  // A separate explanation is one that can drift from the rule (U6, U7).
+  const blocking = signOffBlockers(state.reason, diffs, state.busy)
 
   return (
     <div className="card" style={{ marginBottom: 12 }}>
@@ -163,15 +178,15 @@ export function SignOffPanel({
       <button
         className="btn"
         onClick={() => void state.sign(diffs)}
-        disabled={!enabled}
-        // Derived from the same decision, not a second guess at it. It also
-        // used to be wrong while a request was in flight: a busy button said
-        // "needs a reason" to someone who had typed one.
-        title={enabled ? '' : (state.busy ? 'Signing…' : 'A governance change needs a reason')}
+        disabled={blocking.length > 0}
         style={{ marginTop: 8 }}
       >
         <FileSignatureIcon className="" /> {signLabel}
       </button>
+
+      {/* Why it will not act, in place and visible — not a `title` tooltip on a
+          disabled control, which touch never shows (U6, U7). */}
+      <Blockers reasons={blocking} />
     </div>
   )
 }

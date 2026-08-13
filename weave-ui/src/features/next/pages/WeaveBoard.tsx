@@ -6,6 +6,7 @@ import {
   type WeaveTask, type WeaveWorker, type WeaveEnvironment
 } from '@/api/weave'
 import { useSettingsStore } from '@/stores/settings'
+import { ActionMessages, useAction } from '@/features/next/governance/ActionFeedback'
 import { useLiveStream } from '@/hooks/useLiveStream'
 import Modal from '@/features/next/Modal'
 import WeaveProjectPanel from '@/features/next/WeaveProjectPanel'
@@ -80,10 +81,18 @@ export default function WeaveBoard() {
     try { setChain(await weaveChain(id)) } catch { setChain({ error: true }) }
   }, [])
 
-  const act = useCallback(async (fn: () => Promise<any>) => {
-    try { await fn(); await load(); if (open) await openChain(open) }
-    catch (e: any) { setErr(e?.response?.data?.detail ? String(e.response.data.detail) : 'Action failed') }
-  }, [load, open, openChain])
+  // Governed actions report **inside the modal they were clicked in** (U2).
+  //
+  // `setErr` renders at the page level, behind the overlay: the 403 an architect
+  // gets for approving their own work was correct, rendered, and invisible. The
+  // click and its answer have to share a container.
+  const modalAction = useAction()
+
+  const act = useCallback(async (fn: () => Promise<any>, succeeded?: string) => {
+    const ok = await modalAction.run(fn, succeeded)
+    if (ok) { await load(); if (open) await openChain(open) }
+    return ok
+  }, [modalAction, load, open, openChain])
 
   const byStatus = useMemo(() => {
     const m: Record<string, WeaveTask[]> = {}
@@ -237,14 +246,17 @@ export default function WeaveBoard() {
               <div className="btns" style={{ borderTop: '1px solid var(--line)', paddingTop: 10 }}>
                 {openTask?.status === 'review' && (
                   <>
-                    <button className="btn" onClick={() => act(() => weaveReviewAuto(open))}>Run auto-review</button>
-                    <button className="btn" onClick={() => act(() => weaveAdvanceTask(open, 'approved'))}>Approve (architect)</button>
+                    <button className="btn" onClick={() => act(() => weaveReviewAuto(open), 'Auto-review run.')}>Run auto-review</button>
+                    <button className="btn" onClick={() => act(() => weaveAdvanceTask(open, 'approved'), 'Approved.')}>Approve (architect)</button>
                   </>
                 )}
                 {openTask?.status === 'approved' && envs[0] && (
-                  <button className="btn" onClick={() => act(() => weavePromote(open, envs[0].id))}>Promote via {envs[0].name} (integrator)</button>
+                  <button className="btn" onClick={() => act(() => weavePromote(open, envs[0].id), `Promoted via ${envs[0].name}.`)}>Promote via {envs[0].name} (integrator)</button>
                 )}
               </div>
+
+              {/* The outcome, inside the modal — the whole of U2. */}
+              <ActionMessages state={modalAction} />
             </div>
           )}
         </Modal>

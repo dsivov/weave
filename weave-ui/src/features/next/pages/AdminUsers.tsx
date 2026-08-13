@@ -9,6 +9,7 @@ import {
   updateUser,
   type WeaveUser
 } from '@/api/weave'
+import { Blockers } from '@/features/next/governance/ActionFeedback'
 
 /**
  * Admin ▸ Users — the screen that closes the gap this project exists to close.
@@ -91,6 +92,14 @@ export default function AdminUsers() {
         .includes(t)
     )
   }, [rows, q])
+
+  // What stops the create button, as reasons rather than a boolean (U10).
+  const createBlockers = [
+    ...(draft.username.trim() ? [] : ['A username is required.']),
+    ...(draft.password.length >= 8
+      ? []
+      : [`The password needs at least 8 characters — ${draft.password.length} so far.`]),
+  ]
 
   const act = async (fn: () => Promise<unknown>) => {
     setError(null)
@@ -270,11 +279,17 @@ export default function AdminUsers() {
             <button
               className="btn"
               onClick={onCreate}
-              disabled={!draft.username.trim() || draft.password.length < 8}
+              disabled={createBlockers.length > 0}
             >
               Create
             </button>
           </div>
+
+          {/* The rules, before the click (U10). They were enforced by a disabled
+              button and stated nowhere — so "I cannot add users" was the only
+              conclusion available, and it was correct. Same list disables the
+              button and explains it, so the two cannot drift. */}
+          <Blockers reasons={createBlockers} />
         </div>
       )}
 
