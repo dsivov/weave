@@ -1,4 +1,8 @@
-import { ButtonVariantType } from '@/components/ui/Button'
+// `import type`, because it is one: `Button.tsx` declares it with `export type`
+// and the only use below is a type annotation. As a value import it made every
+// consumer of this module load `Button.tsx` at runtime — which is how a config
+// file that wants one string constant ended up pulling in a React component.
+import type { ButtonVariantType } from '@/components/ui/Button'
 
 export const backendBaseUrl = ''
 export const webuiPrefix = '/webui/'

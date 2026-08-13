@@ -18,12 +18,16 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
-import { CheckIcon, FileSignatureIcon, RefreshCwIcon } from 'lucide-react'
+import { RefreshCwIcon } from 'lucide-react'
 import {
   wizardTemplates, wizardSession, wizardPropose, wizardApply,
-  type WizardTemplate, type WizardPlan, type WizardProposal, type WizardApplied
+  type WizardTemplate, type WizardPlan, type WizardProposal
 } from '@/api/weave'
 import { useSettingsStore } from '@/stores/settings'
+// The diff/sign half of this screen now lives in `governance/`, so ontology and
+// rules use the same one rather than a copy of it (CR-001, R10). The wizard
+// keeps the interview; everything from "what will change" down is shared.
+import { AppliedPanel, SignOffPanel, useSignOff } from '@/features/next/governance/SignOff'
 
 type Answers = Record<string, unknown>
 
@@ -34,8 +38,7 @@ export default function Wizard() {
   const [plan, setPlan] = useState<WizardPlan | null>(null)
   const [answers, setAnswers] = useState<Answers>({})
   const [proposal, setProposal] = useState<WizardProposal | null>(null)
-  const [applied, setApplied] = useState<WizardApplied[] | null>(null)
-  const [reason, setReason] = useState('')
+  const signOff = useSignOff(wizardApply)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
@@ -53,7 +56,7 @@ export default function Wizard() {
   // Choosing a template resets everything downstream. Carrying answers across a
   // template change would produce a proposal nobody described.
   const choose = useCallback(async (id: string) => {
-    setBusy(true); setErr(null); setProposal(null); setApplied(null)
+    setBusy(true); setErr(null); setProposal(null); signOff.reset()
     try {
       const p = await wizardSession(id)
       setChosen(id); setPlan(p)
@@ -62,25 +65,14 @@ export default function Wizard() {
       setAnswers(defaults)
     } catch (e) { fail(e) }
     setBusy(false)
-  }, [])
+  }, [signOff])
 
   const propose = useCallback(async () => {
     if (!chosen) return
-    setBusy(true); setErr(null); setApplied(null)
+    setBusy(true); setErr(null); signOff.reset()
     try { setProposal(await wizardPropose(chosen, answers)) } catch (e) { fail(e) }
     setBusy(false)
-  }, [chosen, answers])
-
-  const sign = useCallback(async () => {
-    if (!proposal || !reason.trim()) return
-    setBusy(true); setErr(null)
-    try {
-      const r = await wizardApply(proposal.diffs, reason.trim())
-      setApplied(r.applied)
-      setProposal(null)
-    } catch (e) { fail(e) }
-    setBusy(false)
-  }, [proposal, reason])
+  }, [chosen, answers, signOff])
 
   return (
     <div className="cgnext" style={{ padding: '18px 22px', overflow: 'auto' }}>
@@ -176,72 +168,17 @@ export default function Wizard() {
         </div>
       )}
 
-      {/* 3 · the diff, then the signature */}
+      {/* 3 · the diff, then the signature — the shared flow (CR-001) */}
       {proposal && (
-        <div className="card" style={{ marginBottom: 12 }}>
-          <h3 style={{ marginTop: 0 }}>3 · What will change</h3>
-          <div style={{ color: 'var(--muted)', fontSize: 13, marginBottom: 10 }}>
-            Nothing has been written yet. Signing creates a new version of each
-            artifact, with your name on it, and takes effect on the next request —
-            no restart.
-          </div>
-          {proposal.diffs.map(d => (
-            <details key={d.kind} style={{ marginBottom: 8 }} open>
-              <summary>
-                <strong>{d.kind}</strong>{' '}
-                <span className="badge">
-                  {d.from_version === null ? 'new' : `v${d.from_version} → v${d.to_version}`}
-                </span>
-                {d.behaviour_changed && (
-                  <span className="badge" style={{ background: 'var(--warn-dim)', marginLeft: 6 }}>
-                    changes behaviour
-                  </span>
-                )}
-              </summary>
-              <pre style={{ maxHeight: 260, overflow: 'auto', fontSize: 12 }}>
-                {JSON.stringify(d.delta.after, null, 2)}
-              </pre>
-            </details>
-          ))}
-          <label style={{ display: 'block', margin: '10px 0 4px' }}>
-            Why are you making this change? It is recorded against your name.
-          </label>
-          <input
-            style={{ width: '100%' }}
-            value={reason}
-            placeholder="e.g. new team, adopting a review gate"
-            onChange={e => setReason(e.target.value)}
-          />
-          <button
-            className="btn"
-            onClick={sign}
-            disabled={busy || !reason.trim()}
-            title={reason.trim() ? '' : 'A governance change needs a reason'}
-            style={{ marginTop: 8 }}
-          >
-            <FileSignatureIcon className="" /> Sign and install
-          </button>
-        </div>
+        <SignOffPanel
+          diffs={proposal.diffs}
+          state={signOff}
+          title="3 · What will change"
+        />
       )}
 
       {/* 4 · what happened */}
-      {applied && (
-        <div className="card" style={{ borderColor: 'var(--good)' }}>
-          <h3 style={{ marginTop: 0 }}><CheckIcon className="" /> Installed</h3>
-          <ul>
-            {applied.map(a => (
-              <li key={a.kind}>
-                <code>{a.kind}</code> is now <strong>v{a.version}</strong>, signed by{' '}
-                <strong>{a.sign_off.approver}</strong> — “{a.sign_off.reason}”
-              </li>
-            ))}
-          </ul>
-          <div style={{ color: 'var(--muted)', fontSize: 13 }}>
-            In force now; no restart was needed. Every version is in the Studio
-            history, and rolling one back restores the behaviour it replaced.
-          </div>
-        </div>
-      )}
+      <AppliedPanel applied={signOff.applied} />
     </div>
   )
 }
