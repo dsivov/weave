@@ -184,11 +184,36 @@ its documentation viewer is broken.
 
 ## Cause G · Labelling and affordance — U3, U4
 
-- **U3** — `AnswerView.tsx:31` labels a node by `title`, `name`, `entity_name`, then falls back to
-  `id`. Insight nodes carrying none of the first three render as `insight:XXXX`. The *Why* panel
-  then shows the same node because that is what it was anchored on. Partly a seed-data shape
-  (manager's), partly a real rule: **the answer surface should never show a reader a raw id.**
-  Confirm against a correctly-seeded instance before fixing.
+- **U3** — **corrected 2026-08-13 after measuring; the first reading was wrong.** Both the manager
+  and the developer expected a data defect on W17's smell, and planned a re-seed. **The data is
+  perfect.** `/ask/learnings` returns each Insight with its full text in a `statement` field; the
+  renderer never looks at it.
+
+  Two lists, written independently, intersecting on one word. `weave/model/answers.py:65` —
+  `_node_view`, the **shared** projection behind REST/UI *and* MCP (A9) — emits
+  `title, status, summary, verdict, statement, sha, reviewer, confidence, text, asked_by, url, path`.
+  `AnswerView.tsx:31` labels from `title, name, entity_name, id`. **They overlap on `title` alone**,
+  so every node whose content lives in `statement`/`summary`/`text` renders as a raw id — which is
+  exactly Insights and Reviews, which is exactly what Learnings shows.
+
+  ```
+  learnings  26 nodes  id type statement summary verdict reviewer  → renders: id   ✗
+  features    6 nodes  id type                                      → renders: id   ✓ the id is the name
+  changes    12 nodes  id type                                      → renders: id   ✓
+  ```
+
+  Features and changes present the identical symptom and are **correct** — their ids are
+  human-readable. Only the rich nodes lose their content, which is why this reads as cosmetic and
+  is not. **The fix is a canonical `label` from the shared handler**, so MCP agents stop guessing
+  too, plus a test that the two lists cannot drift apart again. Not a longer hardcoded chain in the
+  renderer: that misses the next field the way this one did.
+
+  **The re-seed was cancelled.** It would have destroyed the evidence and changed nothing —
+  looking before acting is the only reason this was caught.
+
+  Related and *not* a defect: `/ask/why` anchored on one of these returns 0 nodes, so the
+  right-hand panel's *"Nothing justifies this node yet"* is truthful. dsivov's *"both show the same
+  unused Insight"* was the id-rendering on the left plus an honest empty on the right.
 - **U4** — *Component map* (`Studio.tsx:163`) renders without saying what a component is, where
   they come from, or how to add one. Not a code defect; a **P8 documentation task** plus one
   explanatory line on the panel.
