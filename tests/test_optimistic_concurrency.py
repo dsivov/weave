@@ -235,6 +235,15 @@ def test_a_stale_write_is_409_over_http_with_the_merge_view():
         rules_gate = object()
 
     app = FastAPI()
+
+    # These routes derive the signer from the authenticated identity (A6, D-038),
+    # so the request has to *have* one. Before D-038 they took the approver from
+    # the body and this fixture never needed to authenticate — which is precisely
+    # the defect: an unauthenticated caller could sign as anybody.
+    @app.middleware("http")
+    async def _authenticated(request, call_next):
+        request.state.token_info = {"sub": "alice", "role": "manager"}
+        return await call_next(request)
     app.include_router(
         create_studio_routes(_Rag(), engine, workspace_resolver=lambda: WORKSPACE)
     )

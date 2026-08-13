@@ -64,7 +64,6 @@ export default function Studio() {
   const [artifactId, setArtifactId] = useState('policy')
   const [draftText, setDraftText] = useState(() => loadDraft('default:rule', pretty(TEMPLATE.rule)))
   const [diff, setDiff] = useState<ArtifactDiff | null>(null)
-  const [approver, setApprover] = useState('')
   const [reason, setReason] = useState('')
 
   const [selected, setSelected] = useState<{ kind: string; id: string } | null>(null)
@@ -121,20 +120,23 @@ export default function Studio() {
 
   const apply = useCallback(async () => {
     if (!diff) return
-    if (diff.behaviour_changed && (!approver.trim() || !reason.trim())) {
-      toast.error('This change alters behaviour — an approver and a reason are required.'); return
+    // Only the reason is asked for. Who signs comes from the token now (D-038)
+    // — this screen used to collect it in a text box and validated only that it
+    // was non-empty, never that it was you.
+    if (diff.behaviour_changed && !reason.trim()) {
+      toast.error('This change alters behaviour — a reason is required.'); return
     }
     setBusy('apply')
     const tid = toast.loading('Applying…')
     try {
-      const r = await studioApply(diff, approver.trim() ? { approver: approver.trim(), reason: reason.trim() } : undefined)
+      const r = await studioApply(diff, { reason: reason.trim() })
       toast.success(`Applied ${r.kind}:${r.artifact_id} v${r.version} — signed by ${r.sign_off.approver}`, { id: tid })
-      setDiff(null); setApprover(''); setReason('')
+      setDiff(null); setReason('')
       refreshArtifacts()
       if (selected && selected.kind === r.kind && selected.id === r.artifact_id) openHistory(r.kind, r.artifact_id)
     } catch (e) { toast.error(errMsg(e), { id: tid }) }
     finally { setBusy(null) }
-  }, [diff, approver, reason, refreshArtifacts, selected])
+  }, [diff, reason, refreshArtifacts, selected])
 
   const openHistory = useCallback(async (k: string, id: string) => {
     setSelected({ kind: k, id }); setHistory(null)
@@ -142,19 +144,19 @@ export default function Studio() {
   }, [])
 
   const revert = useCallback(async (v: StudioVersion) => {
-    const who = window.prompt(`Revert ${v.kind}:${v.artifact_id} to v${v.version}. Approver:`, approver || '')
-    if (!who) return
+    // No approver prompt: reverting is a governance change and the signer is
+    // whoever is logged in, not whoever the dialog is told about.
     const why = window.prompt('Reason for the revert:', `roll back to v${v.version}`)
     if (!why) return
     setBusy('revert')
     const tid = toast.loading('Reverting…')
     try {
-      const r = await studioRevert(v.kind as StudioKind, v.artifact_id, v.version, who, why)
+      const r = await studioRevert(v.kind as StudioKind, v.artifact_id, v.version, why)
       toast.success(`Reverted → new v${r.version}`, { id: tid })
       refreshArtifacts(); openHistory(v.kind, v.artifact_id)
     } catch (e) { toast.error(errMsg(e), { id: tid }) }
     finally { setBusy(null) }
-  }, [approver, refreshArtifacts, openHistory])
+  }, [refreshArtifacts, openHistory])
 
   // Flow canvas re-initialises from the persisted draft only when we bump the nonce
   // (kind/workspace switch or entering canvas mode) — never on its own edits.
@@ -241,7 +243,6 @@ export default function Studio() {
                   </div>
                   {needsSignoff && (
                     <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-                      <input className="cgqinput" style={{ flex: '1 1 160px' }} placeholder="Approver (who signs)" value={approver} onChange={(e) => setApprover(e.target.value)} />
                       <input className="cgqinput" style={{ flex: '2 1 220px' }} placeholder="Reason for the change" value={reason} onChange={(e) => setReason(e.target.value)} />
                     </div>
                   )}

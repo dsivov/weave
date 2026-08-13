@@ -19,10 +19,10 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from weave.server.utils import get_combined_auth_dependency
+from weave.server.utils import authenticated_principal, get_combined_auth_dependency
 from weave_core.utils import logger
 
 
@@ -43,18 +43,26 @@ class DiffBody(BaseModel):
 
 class ApplyRequest(BaseModel):
     diff: Dict[str, Any]
-    approver: Optional[str] = None
     reason: Optional[str] = None
-    role: Optional[str] = None
+    # `approver` and `role` are DELETED, not ignored (D-038). They used to be
+    # accepted here and written straight into the sign-off, so a caller could
+    # sign a governance change as anybody — `Studio.tsx` even rendered a text box
+    # for it, and validated only that the name was non-empty, never that it was
+    # yours. A6 says the principal is derived from the authenticated identity and
+    # never from a client-supplied field; this is that, enforced by the field not
+    # existing. Silently ignoring them would leave the next reader thinking they
+    # worked.
 
 
 class RevertRequest(BaseModel):
     kind: str
     artifact_id: str
     to_version: int
-    approver: str
     reason: str
-    role: Optional[str] = None
+    # Same as ApplyRequest: the identity is not the caller's to state. Reverting
+    # is a governance change like any other — it re-applies an old snapshot as a
+    # NEW signed version, so it needs a real signer just as much as the edit that
+    # is being undone did.
 
 
 class DraftRequest(BaseModel):
@@ -83,6 +91,23 @@ def create_studio_routes(rag, engine, *, api_key: Optional[str] = None,
             return _current_workspace.get()
 
     from weave_core.studio.schema import ArtifactDiff
+
+    def _signer(request: Request):
+        """Who is signing — from the token, never from the body (A6, D-038).
+
+        Copied deliberately from `routers/wizard.py`, which has always had this
+        right, rather than invented here: A8's signature has to name somebody,
+        and an unattributed governance change makes *"who took away my access"*
+        unanswerable. 401 rather than a blank signer, because a ledger entry
+        signed by nobody is the same failure as one signed by anybody.
+        """
+        principal = authenticated_principal(request)
+        approver = str(principal.get("sub") or principal.get("username") or "")
+        if not approver:
+            raise HTTPException(
+                status_code=401,
+                detail="Signing a governance change requires an authenticated identity.")
+        return approver, str(principal.get("role") or "")
 
     router = APIRouter(tags=["studio"])
     combined_auth = get_combined_auth_dependency(api_key)
@@ -115,9 +140,10 @@ def create_studio_routes(rag, engine, *, api_key: Optional[str] = None,
 
     @router.post("/studio/apply", dependencies=[Depends(combined_auth)],
                  summary="Persist + sign off a diff → a new version")
-    async def apply(body: ApplyRequest):
+    async def apply(body: ApplyRequest, http_request: Request):
         _require_cg(rag)
         ws = _ws()
+        approver, role = _signer(http_request)
         from weave_core.governance.rules.gate import RuleViolation
 
         from weave_core.studio.service import StaleWrite
@@ -126,7 +152,7 @@ def create_studio_routes(rag, engine, *, api_key: Optional[str] = None,
         engine.assess(ws, diff)                     # re-assess server-side (anti-tamper)
         try:
             result = await engine.apply(
-                ws, diff, approver=body.approver, reason=body.reason, role=body.role)
+                ws, diff, approver=approver, reason=body.reason, role=role)
         except StaleWrite as e:
             # 409 with the merge view, never a silent overwrite (R31). The body
             # carries base/theirs/mine so the client can reconcile — a bare 409
@@ -152,12 +178,13 @@ def create_studio_routes(rag, engine, *, api_key: Optional[str] = None,
 
     @router.post("/studio/revert", dependencies=[Depends(combined_auth)],
                  summary="Re-apply a prior version's snapshot as a new signed version")
-    async def revert(body: RevertRequest):
+    async def revert(body: RevertRequest, http_request: Request):
         _require_cg(rag)
+        approver, role = _signer(http_request)
         try:
             return await engine.revert(
                 _ws(), body.kind, body.artifact_id, body.to_version,
-                approver=body.approver, reason=body.reason, role=body.role)
+                approver=approver, reason=body.reason, role=role)
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
 

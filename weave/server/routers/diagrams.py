@@ -42,10 +42,12 @@ class SaveDiagramRequest(BaseModel):
         default=None,
         description="Natural-language description — drafts the mermaid with the AI "
                     "author instead of supplying `source` (needs an LLM).")
-    approver: Optional[str] = Field(
-        default=None, description="Required when the change alters the diagram's structure.")
     reason: Optional[str] = Field(default=None, description="Why — recorded as the sign-off.")
-    role: Optional[str] = None
+    # `approver` and `role` are DELETED, not ignored (A6, D-038). The delete
+    # route below has always derived the signer from the token; this one took it
+    # from the body, so the same file held both the right answer and the wrong
+    # one. A structural change still needs a sign-off — it just is not the
+    # caller's to name.
 
 
 def _require_cg(rag) -> None:
@@ -137,9 +139,16 @@ def create_diagram_routes(rag, engine, diagram_store, *, api_key: Optional[str] 
 
     @router.post("/diagrams", dependencies=[Depends(combined_auth)],
                  summary="Save a diagram to the shared workspace (signed)")
-    async def save_diagram(body: SaveDiagramRequest):
+    async def save_diagram(body: SaveDiagramRequest, http_request: Request):
         _require_cg(rag)
         ws = _ws()
+        principal = authenticated_principal(http_request)
+        approver = str(principal.get("sub") or principal.get("username") or "")
+        if not approver:
+            raise HTTPException(
+                status_code=401,
+                detail="Saving a diagram requires an authenticated identity.")
+        role = str(principal.get("role") or "")
         from weave_core.governance.rules.gate import RuleViolation
 
         if not body.spec and not (body.source or "").strip():
@@ -153,8 +162,8 @@ def create_diagram_routes(rag, engine, diagram_store, *, api_key: Optional[str] 
         try:
             diff = await engine.propose(ws, "diagram", body.id, draft=draft, spec=body.spec)
             engine.assess(ws, diff)
-            result = await engine.apply(ws, diff, approver=body.approver,
-                                        reason=body.reason, role=body.role)
+            result = await engine.apply(ws, diff, approver=approver,
+                                        reason=body.reason, role=role)
         except ValueError as e:
             # A missing sign-off on a structural change is a 422; bad mermaid is a 400.
             status = 422 if "sign-off" in str(e) else 400

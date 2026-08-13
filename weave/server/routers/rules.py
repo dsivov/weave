@@ -40,6 +40,11 @@ class RulePolicyRequest(BaseModel):
         description="Concept catalog: name → example phrases for sim() matching.",
     )
     enabled: bool = Field(default=True, description="Whether the gate is active.")
+    reason: str = Field(
+        default="",
+        description=("Why this change is being made. Recorded in the ledger against "
+                     "the signer. Falls back to a generated string if omitted."),
+    )
     model_id: Optional[str] = Field(
         default=None, description="Override the pinned similarity model id."
     )
@@ -185,7 +190,8 @@ def create_rules_routes(rag, service, *, studio_engine=None, api_key: Optional[s
                 {"dsl": request.dsl,
                  "concepts": {k: list(v) for k, v in (request.concepts or {}).items()},
                  "enabled": request.enabled},
-                approver=approver, reason=f"rules set by {approver}", role=role)
+                approver=approver,
+                reason=request.reason.strip() or f"rules set by {approver}", role=role)
         except ValueError as e:
             # Invalid DSL / undefined concept → 400 (author error)
             raise HTTPException(status_code=400, detail=str(e))

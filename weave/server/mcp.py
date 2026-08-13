@@ -16,6 +16,11 @@ from typing import Optional
 
 from mcp.server.fastmcp import FastMCP
 from mcp.server.fastmcp.exceptions import ToolError
+
+#: What a governance change made over MCP is signed as. Not a person, and
+#: deliberately not settable by the caller: this surface cannot yet establish who
+#: is on the other end, so it records the one thing it does know (D-038).
+MCP_AGENT_APPROVER = "mcp-agent" 
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import JSONResponse
@@ -650,10 +655,9 @@ def create_mcp_server(
         description: str = "",
         depicts: Optional[list[str]] = None,
         tags: Optional[list[str]] = None,
-        approver: Optional[str] = None,
         reason: Optional[str] = None,
     ) -> dict:
-        """Save a mermaid diagram to the shared workspace so the whole team sees it. `source` must be valid mermaid starting with a type keyword (e.g. `flowchart LR`); never include <script>, `javascript:` URLs, or `click` directives. Saving is governed: the change is assessed as structural (nodes/edges differ — needs `approver` and `reason`) or cosmetic (labels/styling only — auto-approved), recorded as a decision, and appended to the signed ledger. Set `depicts` to the change request / module / task ids the diagram is about so teammates can find it. Reusing an existing `diagram_id` creates a new version rather than a duplicate."""
+        """Save a mermaid diagram to the shared workspace so the whole team sees it. `source` must be valid mermaid starting with a type keyword (e.g. `flowchart LR`); never include <script>, `javascript:` URLs, or `click` directives. Saving is governed: the change is assessed as structural (nodes/edges differ — needs a `reason`) or cosmetic (labels/styling only — auto-approved), recorded as a decision, and appended to the signed ledger. Set `depicts` to the change request / module / task ids the diagram is about so teammates can find it. Reusing an existing `diagram_id` creates a new version rather than a duplicate."""
         _require_quadruple(rag)
         ws = _require_diagrams()
         draft = {"id": diagram_id, "source": source, "title": title,
@@ -662,8 +666,19 @@ def create_mcp_server(
         try:
             diff = await studio_engine.propose(ws, "diagram", diagram_id, draft=draft)
             studio_engine.assess(ws, diff)
+            # `approver` was a tool PARAMETER, so an agent could sign a governance
+            # change as any person it cared to name — the same hole as
+            # `/studio/apply`, reachable by anything holding an MCP session
+            # (A6, D-038). It is deleted rather than ignored.
+            #
+            # It is not replaced by a derived identity because this MCP library
+            # exposes no request to derive one from — the same gap that leaves
+            # `principal_role=None` on the action path above. So the signature
+            # says exactly what is actually known: an agent did this, over MCP,
+            # and we cannot say which one. That is less than we want and more
+            # than a name somebody typed.
             result = await studio_engine.apply(
-                ws, diff, approver=approver, reason=reason)
+                ws, diff, approver=MCP_AGENT_APPROVER, reason=reason)
         except ToolError:
             raise
         except Exception as e:

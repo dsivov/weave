@@ -1656,18 +1656,21 @@ export const studioPropose = async (body: StudioProposeBody): Promise<{ diff: Ar
 export const studioAssess = async (diff: ArtifactDiff): Promise<{ diff: ArtifactDiff }> =>
   (await axiosInstance.post('/studio/assess', { diff })).data
 
+// No `approver` parameter, on either of these (A6, D-038). The server derives
+// the signer from the token; the client cannot state it, and used to be able to
+// — the Studio rendered a text box for it and whatever you typed was recorded as
+// the signer. The reason is still yours to give; who you are is not.
 export const studioApply = async (
   diff: ArtifactDiff,
-  signOff?: { approver?: string; reason?: string; role?: string }
+  signOff?: { reason?: string }
 ): Promise<StudioApplyResult> =>
   (await axiosInstance.post('/studio/apply', { diff, ...(signOff || {}) })).data
 
 export const studioRevert = async (
-  kind: StudioKind, artifactId: string, toVersion: number,
-  approver: string, reason: string, role?: string
+  kind: StudioKind, artifactId: string, toVersion: number, reason: string
 ): Promise<StudioApplyResult> =>
   (await axiosInstance.post('/studio/revert', {
-    kind, artifact_id: artifactId, to_version: toVersion, approver, reason, role
+    kind, artifact_id: artifactId, to_version: toVersion, reason
   })).data
 
 export const studioDraft = async (body: {

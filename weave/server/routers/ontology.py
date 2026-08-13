@@ -30,6 +30,11 @@ from weave_core.utils import logger
 class OntologyRequest(BaseModel):
     ontology: Dict[str, Any] = Field(
         description="The ontology as JSON (name, object_types[], link_types[]).")
+    reason: str = Field(
+        default="",
+        description=("Why this change is being made. Recorded in the ledger against "
+                     "the signer. Falls back to a generated string if omitted."),
+    )
 
 
 class PropertyInfo(BaseModel):
@@ -156,7 +161,8 @@ def create_ontology_routes(rag, service, *, studio_engine=None, api_key: Optiona
         approver, role = _signer(http_request)
         try:
             await engine.sign(ws, "ontology", request.ontology, approver=approver,
-                              reason=f"ontology set by {approver}", role=role)
+                              reason=(request.reason.strip()
+                                      or f"ontology set by {approver}"), role=role)
         except (ValueError, KeyError, TypeError) as e:
             raise HTTPException(status_code=400, detail=str(e))
         return OntologySummaryResponse(**service.get_summary(ws))

@@ -63,6 +63,15 @@ def _client(llm=None):
         now=lambda: 1_800_000_000.0,
     )
     app = FastAPI()
+
+    # These routes derive the signer from the authenticated identity (A6, D-038),
+    # so the request has to *have* one. Before D-038 they took the approver from
+    # the body and this fixture never needed to authenticate — which is precisely
+    # the defect: an unauthenticated caller could sign as anybody.
+    @app.middleware("http")
+    async def _authenticated(request, call_next):
+        request.state.token_info = {"sub": "alice", "role": "manager"}
+        return await call_next(request)
     app.include_router(create_diagram_routes(
         rag, engine, store, api_key=None, workspace_resolver=lambda: "w"))
     return TestClient(_signed_in(app)), rag, store
@@ -79,10 +88,12 @@ class TestDiagramApi:
     def test_save_list_get_and_export(self):
         client, rag, _ = _client()
         r = _save(client, title="Architecture", depicts=["CR-1"], tags=["weave"],
-                  approver="Ana", reason="initial architecture")
+                  reason="initial architecture")
         assert r.status_code == 200, r.text
         assert r.json()["version"] == 1
-        assert r.json()["sign_off"]["approver"] == "Ana"
+        # `alice` — the authenticated identity, not a name in the body (D-038).
+        # This used to assert whatever the request supplied.
+        assert r.json()["sign_off"]["approver"] == "alice"
         assert rag.decisions[-1]["tgt"] == "diagram:arch"      # the save is audited
 
         listed = client.get("/diagrams").json()["diagrams"]
@@ -99,23 +110,23 @@ class TestDiagramApi:
 
     def test_relabelling_saves_without_a_signoff_but_a_redrawn_arrow_does_not(self):
         client, _, _ = _client()
-        _save(client, approver="Ana", reason="initial")
+        _save(client, reason="initial")
 
         cosmetic = _save(client, source=RELABELLED)
         assert cosmetic.status_code == 200
         assert cosmetic.json()["behaviour_changed"] is False
-        assert cosmetic.json()["sign_off"]["approver"] == "system"
+        assert cosmetic.json()["sign_off"]["approver"] == "alice"
 
         structural = _save(client, source=GROWN)
         assert structural.status_code == 422
         assert "sign-off" in structural.json()["detail"]
 
-        signed = _save(client, source=GROWN, approver="Ana", reason="added feedback loop")
+        signed = _save(client, source=GROWN, reason="added feedback loop")
         assert signed.status_code == 200 and signed.json()["version"] == 3
 
     def test_broken_mermaid_is_rejected_and_nothing_is_stored(self):
         client, _, store = _client()
-        r = _save(client, source="just prose", approver="Ana", reason="oops")
+        r = _save(client, source="just prose", reason="oops")
         assert r.status_code == 400
         assert "mermaid diagram type" in r.json()["detail"]
         assert store.get("w", "arch") is None
@@ -136,8 +147,8 @@ class TestDiagramApi:
 
     def test_versions_history_and_pinned_read(self):
         client, _, _ = _client()
-        _save(client, approver="Ana", reason="initial")
-        _save(client, source=GROWN, approver="Ana", reason="added feedback loop")
+        _save(client, reason="initial")
+        _save(client, source=GROWN, reason="added feedback loop")
 
         history = client.get("/diagrams/arch/versions").json()["history"]
         assert [h["version"] for h in history] == [1, 2]
