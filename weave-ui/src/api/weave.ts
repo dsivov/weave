@@ -1816,6 +1816,8 @@ export const setUserWorkspaces = async (
 export interface AnswerNode {
   id?: string
   type?: string
+  /** The node's human-readable name, assembled server-side (U3). */
+  label?: string
   locator?: { repo?: string; path?: string; rev?: string; [k: string]: unknown } | null
   locator_error?: string | null
   [key: string]: unknown

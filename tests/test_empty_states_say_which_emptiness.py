@@ -128,3 +128,40 @@ def test_the_ids_come_from_the_unanchored_answer_only():
         "the known-id list is refreshed from anchored answers too, so it shrinks "
         "to whatever the last query returned"
     )
+
+
+def test_the_anchor_and_its_id_list_do_not_survive_a_workspace_change():
+    """A node id is meaningless in another workspace (U5, second order).
+
+    On first load the datalist is unanchored by construction — `applied` starts
+    empty. But switching workspace with an anchor set re-ran the *anchored*
+    query, so `known` kept the previous workspace's feature ids and offered them
+    as choices where none of them exist.
+
+    Found by the manager asking whether the guard held on a page that loads with
+    an anchor already set. It did not, in the one case that produces it.
+    """
+    code = _code()
+    assert "anchoredIn" in code, (
+        "nothing resets the anchor when the workspace changes, so the id list "
+        "outlives the workspace it describes"
+    )
+    block = code[code.index("anchoredIn !== workspace"):]
+    for cleared in ("setFeature('')", "setApplied('')", "setKnown([])"):
+        assert cleared in block[:400], f"{cleared} is not cleared on a workspace change"
+
+
+def test_the_reset_happens_during_render_not_in_an_effect():
+    """As an effect it would paint one frame of the new workspace showing the old
+    one's anchor and ids — the wrong-data-briefly case W13 measured 48 of, and
+    the reason `ChatMessage` uses this pattern."""
+    code = _code()
+    # Looked at from the declaration **forwards**. The first version looked 200
+    # characters back and caught the unrelated loader effect on the line above,
+    # failing on correct code — stricter than the truth, again.
+    reset = code[code.index("const [anchoredIn"):]
+    reset = reset[: reset.index("setKnown([])") + 40]
+    assert "useEffect" not in reset, (
+        "the workspace reset moved into an effect — it renders stale data for a "
+        "frame before correcting itself"
+    )

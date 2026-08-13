@@ -48,6 +48,22 @@ LEARNING_TYPES = ("Review", "Insight")
 MAX_NODES = 2000
 
 
+#: Content an answer carries through, in the order it is assembled.
+CONTENT_FIELDS = (
+    "title", "status", "summary", "verdict", "statement", "sha",
+    "reviewer", "confidence", "text", "asked_by", "url", "path",
+)
+
+#: The fields that can serve as a node's human-readable name, most specific
+#: first. `label` is the first non-empty one, falling back to the id — which is
+#: the right answer for Features and Changes, whose ids *are* their names.
+#:
+#: Kept beside `CONTENT_FIELDS` on purpose: they used to live in two files and
+#: overlapped on one word. `tests/test_answer_labels.py` asserts that every
+#: content field is either reachable from here or declared as not being a name.
+LABEL_FIELDS = ("title", "statement", "summary", "text")
+
+
 def _node_view(node_id: str, node: Dict[str, Any]) -> Dict[str, Any]:
     """One node, as an answer carries it.
 
@@ -62,10 +78,29 @@ def _node_view(node_id: str, node: Dict[str, Any]) -> Dict[str, Any]:
         "id": node_id,
         "type": node.get("entity_type") or "",
     }
-    for field in ("title", "status", "summary", "verdict", "statement", "sha",
-                  "reviewer", "confidence", "text", "asked_by", "url", "path"):
+    for field in CONTENT_FIELDS:
         if node.get(field) not in (None, ""):
             view[field] = node[field]
+
+    # The one human-readable name for this node (U3).
+    #
+    # **This belongs here and not in a renderer.** The UI labelled nodes from
+    # `title, name, entity_name, id` while this whitelist emits content in
+    # `statement`, `summary` and `text` — two lists written independently,
+    # intersecting on `title` alone. So every Insight and Review rendered as a
+    # raw id (`insight:T-P1-USERS:0`) with good text sitting unread in the
+    # payload, and Features looked identical while being fine, because their ids
+    # *are* their names.
+    #
+    # A longer list in the renderer would miss the next field the same way. The
+    # server is the thing that knows which field carries the content — it is
+    # assembling the whitelist — so it says so once, and **MCP gets it too**
+    # (A9). Today an agent reading learnings receives the same bag of fields and
+    # has to guess, which is the same defect without a screen to notice it on.
+    view["label"] = next(
+        (str(node[f]) for f in LABEL_FIELDS if node.get(f) not in (None, "")),
+        node_id,
+    )
 
     try:
         locator = Locator.from_node_properties(node)

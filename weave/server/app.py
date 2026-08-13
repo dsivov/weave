@@ -1782,18 +1782,40 @@ def create_app(args):
             "initialized": False,
         }
 
-    # Custom Swagger UI endpoint for offline support
+    # Swagger UI, pointed at assets that are actually there (U9).
+    #
+    # This route **unconditionally** named `/static/swagger-ui/*` while the mount
+    # for that path is conditional on the directory existing — and the directory
+    # is not shipped. So `/docs` returned 200 and its stylesheet and script both
+    # 404'd: a page that loads and does nothing, with a healthy `/openapi.json`
+    # behind it.
+    #
+    # The condition was on the wrong side. The page now follows the mount:
+    # vendored assets when they are present (genuinely offline-capable, which is
+    # what the original comment intended), and FastAPI's defaults when they are
+    # not. **Whether Weave should ship those assets is a separate decision** —
+    # it matters for an air-gapped install, where the defaults are a CDN the
+    # browser cannot reach — and it is not one to take by leaving a broken page
+    # behind.
+    _swagger_assets = Path(__file__).parent / "static" / "swagger-ui"
+    _swagger_local = _swagger_assets.is_dir() and (
+        _swagger_assets / "swagger-ui-bundle.js"
+    ).is_file()
+
     @app.get("/docs", include_in_schema=False)
     async def custom_swagger_ui_html():
-        """Custom Swagger UI HTML with local static files"""
+        """Swagger UI — local assets when vendored, FastAPI's defaults otherwise."""
+        local = {
+            "swagger_js_url": "/static/swagger-ui/swagger-ui-bundle.js",
+            "swagger_css_url": "/static/swagger-ui/swagger-ui.css",
+            "swagger_favicon_url": "/static/swagger-ui/favicon-32x32.png",
+        } if _swagger_local else {}
         return get_swagger_ui_html(
             openapi_url=app.openapi_url,
             title=app.title + " - Swagger UI",
             oauth2_redirect_url="/docs/oauth2-redirect",
-            swagger_js_url="/static/swagger-ui/swagger-ui-bundle.js",
-            swagger_css_url="/static/swagger-ui/swagger-ui.css",
-            swagger_favicon_url="/static/swagger-ui/favicon-32x32.png",
             swagger_ui_parameters=app.swagger_ui_parameters,
+            **local,
         )
 
     @app.get("/docs/oauth2-redirect", include_in_schema=False)

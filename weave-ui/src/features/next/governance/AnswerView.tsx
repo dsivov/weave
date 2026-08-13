@@ -27,12 +27,22 @@ function locatorLabel(node: AnswerNode): string | null {
   return `${repo}${path}${rev}`
 }
 
-function nodeTitle(node: AnswerNode): string {
-  for (const key of ['title', 'name', 'entity_name', 'id']) {
-    const v = node[key]
-    if (typeof v === 'string' && v.trim()) return v
-  }
-  return '(untitled)'
+/**
+ * The node's name — **from the server, not guessed here** (U3).
+ *
+ * This used to try `title, name, entity_name, id`, while `_node_view` emits
+ * content in `statement`, `summary` and `text`. Two lists written
+ * independently, overlapping on `title` alone — so every Insight and Review
+ * rendered as a raw id with perfectly good text sitting unread in the payload.
+ *
+ * `label` is now assembled once in the shared handler, so this reads it and
+ * MCP gets the same answer. The fallback stays only for a payload from an older
+ * server; it is not a second implementation, it is the absence of one.
+ */
+function nodeLabel(node: AnswerNode): string {
+  const label = node.label
+  if (typeof label === 'string' && label.trim()) return label
+  return typeof node.id === 'string' && node.id ? node.id : '(untitled)'
 }
 
 export function AnswerList({
@@ -74,8 +84,16 @@ export function AnswerList({
             >
               <div style={{ display: 'flex', gap: 8, alignItems: 'baseline' }}>
                 {node.type && <span className="badge">{String(node.type)}</span>}
-                <strong>{nodeTitle(node)}</strong>
+                <strong>{nodeLabel(node)}</strong>
               </div>
+              {/* The id stays visible when it is not already the label: `why`
+                  anchors on it, so it has to remain reachable — and for a
+                  Feature the id *is* the label, so repeating it would be noise. */}
+              {typeof node.id === 'string' && node.id && node.id !== nodeLabel(node) && (
+                <div style={{ color: 'var(--muted)', fontSize: 12, marginTop: 2 }}>
+                  <code>{node.id}</code>
+                </div>
+              )}
               {loc && (
                 <div style={{ color: 'var(--muted)', fontSize: 12, marginTop: 2 }}>
                   <code>{loc}</code>
