@@ -211,7 +211,7 @@ export default function WeaveProjectPanel({ onError }: { onError?: (m: string) =
         <button
           className="btn sm"
           disabled={busy || hosts.length === 0}
-          title="Ask every running machine to run one more developer"
+          title="Scale up"
           onClick={() => act(async () => {
             const r = await weaveDispatch(1)
             setDispatched(
@@ -265,13 +265,13 @@ export default function WeaveProjectPanel({ onError }: { onError?: (m: string) =
 
               {/* Intent, not a command: the machine reconciles on its next heartbeat. */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                <button className="btn sm ghost" title="one fewer developer"
+                <button className="btn sm ghost" title="Scale down"
                   disabled={h.desired_workers <= 0}
                   onClick={() => act(() => weaveScaleHost(h.id, h.desired_workers - 1))}>
                   <MinusIcon className="" />
                 </button>
                 <b style={{ fontSize: 15, minWidth: 18, textAlign: 'center' }}>{h.desired_workers}</b>
-                <button className="btn sm ghost" title="one more developer"
+                <button className="btn sm ghost" title="Scale up"
                   onClick={() => act(() => weaveScaleHost(h.id, h.desired_workers + 1))}>
                   <PlusIcon className="" />
                 </button>

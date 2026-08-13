@@ -383,12 +383,13 @@ axiosInstance.interceptors.response.use(
           const expiresAt = payload.exp ? payload.exp * 1000 : 0;
           authStore.setTokenRenewal(renewalTime, expiresAt);
 
-          // Update username (usually unchanged, but just in case)
-          const newUsername = payload.sub;
-          if (newUsername && newUsername !== authStore.username) {
-            // Need to add setUsername method or just update via login
-            // For now, we'll skip username update as it's rare
-          }
+          // The identity the *renewed* token carries (W21).
+          //
+          // This used to be a comment saying "we'll skip username update as
+          // it's rare". Rarity was never the issue: the server enforces the
+          // role in the token, so a store that does not follow the token shows
+          // a role nobody is checking against. Both fields, every renewal.
+          authStore.setIdentity(payload.sub ?? null, payload.role ?? null);
         }
       } catch (error) {
         console.warn('[Auth] Failed to parse renewed token:', error);

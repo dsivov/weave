@@ -42,6 +42,8 @@ interface AuthState {
   setVersion: (coreVersion: string | null, apiVersion: string | null) => void;
   setCustomTitle: (webuiTitle: string | null, webuiDescription: string | null) => void;
   setTokenRenewal: (renewalTime: number, expiresAt: number) => void; // Track token renewal
+  /** Re-read who the current token says you are — used on server-side renewal (W21). */
+  setIdentity: (username: string | null, role: string | null) => void;
 }
 
 const useBackendStateStoreBase = create<BackendState>()((set, get) => ({
@@ -369,6 +371,18 @@ export const useAuthStore = create<AuthState>(set => {
         webuiTitle: webuiTitle,
         webuiDescription: webuiDescription
       });
+    },
+
+    // The displayed identity follows the token, on **every** path that writes
+    // one (W21). There are two: `login()`, and the `x-new-token` response
+    // interceptor — which wrote localStorage and left the store alone.
+    //
+    // Harmless while the server re-mints the same role, which is why it went
+    // unnoticed. The moment renewal starts carrying a *changed* role it becomes
+    // U1 inverted: the footer showing a role the server no longer enforces,
+    // silently, and looking like the fix rather than the bug.
+    setIdentity: (username, role) => {
+      set({ username, role });
     },
 
     setTokenRenewal: (renewalTime, expiresAt) => {

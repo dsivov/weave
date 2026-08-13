@@ -108,35 +108,84 @@ def test_the_role_change_says_when_it_takes_effect():
 # ── the class, over the whole tree ───────────────────────────────────────────
 
 
-def test_no_disabled_control_explains_itself_only_through_a_tooltip():
-    """The reach.
+#: Controls whose `title` **names the control** rather than explaining why it is
+#: disabled — "Refresh", "Delete". Those are legitimate and no regex separates
+#: them from an explanation, so they are declared here rather than guessed at.
+#: Offender unless annotated: the cost of a false positive is one line, and the
+#: cost of a false negative is a control that explains itself to nobody.
+TITLE_NAMES_THE_CONTROL = {
+    # Generic components: `title` and `disabled` are **props**. The caller
+    # decides both, so the rule applies where they are used, not here.
+    "ObjectSettingsSection.tsx": ("title",),
+    "SettingsPopover.tsx": ("title",),
+    "TopToolbar.tsx": ("title",),
+    "ZoomControls.tsx": ("title",),
 
-    A `title` on a disabled element is unreachable on touch and suppressed by
-    some browsers — so it is not an explanation, it is a hope. The next disabled
-    control is the one nobody has written yet, which is why this sweeps rather
-    than listing the two we fixed.
+    # Names the control ("Refresh"); disabled only while it is running, which
+    # the spinner already says.
+    "DocumentsNext.tsx": ("refreshTooltip",),
+
+    # These two were the real finds when the sweep widened: their titles used to
+    # *describe the action* ("Ask every running machine to run one more
+    # developer") while the reason for disablement went unsaid. Retitled to name
+    # the control, because in both cases the reason is already on screen and
+    # adjacent — "no machines have registered" has its own empty state, and the
+    # scale-down button sits next to the count showing 0.
+    "WeaveProjectPanel.tsx": ("Scale up", "Scale down"),
+
+    # Names the action, and the reason is on screen beside it: the canvas is
+    # empty, which is what `nodesLength === 0` means and what the user is
+    # looking at.
+    "InspectorPanel.tsx": ("Auto-arrange",),
+}
+
+
+def test_no_disabled_control_explains_itself_through_a_tooltip():
+    """The reach — widened to match what the docstring actually claims.
+
+    **The first version checked `title={… ? …}` and read as though it checked
+    more.** A *constant* explanatory title walked straight through:
+
+        title={busy ? "" : "You cannot do this yet"}   → caught
+        title="You cannot do this yet"                 → not caught
+
+    Both are a disabled control whose only explanation is a tooltip, which is
+    the thing this file says is not an explanation. The manager injected the
+    second and it passed.
+
+    That is the reach-versus-claim pattern for the fourth time in this project,
+    and the reason to widen rather than narrow the docstring is that **the
+    docstring is the part a future reader trusts**. A guard that reads stronger
+    than it is will be relied on for the case it misses.
+
+    So: any `title` on a control disabled by an expression is an offender unless
+    the file declares it as naming the control.
     """
-    # **Not a tag regex.** The first version matched `<button\b[^>]*?>`, which
-    # stops at the first `>` — and `onClick={() => …}` contains one, so it read
-    # a fragment of nearly every real button and the negative control did not
-    # fire. A window after the opening tag is cruder and actually works.
     offenders = []
     for path in sorted(_NEXT.rglob("*.tsx")):
         code = _code(path)
+        allowed = TITLE_NAMES_THE_CONTROL.get(path.name, ())
         for match in re.finditer(r"<button\b", code):
             window = code[match.start(): match.start() + 500]
             window = window[: window.find("</button>") if "</button>" in window else len(window)]
-            if "disabled={" not in window:
+            # `disabled` by an expression — a control that is *sometimes* off.
+            # `disabled={false}` or no `disabled` at all is not this rule's business.
+            disabled = re.search(r"disabled=\{([^}]*)\}", window)
+            if not disabled or disabled.group(1).strip() in ("false", ""):
                 continue
-            # A constant title on any control is fine; the defect is a
-            # *conditional* title standing in for why the control is disabled.
-            if re.search(r"title=\{[^}]*\?", window):
-                offenders.append(
-                    f"{path.relative_to(_NEXT)}: {' '.join(window.split())[:80]}…"
-                )
+            title = re.search(r'title=(?:\{([^}]*)\}|"([^"]*)")', window)
+            if not title:
+                continue
+            text = (title.group(1) or title.group(2) or "").strip()
+            if any(name in text for name in allowed):
+                continue
+            offenders.append(f"{path.relative_to(_NEXT)}: title={text[:48]}…")
 
     assert not offenders, (
-        "a disabled control explains itself only through a tooltip:\n  "
+        "a control that is sometimes disabled explains itself through a tooltip:\n  "
         + "\n  ".join(offenders)
-        + "\n\n  Use `<Blockers reasons={…} />` — the same list that disables it."
+        + "\n\n  A tooltip is unreachable on touch and suppressed on some browsers, so "
+        "it is not\n  an explanation. Use `<Blockers reasons={…} />` — the same list "
+        "that disables the\n  control. If the title merely *names* the control, add it "
+        "to TITLE_NAMES_THE_CONTROL."
     )
