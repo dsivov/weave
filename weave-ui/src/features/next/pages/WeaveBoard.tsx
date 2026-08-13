@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { RefreshCwIcon, PauseIcon, PlayIcon, SquareIcon, GitPullRequestIcon, CircleDotIcon } from 'lucide-react'
 import {
-  weaveStatus, weaveTasks, weaveWorkers, weaveEnvironments, weaveChain,
+  weaveStatus,
+  weaveBootstrap, weaveTasks, weaveWorkers, weaveEnvironments, weaveChain,
   weaveControlWorker, weaveAdvanceTask, weavePromote, weaveReviewAuto,
   type WeaveTask, type WeaveWorker, type WeaveEnvironment
 } from '@/api/weave'
@@ -88,6 +89,10 @@ export default function WeaveBoard() {
   // click and its answer have to share a container.
   const modalAction = useAction()
 
+  // Its own state, because its messages belong beside its own button — the
+  // modal's action state renders inside the modal (U2).
+  const bootstrapping = useAction()
+
   const act = useCallback(async (fn: () => Promise<any>, succeeded?: string) => {
     const ok = await modalAction.run(fn, succeeded)
     if (ok) { await load(); if (open) await openChain(open) }
@@ -136,8 +141,37 @@ export default function WeaveBoard() {
 
       {err && <div className="card" style={{ borderColor: 'var(--crit)', color: 'var(--crit)', marginBottom: 12 }}>{err}</div>}
       {loading && !status && <div className="empty">Loading…</div>}
+      {/* U14 — a button, not an instruction to curl.
+          This said "Run `POST /weave/bootstrap` as a manager/architect" on a
+          screen that already knew `installed: false` and could simply do it.
+          A10 says a human role is Claude Code or the web UI; neither is a curl
+          prompt. Same rule as U2/U6/U7/U10 — the application knew the answer and
+          did not put it where the person was looking — so it gets the same
+          treatment rather than a new one.
+          The endpoint is gated to supervisors, so a developer pressing this gets
+          a 403 that `ActionMessages` renders right here. */}
       {status && !status.installed && (
-        <div className="card">This workspace isn’t bootstrapped for Weave yet. Run <code>POST /weave/bootstrap</code> as a manager/architect.</div>
+        <div className="card">
+          <h3 style={{ marginTop: 0 }}>This workspace has no governance yet</h3>
+          <p style={{ color: 'var(--muted)', fontSize: 13 }}>
+            Installing it signs the standard vocabulary into this workspace — the
+            object and link types, the actions, the lifecycle machines and the
+            role permissions. Nothing here works until it is installed, and it is
+            a governance change like any other: recorded, versioned and revertible
+            from History.
+          </p>
+          <button
+            className="btn"
+            disabled={bootstrapping.busy}
+            onClick={() => void bootstrapping.run(
+              async () => { await weaveBootstrap(); await load() },
+              'Governance installed. The board below is live.'
+            )}
+          >
+            Install governance
+          </button>
+          <ActionMessages state={bootstrapping} />
+        </div>
       )}
 
       {status?.installed && (

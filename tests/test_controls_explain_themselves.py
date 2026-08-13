@@ -189,3 +189,60 @@ def test_no_disabled_control_explains_itself_through_a_tooltip():
         "that disables the\n  control. If the title merely *names* the control, add it "
         "to TITLE_NAMES_THE_CONTROL."
     )
+
+
+# ── U14: an affordance, not an instruction to curl ───────────────────────────
+
+
+def test_the_board_offers_a_button_rather_than_a_curl_instruction():
+    """U14.
+
+    The board said *"Run `POST /weave/bootstrap` as a manager/architect"* — on a
+    screen that already knew `installed: false` and could simply do it. **A10
+    says a human role is Claude Code or the web UI**; neither of those is a curl
+    prompt, so telling a person to issue an HTTP request is the product declining
+    to be the product.
+
+    Same rule as U2/U6/U7/U10 rather than a new one: the application knew the
+    answer and did not put it where the person was looking.
+    """
+    code = _code(_NEXT / "pages" / "WeaveBoard.tsx")
+    assert "weaveBootstrap(" in code, (
+        "the board no longer offers to install governance itself"
+    )
+    assert "POST /weave/bootstrap</code>" not in code, (
+        "the board still instructs the user to issue an HTTP request by hand"
+    )
+
+
+def test_the_bootstrap_outcome_reports_beside_its_own_button():
+    """Its own action state, not the modal's.
+
+    The endpoint is gated to supervisors, so a developer pressing this gets a
+    403 — and that answer has to land at the button, which is the whole rule.
+    Sharing the modal's state would render it inside a dialog that is not open.
+    """
+    code = _code(_NEXT / "pages" / "WeaveBoard.tsx")
+    assert "bootstrapping = useAction()" in code
+    assert "ActionMessages state={bootstrapping}" in code, (
+        "the install button's outcome is not rendered next to it"
+    )
+
+
+def test_the_board_does_not_install_governance_by_itself():
+    """Deliberately a button and **not** an automatic install on first load.
+
+    Seeding governance everywhere would install RBAC everywhere, and W16 is that
+    an RBAC-enabled workspace denies every MCP agent — `rbac_service.check(ws,
+    None, …)` fails closed because MCP carries no role. The demo tenant has been
+    usable by agents precisely because nothing was installed in it, so the fix
+    for empty governance would become the cause of an empty fleet. Sequenced
+    behind W16, not taken here.
+    """
+    code = _code(_NEXT / "pages" / "WeaveBoard.tsx")
+    install = code[code.index("weaveBootstrap("):]
+    assert "onClick" in code[: code.index("weaveBootstrap(")][-400:], (
+        "bootstrap is not reached from a click — if it now runs on load, that "
+        "installs RBAC into every new workspace and locks MCP agents out (W16)"
+    )
+    assert "useEffect" not in install[:200]

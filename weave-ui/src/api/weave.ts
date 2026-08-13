@@ -1466,6 +1466,16 @@ export type WeaveEnvironment = { id: string; name: string; url: string; status: 
 
 export const weaveStatus = async (): Promise<any> =>
   (await axiosInstance.get('/weave/status')).data
+
+// Install the governance preset into this workspace (U14).
+//
+// The endpoint already existed and was already gated to supervisors
+// (`routers/team.py:263`); what was missing was any way to reach it from the
+// product. The board told a *human role* to issue an HTTP request — from a
+// screen that already knew `installed: false` and could simply do it.
+export const weaveBootstrap = async (): Promise<{
+  workspace: string; installed: boolean; roles_seeded?: number; [k: string]: unknown
+}> => (await axiosInstance.post('/weave/bootstrap')).data
 export const weaveTasks = async (): Promise<{ workspace: string; tasks: WeaveTask[] }> =>
   (await axiosInstance.get('/weave/tasks')).data
 export const weaveWorkers = async (): Promise<{ workspace: string; workers: WeaveWorker[] }> =>
