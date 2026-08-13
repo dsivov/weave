@@ -12,12 +12,24 @@ them and the lessons those reviews produced.
 It also exercises the four canonical questions with answers a human can check
 against `git log`, which is the only honest way to demo an answer surface.
 
-Idempotent: re-running updates in place rather than duplicating. Safe to point at
-a live instance; writes only into the workspace given by ``--workspace``.
+**Idempotent — and this line used to say so before it was true** (W22). Tasks and
+pull requests answer 409 on a repeat, so they were always safe; commits, reviews
+and learnings **append**, returned 200 twice, and doubled the tenant in silence.
+The demo carried 26 learning nodes holding 13 statements, each exactly twice, and
+nobody saw it until U3 made the text readable instead of rendering raw ids. Those
+three steps now read the task's chain back and skip what is already there.
+
+Safe to point at a live instance; writes only into the workspace given by
+``--workspace``.
+
+**Two identities, not one.** Step 0 installs the preset, and the preset's Task
+machine lets only a **developer** claim — supervisors bootstrap, developers do the
+work. Pass ``--dev-user``/``--dev-password`` or the lifecycle steps are refused.
 
 Usage:
     python scripts/seed_demo.py --url http://127.0.0.1:9800 \
-        --user dsivov --password ... --workspace demo
+        --user dsivov --password ... --workspace demo \
+        --dev-user demo-dev --dev-password ...
 
 Documented in ``docs/DEMO_SCENARIO.md`` — keep the two in step (R6).
 """
@@ -160,13 +172,27 @@ class Api:
         The first version of this script tolerated 409 everywhere and reported
         "6 reviews recorded" when it had recorded none: reviews require a pull
         request first, every call was refused, and the summary said otherwise.
-        Tolerated codes are now passed per call and counted, so re-running is
-        idempotent without any failure going unseen.
+        Tolerated codes are now passed per call and counted, so no failure goes
+        unseen.
+
+        **This docstring used to end "so re-running is idempotent". It was
+        wrong** (W22). Per-call tolerance makes a *repeat* visible; it says
+        nothing about endpoints that never refuse. Commits, reviews and
+        learnings **append**, so they returned 200 twice and doubled the tenant
+        silently — 26 learning nodes holding 13 statements. Idempotency comes
+        from reading the chain back before writing, in `main`, not from this
+        method. Corrected here rather than deleted, because the sentence was the
+        reason nobody looked.
         """
         r = self._call("POST", path, body, tolerate)
         if isinstance(r, dict) and r.get("_tolerated"):
             self.tolerated.append(f"{path} → {r['_tolerated']}")
         return r
+
+    def get(self, path, tolerate=()):
+        """Read state back, so a second run can tell what it already wrote."""
+        r = self._call("GET", path, None, tolerate)
+        return None if isinstance(r, dict) and r.get("_tolerated") else r
 
     def put(self, path, body, tolerate=()):
         return self._call("PUT", path, body, tolerate)
@@ -180,11 +206,37 @@ def main() -> int:
     ap.add_argument("--workspace", default="demo")
     ap.add_argument("--repo-root", default="/storage/Work/Weave",
                     help="checkout the locators resolve against")
+    ap.add_argument("--dev-user", default="",
+                    help="a developer identity; the preset lets only developers claim a task")
+    ap.add_argument("--dev-password", default="")
     args = ap.parse_args()
 
     api = Api(args.url, args.workspace)
     api.login(args.user, args.password)
     print(f"seeding workspace '{args.workspace}' at {args.url}")
+
+    # ── the seed needs two identities, and this took a clean tenant to notice ──
+    #
+    # Step 0 installs the preset, and the preset's Task machine gates
+    # `pending → in_progress` to **developer / architect / integrator**. A
+    # manager may bootstrap and may not claim, which is the pipeline working as
+    # designed — developers claim work, supervisors do not.
+    #
+    # **So this script has not completed on a fresh workspace since `1e4d427`**,
+    # the commit that made bootstrap step 0. It went unnoticed because the only
+    # tenant anyone re-ran it against already had its tasks claimed from before
+    # that change: every repeat 409'd, the tolerated-code counter absorbed it,
+    # and the visible effect was the *appending* endpoints doubling (W22). One
+    # defect hid the other, and both needed a **clean** tenant to see — which is
+    # the state every reader of the guide will be in, and none of us was.
+    dev = api
+    if args.dev_user:
+        dev = Api(args.url, args.workspace)
+        dev.login(args.dev_user, args.dev_password)
+        print(f"  lifecycle steps run as '{args.dev_user}' (developer)")
+    else:
+        print("  ⚠ no --dev-user given: claim/commit/review will be attempted as "
+              f"'{args.user}' and the preset will refuse them if that role may not claim")
 
     # 0 · bootstrap the workspace's governance FIRST.
     #
@@ -232,25 +284,73 @@ def main() -> int:
         # A review is only legal once there is something to review, so the task
         # walks its real lifecycle: claimed → committed → pull request → review.
         # Short-circuiting that would demo a state the product cannot reach.
-        api.post(f"/weave/tasks/{tid}/claim", {"worker": "demo-dev"}, tolerate=(409,))
-        api.post(f"/weave/tasks/{tid}/commit", {"sha": sha, "subject": subject, "touches": touches})
-        api.post(f"/weave/tasks/{tid}/pull-request", {
+        dev.post(f"/weave/tasks/{tid}/claim", {"worker": "demo-dev"}, tolerate=(409,))
+        dev.post(f"/weave/tasks/{tid}/pull-request", {
             "branch": f"feature/{tid.lower()}",
             "url": f"https://example.invalid/weave/pull/{tid}",
             "title": subject,
         }, tolerate=(409,))
         by_feature.setdefault(feat, []).append(tid)
-    print(f"  {len(TASKS)} tasks created — claimed, committed, pull-requested")
+    print(f"  {len(TASKS)} tasks created — claimed, pull-requested")
+
+    # ── 3b · read back what each task already carries (W22) ─────────────────
+    #
+    # **Commits, reviews and learnings append; they do not upsert.** Tasks and
+    # pull requests answer 409 on a repeat, so they were always safe — these
+    # three are lists on the task, and `record_learning` ends in
+    # `t.learnings.append(insight)` with no dedup. Running this script twice
+    # therefore doubled every one of them, and the demo tenant proved it: 26
+    # learning nodes carrying 13 distinct statements, each exactly twice.
+    #
+    # **It stayed invisible until U3 made the text readable**, because the
+    # answer surface rendered raw ids and two ids are indistinguishable at a
+    # glance. A cosmetic-looking defect was the lid on a data one.
+    #
+    # **Fixed here rather than in `record_learning`.** Deduping identical text
+    # server-side would silently swallow a *legitimate* repeat — the same lesson
+    # genuinely learned twice on one task — so the product keeps appending and
+    # the script stops asking twice. The defect was never that the graph
+    # recorded what it was told; it was that this script told it twice.
+    chains = {}
+    for tid, *_ in TASKS:
+        chains[tid] = dev.get(f"/weave/tasks/{tid}/chain", tolerate=(404,)) or {}
+
+    def _already(tid, field, needle):
+        """Is *needle* already on this task's chain? Compared on content, not on
+        count — a count is what let this go unnoticed in the first place."""
+        # `ensure_ascii=False` is load-bearing: the default escapes every em dash
+        # to `\u2014`, so a needle containing one never matched its own record.
+        # Three reviews and two learnings leaked through on every run until this
+        # was fixed — a dedup that silently half-works is worse than none.
+        return any(needle in json.dumps(item, ensure_ascii=False)
+                   for item in chains.get(tid, {}).get(field, []))
+
+    fresh = 0
+    for tid, feat, title, sha, subject, touches in TASKS:
+        if _already(tid, "commits", sha):
+            continue
+        dev.post(f"/weave/tasks/{tid}/commit",
+                 {"sha": sha, "subject": subject, "touches": touches})
+        fresh += 1
+    print(f"  commits: {fresh} recorded, {len(TASKS) - fresh} already present")
 
     # 4 · reviews — what gated each milestone
+    fresh = 0
     for tid, verdict, notes in REVIEWS:
-        api.post(f"/weave/tasks/{tid}/review", {"verdict": verdict, "notes": notes})
-    print(f"  {len(REVIEWS)} reviews recorded")
+        if _already(tid, "reviews", notes):
+            continue
+        dev.post(f"/weave/tasks/{tid}/review", {"verdict": verdict, "notes": notes})
+        fresh += 1
+    print(f"  reviews: {fresh} recorded, {len(REVIEWS) - fresh} already present")
 
     # 5 · learnings — the lessons those reviews produced
+    fresh = 0
     for tid, insight in LEARNINGS:
-        api.post("/weave/learnings", {"insight": insight, "task": tid})
-    print(f"  {len(LEARNINGS)} learnings recorded")
+        if _already(tid, "learnings", insight):
+            continue
+        dev.post("/weave/learnings", {"insight": insight, "task": tid})
+        fresh += 1
+    print(f"  learnings: {fresh} recorded, {len(LEARNINGS) - fresh} already present")
 
     # 6 · decisions — why the shape is what it is
     for src, tgt, relation, trace, rationale in DECISIONS:
