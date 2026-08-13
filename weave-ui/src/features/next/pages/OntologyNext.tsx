@@ -3,8 +3,10 @@ import { toast } from 'sonner'
 import { RefreshCwIcon } from 'lucide-react'
 import { useSettingsStore } from '@/stores/settings'
 import { OntologyCanvas } from '@/features/next/governance/OntologyCanvas'
+import { AppliedPanel, SignOffPanel } from '@/features/next/governance/SignOff'
+import { useGovernedArtifact } from '@/features/next/governance/useGovernedArtifact'
 import {
-  getOntology, setOntology, deleteOntology, generateOntology,
+  getOntology, deleteOntology, generateOntology,
   type OntologySummary, type OntologyDoc
 } from '@/api/weave'
 
@@ -50,15 +52,29 @@ export default function OntologyNext() {
 
   useEffect(() => { refresh() }, [refresh, workspace])
 
-  const onSave = async () => {
+  // Propose → diff → sign (CR-001). The button no longer writes: it works out
+  // what would change and shows it, and signing is a separate act that needs a
+  // reason. What is being signed here decides which entity types exist and what
+  // extraction is validated against — seeing it first is the point.
+  const governed = useGovernedArtifact('ontology', 'ontology')
+
+  const onPropose = async () => {
     let doc: OntologyDoc
     try { doc = JSON.parse(docText) } catch { toast.error('Ontology must be valid JSON.'); return }
-    setBusy(true)
-    try {
-      const s = await setOntology(doc)
-      setSummary(s)
-      toast.success(`Ontology saved (v${s.version}).`)
-    } catch (e) { toast.error(`Save failed: ${errMsg(e)}`) } finally { setBusy(false) }
+    const diff = await governed.propose(doc)
+    if (diff && !diff.behaviour_changed) {
+      toast.info('No change — this is what the workspace already has.')
+    }
+  }
+
+  const onSigned = async () => {
+    // `sign()` returns null when it refuses (no reason, nothing to sign, already
+    // in flight). Refreshing on null would report a save that never happened.
+    const applied = await governed.signOff.sign([governed.diff as never])
+    if (!applied) return
+    governed.clear()
+    await refresh()
+    toast.success(`Ontology is now v${applied[0].version}.`)
   }
 
   const onEdit = () => {
@@ -219,7 +235,40 @@ export default function OntologyNext() {
             onChange={(e) => setDocText(e.target.value)}
             spellCheck={false}
           />
-          <div><button className="btn primary" onClick={onSave} disabled={busy}>Save</button></div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn primary" onClick={onPropose} disabled={busy || governed.proposing}>
+              Review changes
+            </button>
+            {governed.diff && (
+              <button className="btn ghost" onClick={governed.clear}>Discard</button>
+            )}
+          </div>
+
+          {governed.proposeError && (
+            <div style={{ color: 'var(--bad)', fontSize: 13, marginTop: 8 }}>
+              {governed.proposeError}
+            </div>
+          )}
+
+          {/* The diff, then the signature — the shared flow, the same one the
+              wizard uses (R10). Not a second copy of "what does signing
+              governance look like". */}
+          {governed.diff && (
+            <div style={{ marginTop: 12 }}>
+              <SignOffPanel
+                diffs={[governed.diff as never]}
+                // The panel owns the reason and the button; signing here also
+                // refreshes the summary, so it goes through `onSigned` rather
+                // than calling `sign` directly. The `null` is deliberate: the
+                // panel does not use the return value, and `onSigned` has
+                // already handled both outcomes.
+                state={{ ...governed.signOff, sign: async () => { await onSigned(); return null } }}
+                title="What this would change"
+                signLabel="Sign and apply"
+              />
+            </div>
+          )}
+          <AppliedPanel applied={governed.signOff.applied} />
         </div>
       </div>
     </div>

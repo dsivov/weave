@@ -2,8 +2,10 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { RefreshCwIcon } from 'lucide-react'
 import { useSettingsStore } from '@/stores/settings'
+import { AppliedPanel, SignOffPanel } from '@/features/next/governance/SignOff'
+import { useGovernedArtifact } from '@/features/next/governance/useGovernedArtifact'
 import {
-  getRules, setRules, deleteRules, toggleRules, generateRules,
+  getRules, deleteRules, toggleRules, generateRules,
   type RulesSummary
 } from '@/api/weave'
 
@@ -49,17 +51,30 @@ export default function RulesNext() {
     return JSON.parse(trimmed)
   }
 
-  const onSave = async () => {
+  // Propose → diff → sign (CR-001). A rule change alters what the gate refuses,
+  // and it takes effect on the next request with no restart — so it is shown
+  // before it is signed, and signing needs a reason recorded against the signer.
+  const governed = useGovernedArtifact('rule', 'policy')
+
+  const onPropose = async () => {
     let concepts: Record<string, string[]>
     try { concepts = parseConcepts() } catch {
       toast.error('Concepts must be valid JSON (name → array of phrases).'); return
     }
-    setBusy(true)
-    try {
-      const s = await setRules(dsl, concepts, true)
-      setSummary(s)
-      toast.success(`Rules saved (v${s.version}).`)
-    } catch (e) { toast.error(`Save failed: ${errMsg(e)}`) } finally { setBusy(false) }
+    const diff = await governed.propose({ dsl, concepts, enabled: true })
+    if (diff && !diff.behaviour_changed) {
+      toast.info('No change — this is what the workspace already enforces.')
+    }
+  }
+
+  const onSigned = async () => {
+    // `sign()` returns null when it refuses. Refreshing on null would report a
+    // save that never happened.
+    const applied = await governed.signOff.sign([governed.diff as never])
+    if (!applied) return
+    governed.clear()
+    await refresh()
+    toast.success(`Rules are now v${applied[0].version}.`)
   }
 
   const onEdit = () => {
@@ -196,7 +211,26 @@ export default function RulesNext() {
           <label style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text2)' }}>Concept catalog (JSON: name → phrases)</label>
           <textarea className="cgarea mono" style={{ minHeight: 120 }} value={conceptsText}
             onChange={(e) => setConceptsText(e.target.value)} spellCheck={false} />
-          <div><button className="btn primary" onClick={onSave} disabled={busy}>Save &amp; enable</button></div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn primary" onClick={onPropose} disabled={busy || governed.proposing}>
+              Review changes
+            </button>
+            {governed.diff && <button className="btn ghost" onClick={governed.clear}>Discard</button>}
+          </div>
+
+          {governed.proposeError && (
+            <div style={{ color: 'var(--bad)', fontSize: 13 }}>{governed.proposeError}</div>
+          )}
+
+          {governed.diff && (
+            <SignOffPanel
+              diffs={[governed.diff as never]}
+              state={{ ...governed.signOff, sign: async () => { await onSigned(); return null } }}
+              title="What this would change"
+              signLabel="Sign and enable"
+            />
+          )}
+          <AppliedPanel applied={governed.signOff.applied} />
         </div>
       </div>
     </div>
