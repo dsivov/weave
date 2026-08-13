@@ -29,6 +29,11 @@ services:
       # runs Claude Code against `<server>/mcp` from wherever they work (A10, R53).
       - "0.0.0.0:${WEAVE_PORT:-9800}:9800"
     environment:
+      # These two stay literal on purpose: they describe the *inside* of the
+      # container, not a preference. The server must bind all interfaces for the
+      # port mapping above to reach it, and 9800 is the container side of that
+      # mapping — changing either here breaks the published port rather than
+      # moving it. Use `WEAVE_PORT` on the `ports:` line to move it.
       WEAVE_HOST: "0.0.0.0"
       WEAVE_PORT: "9800"
 
@@ -43,11 +48,20 @@ services:
       # zero-install default for a single operator; it is the wrong choice here,
       # because its writes are whole-file read-modify-write and concurrent
       # writers lose each other's work (A4, R10).
-      WEAVE_KV_STORAGE: PGKVStorage
-      WEAVE_VECTOR_STORAGE: PGVectorStorage
-      WEAVE_GRAPH_STORAGE: PGGraphStorage
-      WEAVE_DOC_STATUS_STORAGE: PGDocStatusStorage
+      #
+      # Overridable, and that is not cosmetic (W20). When the server refuses to
+      # start it tells the operator to set `WEAVE_VECTOR_STORAGE` or
+      # `WEAVE_ENABLE_QUADRUPLE` — and as literals those exports did nothing, so
+      # the advice was a dead end and the only way out was editing this file.
+      # A refusal you can act on beats one you have to edit around.
+      WEAVE_KV_STORAGE: "${WEAVE_KV_STORAGE:-PGKVStorage}"
+      WEAVE_VECTOR_STORAGE: "${WEAVE_VECTOR_STORAGE:-PGVectorStorage}"
+      WEAVE_GRAPH_STORAGE: "${WEAVE_GRAPH_STORAGE:-PGGraphStorage}"
+      WEAVE_DOC_STATUS_STORAGE: "${WEAVE_DOC_STATUS_STORAGE:-PGDocStatusStorage}"
 
+      # Also literal, and also about the inside: `postgres` is the compose
+      # service name on this network, and 5432 is where that image listens.
+      # Overriding them points the server at a database this file did not start.
       WEAVE_POSTGRES_HOST: postgres
       WEAVE_POSTGRES_PORT: "5432"
       WEAVE_POSTGRES_USER: "${WEAVE_POSTGRES_USER:-weave}"
@@ -63,9 +77,9 @@ services:
       WEAVE_EMBEDDING_MODEL: "${WEAVE_EMBEDDING_MODEL:-text-embedding-3-small}"
       OPENAI_API_KEY: "${OPENAI_API_KEY:-}"   # read by the vendor SDK; never prefixed
 
-      WEAVE_ENABLE_TEAM: "true"
-      WEAVE_ENABLE_QUADRUPLE: "true"
-      WEAVE_ENABLE_MCP: "true"
+      WEAVE_ENABLE_TEAM: "${WEAVE_ENABLE_TEAM:-true}"
+      WEAVE_ENABLE_QUADRUPLE: "${WEAVE_ENABLE_QUADRUPLE:-true}"
+      WEAVE_ENABLE_MCP: "${WEAVE_ENABLE_MCP:-true}"
 
       # A7: one worker, because this file ships the in-process event bus. The
       # PostgreSQL LISTEN/NOTIFY adapter — and with it multi-worker serving —
