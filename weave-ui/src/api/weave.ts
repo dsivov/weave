@@ -1839,3 +1839,45 @@ export const ask = async (question: Question, anchor?: string): Promise<Answer> 
   const params = anchor ? { [param]: anchor } : undefined
   return (await axiosInstance.get(`/ask/${question}`, { params })).data
 }
+
+// ── Projects: where a locator actually points (`/projects/*`) ────────────────
+//
+// A5 is the reason this surface exists: an artifact references its source by
+// `repo · path · rev` and never embeds a copy of it. That only works if `repo`
+// resolves to somewhere real, which is what a ProjectLayout registration is —
+// the mapping from the name a locator holds to a URL a person can open and a
+// checkout an agent can read.
+//
+// An unregistered repo is not an error, it is the answer: every locator naming
+// it will fail to resolve, and the screen should say which repo is missing
+// rather than showing a broken link per node.
+
+export interface ProjectLayout {
+  name: string
+  clone_url: string
+  default_rev: string
+  description: string
+  has_local_checkout: boolean
+}
+
+export interface ResolvedLocator {
+  repo: string
+  path: string
+  rev: string
+  url: string
+  exists: boolean
+  anchor?: string | null
+  [key: string]: unknown
+}
+
+export const listProjects = async (): Promise<{ workspace: string; projects: ProjectLayout[] }> =>
+  (await axiosInstance.get('/projects')).data
+
+export const registerProject = async (
+  body: { name: string; clone_url?: string; local_path?: string; default_rev?: string; description?: string }
+): Promise<ProjectLayout> => (await axiosInstance.post('/projects', body)).data
+
+export const resolveLocator = async (
+  repo: string, path: string, rev = '', content = false
+): Promise<ResolvedLocator> =>
+  (await axiosInstance.get('/projects/resolve', { params: { repo, path, rev, content } })).data

@@ -625,7 +625,7 @@ dev-agent image builds from the rebranded packages carrying no git credentials a
 workspace, with every node linking to its locator; ontology and rules changes show a diff, refuse to sign without
 a reason, and land as a **new ledger version verified by reading `history()` back**; the JSON escape hatch
 round-trips a document the structured editor cannot express; **all sixteen current views remain reachable**;
-`git diff weave/server/routers/` is **empty**; `bun run build` and `bun test` pass; `tsc` and `eslint` exit 0;
+**no endpoint added and no route serving the UI alone** — a shared-handler change that serves MCP identically is consistent with A9 (amended 2026-08-13, D-038; it previously read *"`git diff weave/server/routers/` is empty"*, which would have forbidden fixing the A6 hole this phase found); `bun run build` and `bun test` pass; `tsc` and `eslint` exit 0;
 Python **1091+ passed**; name-guard clean.
 
 **Review:** code review of the CR diff; log the outcome in `DECISIONS.md`.

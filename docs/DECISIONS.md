@@ -762,3 +762,43 @@ Status: `accepted` · `superseded by D-NN` · `reversed`.
   shipped (D-032/D-033/D-034 made all seven ledger kinds sign through `DiffEngine`, and the wizard proved the
   authoring pattern). Its highest risk is not design but verification: after D-036 nothing runs `bun test` or the
   UI build automatically, so the gate says both are run by hand and reported.
+
+## D-038 · The signer is the authenticated principal — `approver` leaves the request schema
+- **Date:** 2026-08-13  ·  **Status:** accepted  ·  **Raised by:** developer (P7, building the ontology editor)  ·  **Ruled by:** weave-manager
+- **A6 is false today, and this is a live defect rather than a risk.** `routers/studio.py:44` declares
+  `ApplyRequest.approver: Optional[str]` and `:128` passes `body.approver` straight into `engine.apply()`.
+  A6 says *"the principal it is enforced against is derived from the authenticated identity, **never from a
+  client-supplied field**."* It is derived from a client-supplied field.
+- **It is reachable in two clicks and on both surfaces.** `Studio.tsx:67` renders a free-text input for it;
+  `:124` validates only that it is **non-empty**, not that it is *you*; `:131` then reports the forged name
+  back as confirmation — *"signed by …"*. `mcp.py:653` (`save_diagram`) takes the same client-supplied
+  `approver`, so an **agent** can attribute a governance change to a person as easily as a human can.
+  Carried from the P0 fork (`8610914`); P7 found it only because CR-001 routes the ontology editor through
+  that endpoint.
+- **The correct shape already exists in this codebase**, which is what makes this a defect and not a design
+  question: `routers/wizard.py:135` derives `approver` from `authenticated_principal(request)`, **401s when
+  there is no identity** — *"an unattributed governance change makes 'who took away my access' unanswerable"*
+  — and takes only the **reason** from the body. `routers/ontology.py:127` does the same. Two doors were
+  built right and one was left as the fork shipped it.
+- **The other path was no better.** `POST /ontology` and `POST /rules` derive identity correctly but
+  **hardcode the reason** (`ontology.py:159,173,196` · `rules.py:188,238,273`) and accept none from the
+  caller. Building the editor there would have meant a screen that collects a reason and silently discards
+  it — a UI promising an attribution it does not make.
+- **Options:** (a) narrower screen on `POST /ontology`, no reason asked · (b) fix the handlers · (c) amend A6
+- **Decision: (b).** `/studio/apply` derives `approver` from the authenticated principal exactly as
+  `/wizard/apply` does, and **`approver` is deleted from the request schema rather than ignored** — a field
+  that is accepted and silently discarded is the next reader's bug. `POST /ontology` and `POST /rules` gain
+  an **optional caller `reason`**. `save_diagram`'s MCP parameter goes the same way. (c) was never live:
+  **A6 is right and the code is wrong.**
+- **Why it is (b) even with CR-001 cancelled.** The test is the one applied to `import type`: *is the fix
+  right with the UI removed?* A signer field the client fills in is a defect in a governance ledger whether
+  or not anything is being built on top of it.
+- **This changes a public contract (a request schema), which is a tripwire** — hence this entry. Nothing in
+  the tree sends `approver` except the Studio screen being rewritten by CR-001 and the MCP tool being fixed
+  here, so no caller is stranded.
+- **The M7 gate criterion is amended with it.** It said `git diff weave/server/routers/` must be **empty**.
+  That was written to stop the UI acquiring a **private endpoint** (A9) — it was not written to forbid
+  fixing an A6 violation the UI work uncovered. **The letter blocked the fix; the purpose demands it.** The
+  criterion now reads: *no endpoint added, and no route that serves the UI alone; a shared-handler change
+  serving MCP identically is consistent with A9.* Recorded because a gate quietly reinterpreted is a gate
+  that means whatever is convenient later.

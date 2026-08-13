@@ -3,7 +3,8 @@ import {
   LayoutDashboardIcon, ScaleIcon, FilesIcon, NetworkIcon, SearchIcon,
   GavelIcon, BoxesIcon, SparklesIcon, Code2Icon, RocketIcon,
   BellIcon, SunIcon, MoonIcon, PanelLeftIcon, LayersIcon, PencilRulerIcon, UsersIcon, ShapesIcon,
-  UserCogIcon, WandSparklesIcon
+  UserCogIcon, WandSparklesIcon,
+  FolderGitIcon
 } from 'lucide-react'
 import { useSettingsStore } from '@/stores/settings'
 import { setUiMode } from '@/lib/uiMode'
@@ -28,9 +29,10 @@ import GetStarted from '@/features/GetStarted'
 import ApiSite from '@/features/ApiSite'
 import Features from '@/features/next/pages/Features'
 import Learnings from '@/features/next/pages/Learnings'
+import Projects from '@/features/next/pages/Projects'
 
 type ViewId =
-  | 'weave' | 'features' | 'learnings'
+  | 'weave' | 'features' | 'learnings' | 'projects'
   | 'dashboard' | 'decisions' | 'documents' | 'graph' | 'retrieval' | 'chunks'
   | 'rules' | 'ontology' | 'quality' | 'studio' | 'wizard' | 'diagrams'
   | 'getstarted' | 'api'
@@ -61,6 +63,7 @@ const NAV: NavItem[] = [
   { id: 'weave', label: 'Work', icon: UsersIcon, group: 'Weave' },
   { id: 'features', label: 'Features', icon: SparklesIcon, group: 'Weave' },
   { id: 'learnings', label: 'Learnings', icon: ScaleIcon, group: 'Weave' },
+  { id: 'projects', label: 'Projects', icon: FolderGitIcon, group: 'Weave' },
   { id: 'wizard', label: 'Team vocabulary', icon: WandSparklesIcon, group: 'Weave' },
 
   { id: 'ontology', label: 'Ontology', icon: BoxesIcon, group: 'Governance' },
@@ -144,6 +147,7 @@ export default function AppShell() {
     case 'weave': return <WeaveBoard />
     case 'features': return <Features />
     case 'learnings': return <Learnings />
+    case 'projects': return <Projects />
     case 'users': return <AdminUsers />
     case 'getstarted': return <GetStarted />
     case 'api': return <ApiSite />
