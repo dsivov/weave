@@ -1798,3 +1798,44 @@ export const setUserWorkspaces = async (
   const response = await axiosInstance.put(`/users/${id}/workspaces`, { workspaces })
   return response.data
 }
+
+// ── The four canonical questions (P2's `/ask/*`) ─────────────────────────────
+//
+// These endpoints have existed since P2 with no UI at all (CR-001 §1). The
+// handler behind each is the same one MCP calls — not an equivalent, the same
+// one (A9) — so a screen built on these cannot drift from what an agent sees.
+//
+// Only `why` requires an anchor; the other three answer the whole workspace
+// when given none, which is what makes a landing view possible without asking
+// the user to pick something first.
+
+export interface AnswerNode {
+  id?: string
+  type?: string
+  locator?: { repo?: string; path?: string; rev?: string; [k: string]: unknown } | null
+  locator_error?: string | null
+  [key: string]: unknown
+}
+
+export interface Answer {
+  question: string
+  nodes: AnswerNode[]
+  count: number
+  truncated: boolean
+}
+
+export type Question = 'changes' | 'why' | 'features' | 'learnings'
+
+/** The anchor parameter each question takes, and whether it is required. */
+export const ASK_ANCHOR: Record<Question, { param: string; required: boolean }> = {
+  changes: { param: 'feature', required: false },
+  why: { param: 'node', required: true },
+  features: { param: 'feature', required: false },
+  learnings: { param: 'scope', required: false }
+}
+
+export const ask = async (question: Question, anchor?: string): Promise<Answer> => {
+  const { param } = ASK_ANCHOR[question]
+  const params = anchor ? { [param]: anchor } : undefined
+  return (await axiosInstance.get(`/ask/${question}`, { params })).data
+}

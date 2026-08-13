@@ -26,10 +26,13 @@ import GraphViewer from '@/features/GraphViewer'
 import RetrievalTesting from '@/features/RetrievalTesting'
 import GetStarted from '@/features/GetStarted'
 import ApiSite from '@/features/ApiSite'
+import Features from '@/features/next/pages/Features'
+import Learnings from '@/features/next/pages/Learnings'
 
 type ViewId =
+  | 'weave' | 'features' | 'learnings'
   | 'dashboard' | 'decisions' | 'documents' | 'graph' | 'retrieval' | 'chunks'
-  | 'rules' | 'ontology' | 'quality' | 'studio' | 'wizard' | 'diagrams' | 'weave'
+  | 'rules' | 'ontology' | 'quality' | 'studio' | 'wizard' | 'diagrams'
   | 'getstarted' | 'api'
   | 'users'
 
@@ -42,21 +45,38 @@ type NavItem = {
   badge?: { text: string; warn?: boolean }
 }
 
+// Weave first (CR-001).
+//
+// The product was **item 13 of 16** in its own navigation, under a group called
+// "Team", while the first twelve entries spoke the vocabulary of the engine it
+// was forked from. That is not a build failure — nothing in the BLOG, RFC, DRP
+// or work plan ever asked for Weave to be primary, so no review could have
+// caught it. This is the requirement arriving late, not a defect being fixed.
+//
+// **Nothing is deleted.** Every engine surface keeps its label, its route and
+// its `ViewId`; they move into `Knowledge` and `Governance` below the Weave
+// group. Demoting a screen in a menu is reversible and needs no decision;
+// deleting one is a separate call with its own `D-NN` (CR-001 §3).
 const NAV: NavItem[] = [
-  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboardIcon, group: 'Overview' },
-  { id: 'decisions', label: 'Decisions', icon: ScaleIcon, group: 'Overview' },
+  { id: 'weave', label: 'Work', icon: UsersIcon, group: 'Weave' },
+  { id: 'features', label: 'Features', icon: SparklesIcon, group: 'Weave' },
+  { id: 'learnings', label: 'Learnings', icon: ScaleIcon, group: 'Weave' },
+  { id: 'wizard', label: 'Team vocabulary', icon: WandSparklesIcon, group: 'Weave' },
+
+  { id: 'ontology', label: 'Ontology', icon: BoxesIcon, group: 'Governance' },
+  { id: 'rules', label: 'Rules', icon: GavelIcon, group: 'Governance' },
+  { id: 'studio', label: 'History', icon: PencilRulerIcon, group: 'Governance' },
+  { id: 'users', label: 'Users', icon: UserCogIcon, group: 'Governance' },
+
   { id: 'documents', label: 'Documents', icon: FilesIcon, group: 'Knowledge', flush: true },
   { id: 'graph', label: 'Knowledge Graph', icon: NetworkIcon, group: 'Knowledge', flush: true },
   { id: 'retrieval', label: 'Retrieval', icon: SearchIcon, group: 'Knowledge', flush: true },
   { id: 'chunks', label: 'Chunks', icon: LayersIcon, group: 'Knowledge' },
-  { id: 'rules', label: 'Rules', icon: GavelIcon, group: 'Governance' },
-  { id: 'ontology', label: 'Ontology', icon: BoxesIcon, group: 'Governance' },
-  { id: 'quality', label: 'Graph Quality', icon: SparklesIcon, group: 'Governance' },
-  { id: 'studio', label: 'Studio', icon: PencilRulerIcon, group: 'Governance' },
-  { id: 'wizard', label: 'Team vocabulary', icon: WandSparklesIcon, group: 'Governance' },
   { id: 'diagrams', label: 'Diagrams', icon: ShapesIcon, group: 'Knowledge', flush: true },
-  { id: 'weave', label: 'Weave', icon: UsersIcon, group: 'Team' },
-  { id: 'users', label: 'Users', icon: UserCogIcon, group: 'Admin' },
+  { id: 'quality', label: 'Graph Quality', icon: SparklesIcon, group: 'Knowledge' },
+
+  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboardIcon, group: 'Setup' },
+  { id: 'decisions', label: 'Decisions', icon: ScaleIcon, group: 'Setup' },
   { id: 'getstarted', label: 'Get Started', icon: RocketIcon, group: 'Setup' },
   { id: 'api', label: 'API', icon: Code2Icon, group: 'Setup' }
 ]
@@ -88,7 +108,8 @@ const TAB_OF: Partial<Record<ViewId, string>> = {
 }
 
 export default function AppShell() {
-  const [view, setView] = useState<ViewId>('dashboard')
+  // The landing view answers a Weave question, not a document one (M7 gate).
+  const [view, setView] = useState<ViewId>('weave')
   const [search, setSearch] = useState('')
   const workspace = useSettingsStore.use.workspace()
   const setCurrentTab = useSettingsStore.use.setCurrentTab()
@@ -100,7 +121,7 @@ export default function AppShell() {
   }
 
   const groups = useMemo(() => {
-    const order = ['Overview', 'Knowledge', 'Governance', 'Team', 'Admin', 'Setup']
+    const order = ['Weave', 'Governance', 'Knowledge', 'Setup']
     return order.map((g) => ({ group: g, items: NAV.filter((n) => n.group === g) }))
   }, [])
 
@@ -121,6 +142,8 @@ export default function AppShell() {
     case 'wizard': return <Wizard />
     case 'diagrams': return <DiagramsPage />
     case 'weave': return <WeaveBoard />
+    case 'features': return <Features />
+    case 'learnings': return <Learnings />
     case 'users': return <AdminUsers />
     case 'getstarted': return <GetStarted />
     case 'api': return <ApiSite />
