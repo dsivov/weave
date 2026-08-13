@@ -746,6 +746,32 @@ prompt is rewritten as a measured change, and that is **P11**, not P10.
 
 ---
 
+### P10.1 · Recording writes what the answer reads *(D-043, W23 — blocks P8)*
+
+> **The defect a clean tenant found and a week of re-running the demo could not.** Record 7 learnings and 6
+> reviews into a fresh workspace and `/ask/learnings` answers **0**. `record_learning` writes a decision
+> trace; `ask_learnings` seeds on `entity_type in (Review, Insight)`; the typed nodes are never created.
+> `weave migrate reviews` creates all 13 and the answer works.
+>
+> **The one that must not happen:** fixing creation and leaving W17's retyping. A node created correctly and
+> clobbered by the next generic upsert is this defect again, on a delay, and the migration was already shown
+> not to survive that.
+
+- [ ] **Contract check (R11)** — **A5** (`Insight` and `Review` are named artifact node types; this makes them real rather than aspirational), **A9** (one handler — the fix is below both adapters, so neither surface changes), **A2** (the writer lives in `weave_core`/`weave` per the existing split, no HTTP anywhere near it).
+- [ ] **`record_learning` and the review path create typed `Insight` / `Review` nodes**, sharing the construction with `weave/model/migrate_reviews.py` rather than duplicating it (R10) — one builder, two callers, so live and migrated nodes cannot differ.
+- [ ] **`emit_decision_trace` may not change the `entity_type` of an existing governed node** (W17's mechanism). Without this, D-043's first half is temporary.
+- [ ] `tests/` — **on a clean workspace, record a learning and a review, then assert `/ask/learnings` returns them, with no migration run.** That is the whole gate; anything weaker restates what the migration already proved.
+- [ ] `tests/` — a governed node's `entity_type` survives a subsequent generic upsert. Negative-controlled.
+- [ ] **[manager]** re-run the seed on a genuinely empty tenant and confirm `/ask/learnings` answers **before** `weave migrate reviews` is run — the exact measurement that produced W23.
+
+**Gate (M10.1):** a workspace created from nothing, seeded, answers *what did we learn* **without a migration**;
+the migration remains correct and becomes a one-off for older instances; a retyping upsert cannot silently
+empty the answer. Suite green, name-guard clean.
+
+**Review:** code review; log the outcome in `DECISIONS.md`.
+
+---
+
 ## P11 · The extractor learns from software artifacts → **M11**
 
 > **Opened 2026-08-13 from D-041.** `weave_core/graph/prompt.py` teaches entity extraction with two few-shot

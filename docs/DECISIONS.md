@@ -911,3 +911,33 @@ Status: `accepted` · `superseded by D-NN` · `reversed`.
   one, `tests/test_docs_assets_are_actually_served.py`, which builds the app and fetches every URL the
   page names — **the first test in the suite that constructs the server**, which is W6's standing gap.
   A refresh that half-copies a file now fails a test instead of shipping a blank page.
+
+## D-043 · Recording a learning writes the node the answer surface reads
+- **Date:** 2026-08-13  ·  **Status:** accepted  ·  **Raised by:** manager (W23)  ·  **Approved by:** dsivov
+- **Context:** On a **clean** tenant — the state every reader of the guide will be in — seeding 7 learnings
+  and 6 reviews leaves `/ask/learnings` returning **0 nodes**. The graph types `Commit`, `Feature`,
+  `ChangeRequest`, `PullRequest` and `ArchitectureDecisionRecord` correctly and holds **21 generic `ENTITY`**
+  nodes with no `Insight` or `Review` among them: `record_learning` writes a *decision trace*, while
+  `ask_learnings` seeds on `entity_type in (Review, Insight)`. `weave migrate reviews` then creates all 13
+  and the answer works — `13 nodes, 13 distinct, 0 duplicated`.
+- **What this corrects.** W17 was recorded as *a generic upsert silently retypes a governed node* — drift in
+  a live instance, repaired by re-running the migration. That framing was too kind. **The typed nodes are
+  never created at all**, so one of the four canonical questions is empty on **every new workspace** until a
+  migration nobody is told to run has been run. The demo tenant answered only because it had been migrated
+  historically, which is exactly why two reviews and a browser pass missed it.
+- **Options:** (a) recording writes the typed node directly · (b) the migration joins the documented flow ·
+  (c) `ask_learnings` also seeds on untyped decision traces
+- **Decision: (a).** `record_learning` and the review path create `Insight` / `Review` nodes at the moment of
+  recording, exactly as every other artifact already does. **`migrate_reviews.py` already knows how to build
+  them** (`entity_type: "Insight"`), so the construction is **shared by the live path and the migration
+  rather than written twice** — R10, and the only way the two cannot drift apart.
+- **Why not (b):** it documents a workaround as a feature, and W17 already showed a migration's output does
+  not survive later writes by a path that does not know the type is load-bearing. A guide step that must be
+  re-run after ordinary use is not a step, it is a defect with instructions.
+- **Why not (c):** widening the query to accept untyped nodes makes the answer surface tolerate exactly the
+  corruption W17 is about, and would surface every generic `ENTITY` as a learning.
+- **The second half, without which the first is temporary.** Creating the node typed is not enough if a later
+  generic upsert can retype it — that is W17's mechanism and it would silently undo this. **`emit_decision_trace`
+  must not be able to change the `entity_type` of an existing governed node**, and a test must assert it.
+- **Consequences:** the migration becomes a genuine one-off for instances that predate this. **P8 unblocked** —
+  the guide can say *"record a learning, then ask what did we learn"* and both halves work. Opened as **P10.1**.
