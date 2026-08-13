@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { RefreshCwIcon } from 'lucide-react'
 import { useSettingsStore } from '@/stores/settings'
+import { OntologyCanvas } from '@/features/next/governance/OntologyCanvas'
 import {
   getOntology, setOntology, deleteOntology, generateOntology,
   type OntologySummary, type OntologyDoc
@@ -109,6 +110,25 @@ export default function OntologyNext() {
             : <span className="chip" style={{ alignSelf: 'center' }}>no ontology</span>}
         </div>
       </div>
+
+      {/* The schema as a graph (CR-001 §4b). Above the JSON, because a shape is
+          what an ontology is — the textarea is the escape hatch, not the
+          primary view. Every link type is drawn once per concrete type pair and
+          the pairs select together, so a link type that connects three things
+          looks like one object rather than three. */}
+      {summary?.exists && summary.ontology && (
+        <div className="card" style={{ marginBottom: 12 }}>
+          <div className="chead">
+            <h3>Shape</h3>
+            <span className="sub">
+              {summary.object_types.length} types · {summary.link_types.length} link types
+            </span>
+          </div>
+          <div className="cbody">
+            <OntologyCanvas doc={summary.ontology} />
+          </div>
+        </div>
+      )}
 
       {/* Schema overview */}
       {summary?.exists && (

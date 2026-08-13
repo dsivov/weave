@@ -132,8 +132,12 @@ the inspector work proves harder than this suggests.
 **Two consequences for the tasks:**
 
 1. **Node properties do not go inline.** 99 object-type properties, mean 5.5, max 9, across six kinds
-   with constraints (enum, min/max, required). That is an inspector panel, and
-   `diagram-editor/components/Inspector/` is the precedent to **reuse**, not a second one to write (R10).
+   with constraints (enum, min/max, required). That is an inspector panel. **Corrected 2026-08-13: it cannot reuse `diagram-editor/components/Inspector/`.** That
+   panel reads `useFlowStore` directly (`InspectorPanel.tsx:82-86`) and edits **mermaid styling** — `fontSize`,
+   `color`, `stroke`, `label`. Reusing it would bind the ontology view to the diagram's store *and still* not edit a
+   typed property. **R10 forbids a second implementation of one job, not a first implementation of another** — these
+   are different jobs wearing one word. The canvas gets its own inspector. `applyDagreLayout` is excluded for the
+   same reason: it is typed for the diagram editor's node data, and coercing through it is coupling dressed as reuse.
 **Both blind spots are one bug.** Link properties and the `ANY` wildcard are each *a property of the data, mistaken for a property of the code, because the only data anyone tested against did not exercise it* — W13's shape, and W5's before it. One fixture closes both, and it costs a line each.
 
 2. **Link-type properties must round-trip even though the preset has none.** The schema carries them;
