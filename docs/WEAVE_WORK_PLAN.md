@@ -725,9 +725,9 @@ The startup refusal is gone from the source, not merely unreachable. Suite green
 - [x] **The tooltip sweep's reach matches its claim.** Verified by the manager: `title={x ? … : …}` on a disabled control fails the sweep, but a **constant** `title="…"` passes — while the docstring says *"a `title` on a disabled element … is not an explanation."* Naive widening false-positives on naming-titles (`title="Refresh"`), so either narrow the docstring to the rule the code enforces, or flag any `title` on a control with a non-trivial `disabled=` and require an explicit opt-out. **Fourth instance of reach-versus-claim in this project.**
 - [x] **W21 — the second token-write path** (`api/weave.ts:369`) updates the store from the renewed token, so the footer always shows what the token carries. Approved to ride along with this phase.
 - [ ] **U14 — the board installs governance instead of naming an HTTP verb.** `WeaveBoard.tsx:140` tells a human role to *"Run `POST /weave/bootstrap`"*; the board already knows `installed: false` and the endpoint is correctly gated to supervisors. A button, with the same report-what-happened treatment as the rest of the rule. **Not** auto-install on workspace creation — see U14's second half and W16.
-- [ ] **U9 — the API tab renders.** `/static/swagger-ui/*` 404s; ship or mount the assets, and a test that fetches both.
-- [ ] **U5 — the features anchor stops pretending to be a question box**, and its empty state distinguishes *nothing matched* from *nothing exists*.
-- [ ] **U3 — no raw node id is ever shown to a reader** (`AnswerView.tsx:31`). Re-seed first and confirm the shape; the fallback may be masking a data defect rather than causing one.
+- [x] **U9 — the API tab renders.** `/static/swagger-ui/*` 404s; ship or mount the assets, and a test that fetches both.
+- [x] **U5 — the features anchor stops pretending to be a question box**, and its empty state distinguishes *nothing matched* from *nothing exists*.
+- [x] **U3 — no raw node id is ever shown to a reader** (`AnswerView.tsx:31`). Re-seed first and confirm the shape; the fallback may be masking a data defect rather than causing one.
 - [ ] **[manager]** drive all thirteen in a real browser, signed in as each of two roles. Not `curl`.
 
 **Gate (M10):** every U-number in `WEAVE_UI_DEFECTS.md` reproduced before the fix and driven after it, **in
