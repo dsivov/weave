@@ -883,3 +883,31 @@ Status: `accepted` · `superseded by D-NN` · `reversed`.
 - **Consequences:** existing graphs need re-extraction to clear the leaked entities, including the demo tenant.
   **Worth stating as a rule beyond the prompt:** the rebrand's remaining risk is semantic, not lexical — the
   guard catches spellings, and nothing yet catches inherited *content* that no longer describes this product.
+
+## D-042 · Weave vendors the Swagger UI assets rather than loading them from a CDN
+- **Date:** 2026-08-13  ·  **Status:** accepted  ·  **Raised by:** manager (U9)  ·  **Approved by:** dsivov
+- **Context:** U9 left `/docs` naming `/static/swagger-ui/*` unconditionally while the mount for that path
+  was conditional on a directory nothing shipped — 200 for the page, 404 for its stylesheet and script.
+  The developer's fix made the page follow the mount, which restored a working page **by falling back to
+  FastAPI's CDN defaults** and left the real question open.
+- **The question:** an air-gapped or NAT-bound install cannot reach `cdn.jsdelivr.net`, so the API
+  documentation would be blank exactly where it is least replaceable. A15 says the fleet is outbound-only
+  and built to sit behind NAT; a product with that posture should not need the public internet to explain
+  its own API.
+- **Decision: vendor them**, pinned. `swagger-ui-dist@**5.32.13**` — `swagger-ui-bundle.js`, `swagger-ui.css`,
+  `favicon-32x32.png`, plus `LICENSE` and the bundle's own `swagger-ui-bundle.js.LICENSE.txt`. 1.7 MB in
+  `weave/server/static/swagger-ui/`, already covered by `pyproject`'s `"weave.server" = [… "static/**/*"]`
+  package data, so a `pip install` carries them rather than the repository alone.
+- **Why this is not an A11 dependency.** A11 governs **libraries the code imports**; nothing imports these.
+  They are third-party *build output served to a browser*, and FastAPI already depended on exactly these
+  files — from a CDN, unpinned at `@5`, fetched by the user's browser rather than shipped. **Vendoring
+  reduces what the running product depends on**: one fewer network origin, and a pinned version instead of
+  a floating major. It is logged here because third-party code entering the repository should never be a
+  silent act, not because a constraint bends.
+- **Why not leave the CDN default:** it works on a developer laptop and fails on the deployment shape this
+  product is designed for — the failure appears late, on someone else's machine, as a blank page.
+- **Consequences:** `PROVENANCE.md` in that directory records the version, checksums and refresh command.
+  Two tests hold it: the existing structural one (page and mount share a condition) and a new behavioural
+  one, `tests/test_docs_assets_are_actually_served.py`, which builds the app and fetches every URL the
+  page names — **the first test in the suite that constructs the server**, which is W6's standing gap.
+  A refresh that half-copies a file now fails a test instead of shipping a blank page.
