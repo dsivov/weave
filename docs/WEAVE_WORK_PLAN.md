@@ -5,7 +5,7 @@
 
 - **Sources:** [WEAVE_DRP.md](WEAVE_DRP.md) · [WEAVE_ARCHITECTURE.html](WEAVE_ARCHITECTURE.html) · [WEAVE_RFC.html](WEAVE_RFC.html)
 - **Contract:** [CONSTRAINTS.md](CONSTRAINTS.md) **v4** — every phase opens with a contract check (R11)
-- **Branch:** work rides a `feature/` branch and the manager merges at each gate — two sessions now share one checkout (D-025's direct-to-`main` waiver superseded in practice; R5 observed). · **Status:** **P0–P6 built and reviewed (M0–M6 all merged). P7 is the active phase** — CR-001 approved 2026-08-13: the UI becomes Weave's rather than the engine's.** M6 approved 2026-08-11: 0 Critical, 0 High, suite 1083 / 0 / 0, all three deployables built and A1/A10/A13/A15 verified against the built images. D-032 and D-033 both closed: every governance write now goes through the ledger.
+- **Branch:** work rides a `feature/` branch and the manager merges at each gate — two sessions now share one checkout (D-025's direct-to-`main` waiver superseded in practice; R5 observed). · **Status:** **P0–P7 complete and reviewed; M0–M7 all merged. P8 — the user guide — is the active phase.** — CR-001 approved 2026-08-13: the UI becomes Weave's rather than the engine's.** M6 approved 2026-08-11: 0 Critical, 0 High, suite 1083 / 0 / 0, all three deployables built and A1/A10/A13/A15 verified against the built images. D-032 and D-033 both closed: every governance write now goes through the ledger.
 - **Owner:** dsivov · **Roles:** *manager* owns this plan, the contract, the reviews, git and server startup; *developer* implements the tasks and runs the gate. A task marked **[manager]** is not the developer's to do.
 
 > **This plan builds on working code, not a blank page.** Every task below that moves code names its
@@ -618,7 +618,7 @@ dev-agent image builds from the rebranded packages carrying no git credentials a
 - [x] `tests/test_ui_has_no_private_answer_path.py` `[new]` — **renamed from `test_ask_ui_parity.py`, because that test could not do what its name claimed.** A Python test cannot observe the UI's node set, and asserting REST/MCP parity instead would duplicate `test_mcp_rest_parity.py` while *reading* as if it had checked the UI. What it can assert, and what A9 actually needs, is that **the UI has no private data path**: the four pages fetch the four `/ask` endpoints and nothing else answers those questions — an AST/source sweep of `weave-ui/src` for any other call that returns answer nodes. Pair it with a `bun test` that `AnswerView` renders every node the API shape carries, dropping none. **✅ done (`97be3f1`) — 7 tests, negative-controlled both ways, with a guard on the guard.**
 - [x] `weave-ui/src/**/__tests__` `[new]` — **one fixture exercising what the preset does not**: link-type properties (0 of 23 have any) **and** an `ANY` wildcard link (0 of 23 use one). Assert properties round-trip through save, the wildcard renders, and editing one edge of a shared `LinkType` visibly affects its siblings. Plus: a proposal with no reason cannot sign. **✅ done — the fixture landed with the canvas; `bun test` **run by the manager: 17 pass, 0 fail**.**
 - [x] **Open the pages in a browser before M7 is called.** Everything built in P7 so far is verified by `tsc`, `eslint` and a real bundle — **and has never been rendered**. *It compiles* is not *it works*, and this phase named that gap as its top risk. The navigation restructure and the new pages are unexercised at runtime. If `AnswerView` shows `(untitled)` against real data, the fix is its `title → name → entity_name → id` guess list, not the endpoint. **✅ done by the manager 2026-08-13 — real Chromium over CDP. Nav renders Weave-first, Features 6 nodes, Projects 1 repo, SSE connected, no console errors. **Found W17.****
-- [ ] **Run `bun run build`, `bun test`, `tsc --noEmit`, `eslint .`, the Python suite and the name-guard by hand** and report every number (D-036).
+- [x] **Run `bun run build`, `bun test`, `tsc --noEmit`, `eslint .`, the Python suite and the name-guard by hand** and report every number (D-036). **✅ done by the manager 2026-08-13 — `bun test` 17 pass / 0 fail (first run ever), `bunx --bun vite build` ✓, tsc 0, eslint 0, pytest 1116, guard clean.**
 
 **Gate (M7):** from a fresh login the first screen answers a **Weave** question, not a document one; each of
 `/ask/{changes,why,features,learnings}` is reachable and returns the **same node set as the API** for the same
@@ -628,7 +628,7 @@ round-trips a document the structured editor cannot express; **all sixteen curre
 **no endpoint added and no route serving the UI alone** — a shared-handler change that serves MCP identically is consistent with A9 (amended 2026-08-13, D-038; it previously read *"`git diff weave/server/routers/` is empty"*, which would have forbidden fixing the A6 hole this phase found); `bun run build` and `bun test` pass; `tsc` and `eslint` exit 0;
 Python **1091+ passed**; name-guard clean.
 
-**Review:** code review of the CR diff; log the outcome in `DECISIONS.md`.
+**Review:** ✅ **M7 reviewed 2026-08-13** → [WEAVE_CODE_REVIEW_M7.md](WEAVE_CODE_REVIEW_M7.md) — **0 Critical, 0 High**, 2 Medium. **Merged.** Gate driven by hand including the two that had never run. Browser pass with real Chromium: Weave-first nav, landing view `Work`, 16/16 views reachable, no console errors — **and it found W17**.
 
 ---
 

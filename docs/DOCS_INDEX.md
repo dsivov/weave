@@ -66,6 +66,10 @@ multi-role support.
   **No new dependency, no new endpoint, no contract amendment** — it surfaces what P4–P6 already built.
 
 ## Plan & progress
+- [WEAVE_CODE_REVIEW_M7.md](WEAVE_CODE_REVIEW_M7.md) — **M7**, 2026-08-13. 0 Critical · 0 High · 2 Medium.
+  The UI becomes Weave's (CR-001). **`bun test` ran for the first time in the project — 17 pass, 0 fail** — and a real
+  browser pass closed the phase's stated top risk: Weave-first navigation, landing view `Work`, 16/16 views still
+  reachable, no console errors. It also **found W17**, a generic upsert silently retyping a governed node. Merged.
 - [WEAVE_CODE_REVIEW_M6.md](WEAVE_CODE_REVIEW_M6.md) — **M6**, 2026-08-11, **the final milestone**. 0 Critical ·
   0 High · 2 Medium. Suite **1083 / 0 / 0**. The Docker half the developer's container could not run was run by the
   reviewer: **all three deployables build**, and **A13** (no `anthropic` in the dev-agent image), **A10** (Claude Code
