@@ -31,6 +31,7 @@
 | P5 | Senior-developer seat | Supervisory principal; dispatch, pause/resume/redirect | **M5** | pause honoured between steps; claim tests pass unmodified |
 | P6 | Onboarding bundle & productisation | `weave` CLI; compose bundles; dev-host + agent images | **M6** | clean machine → live fleet by published steps only; onboarding measured |
 | P7 | **The UI becomes Weave's** (CR-001) | Weave-first navigation; ontology/rules authored propose → diff → sign; the four questions get a UI | **M7** | first screen answers a Weave question; every `/ask` reachable and matching the API; governance signed with a reason; 0 endpoints changed |
+| P8 | **The user guide** | one illustrated HTML manual covering bootstrap, install and every role; absorbs `guides/first-fleet.md` | **M8** | **every documented step executed while writing it**; an uninvolved person reaches a live fleet from the guide alone |
 
 ```mermaid
 flowchart LR
@@ -627,6 +628,52 @@ round-trips a document the structured editor cannot express; **all sixteen curre
 Python **1091+ passed**; name-guard clean.
 
 **Review:** code review of the CR diff; log the outcome in `DECISIONS.md`.
+
+---
+
+
+## P8 · The user guide → **M8**
+
+> **Requested by dsivov 2026-08-13, to be written after P7 lands.** One illustrated HTML manual in house
+> style (`docs/assets/house.css`, inline SVG, mermaid), written for someone who has never seen Weave.
+>
+> **It absorbs [`guides/first-fleet.md`](guides/first-fleet.md), it does not sit beside it.** That guide
+> already covers install → server → first admin → vocabulary → project → dev host → workers → upgrade →
+> troubleshooting, in 259 lines, and P6 corrected it twice (W7, W9). Two onboarding documents is the
+> duplication R10 exists to prevent, so `first-fleet.md` is **deleted** in the same commit and its content
+> carried across — including both corrections.
+>
+> **The rule that makes this different from documentation: every claimed step is executed before it is
+> written.** Not "verified afterwards" — the command is run, its real output captured, and the guide records
+> what happened. A step that cannot be executed here says so in the text rather than being written
+> optimistically. dsivov's stated purpose is that an **uninvolved person** installs and runs Weave from this
+> document alone, so a step that has never been run is not a step, it is a hope.
+>
+> **This is also the closest the project gets to M6's unclosed half.** M6's gate said *clean machine → live
+> fleet by published steps only*, and two things were never closed: the compose bundle has never raised a
+> fleet end to end, and `bun test` is unverified since D-036. **Writing this guide by executing it is the
+> mechanism that finally tests them** — and where it cannot, the guide says so.
+
+- [ ] **Contract check (R11)** — touches **A1** (three deployables — the guide must not imply a fourth), **A10** (every role is a Claude Code session; no bespoke client), **A13** (subscription seats — the guide must never tell a reader to put a model key anywhere near a Claude Code process), **A15** (the dev host dials out; nothing dials in).
+- [ ] `docs/WEAVE_USER_GUIDE.html` `[new]` — house style, illustrated with inline SVG + mermaid, one document.
+- [ ] **Bootstrap & install** — clean machine to a running server: prerequisites, `environment.yml`, the token secret, the model backend (**W9's lesson: the guide must say the model has to stay resident, because a timeout reads as a Weave defect**), first administrator.
+- [ ] **Per role, what that person actually does day one:** **admin** (users, workspaces, membership, backups) · **manager** (the board, dispatch, the four questions) · **architect** (ontology, rules, lifecycle, the signed ledger, diagrams) · **developer** (claiming, worktrees, PRs, and the dev-agent seat).
+- [ ] **The dev-host service** — install the daemon on a second machine, register, heartbeat, scale, and why nothing dials in (A15).
+- [ ] **The Docker environment** — `deploy/compose.yml` and `compose.devhost.yml`, the three images, and the variables each refuses to start without.
+- [ ] **Troubleshooting**, carried from `first-fleet.md` and extended with what this project actually hit: the front door (W10), the resident-model timeout (W9), the batch-size limit on embeddings, `admin` ≠ supervisor, and the workspace header.
+- [ ] `docs/guides/first-fleet.md` — **deleted**, content absorbed (R10).
+- [ ] `docs/DOCS_INDEX.md` · `docs/index.html` — the guide linked from both; it is the page a new reader should land on.
+- [ ] **An execution log** — for each numbered step, what was run and what came back. Not shipped in the guide; kept as the evidence the gate is checked against.
+
+**Gate (M8):** **every step in the guide has been executed and its real output recorded**, or the step
+carries an explicit note saying what could not be run here and why. A reader following the guide on a clean
+machine reaches: a running server, a first administrator, a governed workspace, a registered project, an
+attached dev host, and a worker that claims a task — **with no step requiring a file edit the guide did not
+name, and no command that does not exist**. The guide names no model credential anywhere near a Claude Code
+process (**A13**), implies no fourth deployable (**A1**), and describes no inbound connection to a host
+(**A15**). `first-fleet.md` is gone and nothing links to it.
+
+**Review:** code review of the guide against an execution log; then dsivov, or someone uninvolved, runs it end to end.
 
 ---
 
