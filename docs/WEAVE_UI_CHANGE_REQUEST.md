@@ -124,6 +124,8 @@ radius is invisible is worse than an edit the canvas declines to offer.
 1. **Node properties do not go inline.** 99 object-type properties, mean 5.5, max 9, across six kinds
    with constraints (enum, min/max, required). That is an inspector panel, and
    `diagram-editor/components/Inspector/` is the precedent to **reuse**, not a second one to write (R10).
+**Both blind spots are one bug.** Link properties and the `ANY` wildcard are each *a property of the data, mistaken for a property of the code, because the only data anyone tested against did not exercise it* — W13's shape, and W5's before it. One fixture closes both, and it costs a line each.
+
 2. **Link-type properties must round-trip even though the preset has none.** The schema carries them;
    **0 of 23** preset links use one. An editor that drops them on save loses data for anyone who has
    authored some — and the preset would never reveal it, because the preset has none. Assert the
@@ -162,7 +164,7 @@ radius is invisible is worse than an edit the canvas declines to offer.
 - [ ] `Work.tsx` · `Features.tsx` · `Learnings.tsx` · `Projects.tsx` — the primary views.
 - [ ] `OntologyNext.tsx` · `RulesNext.tsx` — structured editors over the shared flow, JSON escape hatch retained.
 - [ ] **Ontology canvas** — `@xyflow` node/link view drawing all 37 concrete edges, with same-`LinkType` edges grouped: select one selects all, inspector headed with the other pairs it connects. Reuse `diagram-editor/components/Inspector/` for the 99 properties rather than writing a second inspector (R10).
-- [ ] `weave-ui/src/**/__tests__` — a fixture whose link types **carry properties** (the preset has none) round-trips through save without loss; and an edit to one edge of a shared `LinkType` visibly affects its siblings.
+- [ ] `weave-ui/src/**/__tests__` — **one fixture that exercises what the preset does not.** It must carry **link-type properties** (0 of 23 preset links have any, so a preset-derived test cannot catch the save dropping them) **and one `ANY` wildcard link** (0 of 23 use one, so no preset-derived test renders the 324-edge case). Assert: properties round-trip through save without loss; the wildcard renders without collapsing the canvas; and an edit to one edge of a shared `LinkType` visibly affects its siblings.
 - [ ] `Studio.tsx` — history, diff and revert; authoring removed.
 - [ ] `tests/test_ask_ui_parity.py` — the UI's node set for each question equals the API's (**A9**, mirrors `test_mcp_rest_parity.py`).
 - [ ] `weave-ui/src/**/__tests__` — `bun test` coverage for the shared governance flow: a proposal with no reason cannot sign.
