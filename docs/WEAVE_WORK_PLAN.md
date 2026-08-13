@@ -731,8 +731,36 @@ The startup refusal is gone from the source, not merely unreachable. Suite green
 a browser**, by the manager. Sign out, sign in as a second user, and see the identity change on screen.
 `bun test` and `tsc --noEmit` green; suite green; name-guard clean.
 
-**Held for a decision (not in scope until dsivov answers):** U1's role model, and U8's extraction prompt —
-both in `WEAVE_UI_DEFECTS.md` § *Decisions needed*.
+**Both decisions are in (2026-08-13).** **D-040:** the role model does *not* change — `admin` administers users,
+`manager`/`architect` direct work. P10 fixes the deadlock, and Admin ▸ Users must state that a role change takes
+effect at the user's **next sign-in**, which is the sentence whose absence produced U1. **D-041:** the extraction
+prompt is rewritten as a measured change, and that is **P11**, not P10.
+
+**Review:** code review; log the outcome in `DECISIONS.md`.
+
+---
+
+## P11 · The extractor learns from software artifacts → **M11**
+
+> **Opened 2026-08-13 from D-041.** `weave_core/graph/prompt.py` teaches entity extraction with two few-shot
+> examples carried verbatim from the parent engine: a science-fiction short story and a B2B speaker sales call.
+> **5 of the sales example's entities are real nodes in the demo graph**, out of 924. The leak is the symptom;
+> the defect is that an extractor for a software-development team is calibrated on a novel and a price objection.
+>
+> **The one that must not happen:** deleting the examples. A few-shot prompt with no examples is a worse extractor,
+> not a neutral one. They are **replaced** with software artifacts, and the replacement is **measured** (R2).
+
+- [ ] **Contract check (R11)** — **A3** (this is the half-rebrand in the place the guard cannot reach: it catches spellings, not inherited content), **A5** (examples must model artifacts referenced by `repo · path · rev`, never bodies), **A11** (no new library), **A13** (the prompt is server-side LLM use — the only place a model credential exists; nothing here goes near a Claude Code process).
+- [ ] `scripts/measure_extraction.py` — the harness first, against the current prompt: fixed corpus of real project documents, entity/relation counts by type, and an explicit check for the five leaked entities. **A before number nobody can reconstruct later is not a baseline.**
+- [ ] `weave_core/graph/prompt.py` — replace both few-shot examples with software-development ones: a PRD/RFC excerpt and a review-and-decision excerpt, using entity types drawn from Weave's own ontology rather than `competitor` / `objection`.
+- [ ] `tests/` — assert no example entity name from the prompt appears in extraction output on the fixed corpus, and that the declared entity types match the ontology. The test asserts the **class** — any example entity, not the five we know.
+- [ ] Re-extract the demo tenant; confirm the 5 leaked entities are gone and the answer surfaces still resolve.
+- [ ] `docs/` — record the before/after numbers where the claim is made (R2/R6). Parity is an honest result; an unverified improvement is not.
+
+**Gate (M11):** `scripts/measure_extraction.py` reports before and after on the same corpus, the five leaked
+entities are absent from a re-extracted demo graph, entity types match the ontology, and the suite is green.
+**If the new examples measure worse, that is the finding and it ships as one** — the domain fix is not permitted
+to smuggle in a quality regression unmeasured.
 
 **Review:** code review; log the outcome in `DECISIONS.md`.
 

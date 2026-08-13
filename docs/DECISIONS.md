@@ -831,3 +831,55 @@ Status: `accepted` · `superseded by D-NN` · `reversed`.
 - **Consequences:** the containerised bundle still cannot run quadruple + PostgreSQL, and now **says so at
   startup**. The guide (P8) documents the source install as the supported path for governed workspaces and
   states this limit rather than working around it. **P9 closes it properly.**
+
+## D-040 · Administering people and directing work stay separate roles
+- **Date:** 2026-08-13  ·  **Status:** accepted  ·  **Raised by:** manager (U1 triage)  ·  **Approved by:** dsivov
+- **Context:** dsivov, the owner of the installation, could not point the project at a real GitHub repository:
+  `403 role 'admin' may not define the project (supervisors only)` — and reported, fairly, that *"in roles there
+  is no role 'supervisor' to assign to myself."*
+- **What was actually happening.** Three defects composing, not one. `PUT /weave/project` checks
+  `SUPERVISOR_ROLES = {"manager","architect"}` (`team.py:197,722`) against `_role()`, which reads the role from
+  the **token** — correct, and D5's whole point. The role had in fact been changed in Admin ▸ Users and **saved
+  silently** (`dsivov.updated_at` 2026-08-13T10:15 against `last_login_at` 2026-08-11), the token still carried
+  the old one, and the only way to reissue a token — logout — **had been dropped by the P7 shell**. U10 + U11 + U1.
+- **Options:** (a) keep the split and fix the deadlock · (b) make `admin` a supervisor · (c) grant per-workspace
+  governance roles from the Users screen
+- **Decision: (a).** `admin` administers **users**; `manager` and `architect` direct **work**. They are different
+  authorities and the product is about governed work, so merging them to remove one 403 would make the role model
+  permanently coarser to paper over three UI defects. Fixing U10 and U11 makes a role change usable — grant, sign
+  out, sign in — which is the operation the user was trying to perform.
+- **Why not (b):** it is one line and immediately intuitive for a single operator, and it is very hard to unwind
+  once installations depend on it. The intuition it serves — *"I own this, I should be able to configure it"* — is
+  satisfied by (a) as soon as granting yourself a role works.
+- **Why not (c) yet:** it is the most correct answer and the largest; a real membership-and-roles editor is its own
+  scope, not a P10 task. (a) does not foreclose it.
+- **Consequences:** P10 fixes the deadlock, not the role model. Admin ▸ Users must state that a role change takes
+  effect at the user's **next sign-in** — the sentence whose absence produced this decision. A4 · A6 unchanged.
+
+## D-041 · Weave's extraction prompt learns from software artifacts, not the parent's examples
+- **Date:** 2026-08-13  ·  **Status:** accepted  ·  **Raised by:** manager (U8 triage)  ·  **Approved by:** dsivov
+- **Context:** dsivov found a B2B sales conversation in the Decisions tab of the demo tenant — *"Premium Wireless
+  Speaker"*, *"AudioRival"*, *"Outcome: Lost (ClosedLost)"* — and reported it as bad demo seeding. It is not
+  demo data. It is `weave_core/graph/prompt.py`, shipped, on every instance.
+- **Verified.** The entity-extraction prompt carries two few-shot examples inherited verbatim from the parent
+  engine: a **science-fiction short story** (lines 108–125 — Alex, Taylor, Jordan, Cruz, "The Device") and a
+  **B2B speaker sales call** (lines 615–643), the latter teaching entity types `competitor` and `objection`.
+  GPT-4o copied them into its output: **5 of the example's entities are real nodes in the demo graph** —
+  AudioRival, TechGadgets, Premium Wireless Speaker, SoundMax Pro, Customer — out of 924.
+- **Why this is a finding and not a typo.** Weave reads PRDs, ADRs, tasks and reviews. Its extractor is being
+  taught what an entity looks like by a novel and a price objection, and the leak is only the visible symptom.
+  **This is the half-rebrand in the one place A3 cannot reach:** A3 bans two *spellings*, and nothing in the
+  contract says the prompts must be about the domain the product serves. The names were changed; the worked
+  examples were not. Same family as D-004, one layer deeper.
+- **Options:** (a) rewrite the examples for the software-development domain, measured · (b) keep them and add an
+  instruction not to copy them · (c) defer
+- **Decision: (a), as a measured change under R2** — same corpus, before/after entity counts, and the five leaked
+  entities gone. It changes how every ingested document is read, so it gets a harness in `scripts/` and its own
+  gate rather than a quiet edit. Opened as **P11 → M11**.
+- **Why not (b):** it treats the leak as the defect. The leak is the symptom; the domain mismatch is the defect,
+  and an instruction not to copy the examples leaves the extractor calibrated on the wrong kind of text.
+- **Why not (c):** every ingest until then pollutes a graph that must later be rebuilt, and the guide (P8) will
+  tell readers to ingest their own documents.
+- **Consequences:** existing graphs need re-extraction to clear the leaked entities, including the demo tenant.
+  **Worth stating as a rule beyond the prompt:** the rebrand's remaining risk is semantic, not lexical — the
+  guard catches spellings, and nothing yet catches inherited *content* that no longer describes this product.
