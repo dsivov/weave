@@ -303,6 +303,44 @@ Also a **genuine onboarding fact nobody has written down**: governance needs *bo
 `WEAVE_ENABLE_TEAM` and `WEAVE_ENABLE_QUADRUPLE`. That belongs in the guide regardless of the
 wording fix.
 
+## U17 · Governance is signed, in force, and shown nowhere
+
+dsivov, 2026-08-13: *"In Team vocabulary I changed mode from Solo to Reviewed and enabled only two
+roles (manager and developer). I signed it, but there is no indication which mode the system is in
+now."*
+
+**The change worked perfectly.** Read back from the live demo ledger:
+
+```
+GET /rbac        name: "reviewed"  version: 2  roles: manager (*), developer (8 actions)
+GET /lifecycle   name: "reviewed"  version: 2  Task: review → approved requires "manager"
+```
+
+Exactly what was asked for, signed and enforced. **And no screen says so.** `Wizard.tsx` renders
+four sections — *choose a shape*, *the interview*, *the diff and the signature*, *what happened* —
+every one of them about **changing** governance. The fourth only appears in the session that applied
+it; revisit the page tomorrow and there is nothing. The board's chip says `installed`, not *which*.
+
+So the person who just reshaped how their team works has no way to confirm it, and the honest
+question *"are we in Reviewed mode?"* is answerable only by reading the ledger over HTTP.
+
+**Same family as U10's silent save** — the write succeeded and told nobody — but a step worse: U10
+was silent about an event, this is silent about **state**, so the gap does not close by waiting.
+
+### The fix, and the trap in it
+
+**Derive it from the installed artifacts; do not store a mode label.** `/rbac` and `/lifecycle`
+already carry `name` and `version` — the wizard writes them and the runtime enforces them, so they
+cannot disagree with reality. A separate *"current mode = reviewed"* field would be **a second
+source of truth, which is precisely what A8 exists to forbid**: someone edits the ontology or rules
+directly, the runtime changes, and the label keeps saying Reviewed.
+
+- An **In force now** section at the top of Team vocabulary: mode name, version, the roles that
+  exist and what each may do, and the lifecycle in force — read from the ledger.
+- Mark the installed shape in *choose a shape*, so re-picking is an informed act rather than a
+  guess.
+- The board's `installed` chip names the mode.
+
 ## Severity and sequence
 
 | ID | Defect | Severity | Why that severity |

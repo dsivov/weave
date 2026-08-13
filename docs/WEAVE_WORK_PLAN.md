@@ -730,6 +730,7 @@ The startup refusal is gone from the source, not merely unreachable. Suite green
 - [x] **U3 — no raw node id is ever shown to a reader** (`AnswerView.tsx:31`). Re-seed first and confirm the shape; the fallback may be masking a data defect rather than causing one.
 - [ ] **U15 — `ENABLE_WEAVE` does not exist; the variable is `WEAVE_ENABLE_TEAM`.** One UI string (`WeaveBoard.tsx:55`) and two comments (`routers/team.py:3`, `app.py:1569`). Proven by experiment, not grep. **Blocks P8**, which documents turning Weave on.
 - [ ] **U16 — the bootstrap 503 says "requires Weave mode" when Weave mode is on** and quadruple mode is what is missing. Fix the sentence; the recommended flag is already right.
+- [ ] **U17 — show what governance is in force.** dsivov signed Solo → Reviewed with two roles; it landed (`rbac name=reviewed v2`, roles manager+developer) and **no screen says so**. An *In force now* section on Team vocabulary, the installed shape marked in the chooser, and the board's chip naming the mode. **Derived from `/rbac` + `/lifecycle`, never a stored label** — a stored mode is a second source of truth and A8 forbids exactly that.
 - [ ] **[manager]** drive all thirteen in a real browser, signed in as each of two roles. Not `curl`.
 
 **Gate (M10):** every U-number in `WEAVE_UI_DEFECTS.md` reproduced before the fix and driven after it, **in
