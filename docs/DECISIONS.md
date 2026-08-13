@@ -802,3 +802,32 @@ Status: `accepted` · `superseded by D-NN` · `reversed`.
   criterion now reads: *no endpoint added, and no route that serves the UI alone; a shared-handler change
   serving MCP identically is consistent with A9.* Recorded because a gate quietly reinterpreted is a gate
   that means whatever is convenient later.
+
+## D-039 · PostgreSQL cannot yet run quadruple mode — refuse at startup, complete the adapter as its own task
+- **Date:** 2026-08-13  ·  **Status:** accepted  ·  **Raised by:** developer (fixing W18)  ·  **Approved by:** dsivov
+- **Context:** W18's first two defects fixed, the server got further and died on
+  `ValueError: Unknown namespace: decisions` (`quadruple.py:674` → `postgres.py:2395`). Verified:
+  `NAMESPACE_TABLE_MAP` holds **11 entries and neither `decisions` nor `communities`**; `PGVectorStorage.upsert`
+  dispatches over exactly **three** namespaces and raises otherwise. Quadruple mode creates both stores
+  unconditionally in `__post_init__`.
+- **What that means, stated plainly:** `deploy/compose.yml` sets all four PostgreSQL backends **and**
+  `WEAVE_ENABLE_QUADRUPLE: "true"`, so **the shipped bundle configures a combination that has never worked on
+  any commit** — not a regression, a pairing nobody had run.
+- **Why it reached A4 rather than being a bug fix.** A4 calls PostgreSQL *"the multi-workspace production
+  path"*, and quadruple mode is the product — governance, decisions, communities. A production path that
+  cannot run the product's core mode makes that sentence misleading in the way that matters, exactly as
+  "three interchangeable storage paths" was before v4.
+- **Options:** (a) complete the adapter now · (b) refuse early and clearly, complete it as its own task ·
+  (c) point the bundle at file-based storage
+- **Decision: (b).** Quadruple + PostgreSQL **raises at startup naming the gap** instead of a `ValueError`
+  forty frames down, and completing the adapter — two tables, upsert branches, query SQL, index handling,
+  migration entries in a 5,000-line carried adapter — becomes **P9**. A4 gains the qualifying sentence at **v5**.
+- **Why not (c):** A4 says the file path is single-operator only because its writes are whole-file
+  read-modify-write. Shipping it as the containerised default would make the bundle demonstrate the one path
+  a team must not use — trading a loud failure for a quiet one, which is the trade this project keeps refusing.
+- **Why not (a) yet:** it is genuine feature work rather than a fix, and it would block the user guide behind
+  a 5,000-line adapter. **(b) costs almost nothing and turns a crash-loop into a sentence**, which is what
+  makes the image's limitation legible today.
+- **Consequences:** the containerised bundle still cannot run quadruple + PostgreSQL, and now **says so at
+  startup**. The guide (P8) documents the source install as the supported path for governed workspaces and
+  states this limit rather than working around it. **P9 closes it properly.**

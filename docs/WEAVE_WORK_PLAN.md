@@ -32,6 +32,7 @@
 | P6 | Onboarding bundle & productisation | `weave` CLI; compose bundles; dev-host + agent images | **M6** | clean machine → live fleet by published steps only; onboarding measured |
 | P7 | **The UI becomes Weave's** (CR-001) | Weave-first navigation; ontology/rules authored propose → diff → sign; the four questions get a UI | **M7** | first screen answers a Weave question; every `/ask` reachable and matching the API; governance signed with a reason; 0 endpoints changed |
 | P8 | **The user guide** | one illustrated HTML manual covering bootstrap, install and every role; absorbs `guides/first-fleet.md` | **M8** | **every documented step executed while writing it**; an uninvolved person reaches a live fleet from the guide alone |
+| P9 | **The PostgreSQL adapter runs quadruple mode** | `decisions` + `communities` vector stores: tables, upsert, query, indexes, migration | **M9** | `compose.yml` raises a governed workspace on PostgreSQL end to end; the startup refusal from D-039 is deleted, not disabled |
 
 ```mermaid
 flowchart LR
@@ -675,6 +676,33 @@ process (**A13**), implies no fourth deployable (**A1**), and describes no inbou
 (**A15**). `first-fleet.md` is gone and nothing links to it.
 
 **Review:** code review of the guide against an execution log; then dsivov, or someone uninvolved, runs it end to end.
+
+---
+
+
+## P9 · The PostgreSQL adapter runs quadruple mode → **M9**
+
+> **Opened 2026-08-13 from D-039.** A4 v5 says PostgreSQL cannot yet run quadruple mode, and this phase is
+> what removes that sentence. Until it lands, the containerised bundle refuses the pair at startup rather
+> than crash-looping — legible, but still a product that cannot run its own core mode on its own production
+> storage path.
+>
+> **The one that must not happen:** completing this by widening the refusal, or by making `decisions` and
+> `communities` optional so the error stops. The gate is that the pair **works**, and the refusal is
+> **deleted** rather than disabled.
+
+- [ ] **Contract check (R11)** — **A4** (this phase is the amendment being paid off), **A2** (no HTTP in the core), **A11** (no new library — `asyncpg` is already the driver).
+- [ ] `weave_core/graph/storage/postgres.py` — `WEAVE_VDB_DECISIONS` and `WEAVE_VDB_COMMUNITIES`: DDL, `NAMESPACE_TABLE_MAP` entries, `upsert` branches, query SQL, index handling, and migration entries alongside the existing three.
+- [ ] `tests/` — the two namespaces round-trip on **live PostgreSQL**, not a fixture: upsert, query by vector, delete. A test that passes on the file path proves nothing here.
+- [ ] **Delete the D-039 startup refusal** — and a test that fails if it comes back.
+- [ ] `docs/CONSTRAINTS.md` — remove A4's quadruple sentence at **v6** with an amendment row; log the `D-NN`.
+- [ ] **[manager]** re-run `docker compose -f deploy/compose.yml up` and confirm a governed workspace on PostgreSQL, end to end.
+
+**Gate (M9):** `deploy/compose.yml` raises a server on PostgreSQL with `WEAVE_ENABLE_QUADRUPLE=true`, reaches
+`/health`, bootstraps a workspace, and answers one governed question — verified by the manager on Docker.
+The startup refusal is gone from the source, not merely unreachable. Suite green on all three storage paths.
+
+**Review:** code review; log the outcome in `DECISIONS.md`.
 
 ---
 
