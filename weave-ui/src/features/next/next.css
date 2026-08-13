@@ -333,3 +333,58 @@
 .cgnext .maplegend{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font-size:12px;color:var(--text2)}
 .cgnext .maplegend span{display:inline-flex;align-items:center;gap:5px}
 .cgnext .maplegend i{width:11px;height:11px;border-radius:3px;display:inline-block}
+
+/* ── the ontology canvas ───────────────────────────────────────────────────
+   `@xyflow/react` ships `.react-flow__node-default{background:#fff}` and takes
+   its text colour from whatever it inherits. Under `.dark` that meant a white
+   box with `--text:#e7ebf3` on it — a contrast ratio of about 1.05:1, which is
+   invisible rather than merely poor. Nothing here had ever set a colour.
+
+   `--type-hue` / `--edge-hue` are set per element in `OntologyCanvas.tsx`; the
+   lightness is chosen here so the same hue works in both themes.
+
+   **Every selector is prefixed with `.react-flow`, deliberately.** The library's
+   own rule is a single class and is bundled after this file, so an equally
+   specific rule here loses on import order — which is not something this file
+   can control. The first attempt styled dark correctly and left light white,
+   because the `.dark` selectors happened to carry one extra class and the base
+   ones did not. Specificity, not ordering luck. */
+.react-flow .react-flow__node-default {
+  background: hsl(var(--type-hue, 220) 72% 95%);
+  border: 1px solid hsl(var(--type-hue, 220) 55% 68%);
+  color: hsl(var(--type-hue, 220) 55% 26%);
+  border-radius: 8px;
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, .06);
+}
+.react-flow .react-flow__node-default.selected,
+.react-flow .react-flow__node-default:hover {
+  border-color: hsl(var(--type-hue, 220) 62% 48%);
+  box-shadow: 0 0 0 2px hsl(var(--type-hue, 220) 70% 82%);
+}
+.react-flow .react-flow__edge-path { stroke: hsl(var(--edge-hue, 220) 52% 58%); stroke-width: 1.4; }
+.react-flow .react-flow__edge.selected .react-flow__edge-path {
+  stroke: hsl(var(--edge-hue, 220) 65% 45%); stroke-width: 2.4;
+}
+.react-flow .react-flow__edge-text { fill: var(--text2); font-size: 10px; font-weight: 600; }
+.react-flow .react-flow__edge-textbg { fill: var(--surface); }
+
+.dark .react-flow .react-flow__node-default {
+  background: hsl(var(--type-hue, 220) 34% 19%);
+  border-color: hsl(var(--type-hue, 220) 45% 42%);
+  color: hsl(var(--type-hue, 220) 75% 84%);
+  box-shadow: none;
+}
+.dark .react-flow .react-flow__node-default.selected,
+.dark .react-flow .react-flow__node-default:hover {
+  border-color: hsl(var(--type-hue, 220) 60% 62%);
+  box-shadow: 0 0 0 2px hsl(var(--type-hue, 220) 45% 32%);
+}
+.dark .react-flow .react-flow__edge-path { stroke: hsl(var(--edge-hue, 220) 48% 55%); }
+.dark .react-flow .react-flow__edge.selected .react-flow__edge-path {
+  stroke: hsl(var(--edge-hue, 220) 70% 70%);
+}
+.dark .react-flow .react-flow__controls button {
+  background: var(--surface2); color: var(--text); border-bottom: 1px solid var(--line);
+}
+.dark .react-flow .react-flow__controls button:hover { background: var(--raise); }

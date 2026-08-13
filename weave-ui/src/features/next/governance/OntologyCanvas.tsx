@@ -21,13 +21,40 @@
  * library state — so widening a selection is something we can simply do.
  */
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState, type CSSProperties } from 'react'
 import {
   ReactFlow, Background, Controls, applyEdgeChanges, applyNodeChanges,
   type Edge, type EdgeChange, type Node, type NodeChange
 } from '@xyflow/react'
+// Imported here rather than relied on from elsewhere. `Diagrams.tsx` and the
+// diagram editor's `Canvas.tsx` also import it, so the bundle happened to carry
+// it — this screen renders correctly on its own account, not by luck.
+import '@xyflow/react/dist/style.css'
 
 import type { OntologyDoc } from '@/api/weave'
+
+/**
+ * A stable hue for a name, so the palette survives a reload and a re-order.
+ *
+ * **What the colour means, and what it does not.** On *edges* it is meaning:
+ * one hue per **link type**, which is the fact this whole file exists to make
+ * visible — 23 link types drawn as 37 edges, several of them the same type
+ * drawn more than once. Same colour means same link type, and that reinforces
+ * the selection grouping below rather than decorating beside it.
+ *
+ * On *nodes* it is only an identity aid. `OntologyObjectType` carries no group
+ * or category field, so there is nothing true to colour by; a hash gives every
+ * type a distinguishable, stable colour and claims nothing. **It must not be
+ * read as a taxonomy** — if object types ever gain a real grouping, colour them
+ * by that and delete this note.
+ */
+function hueOf(name: string): number {
+  let h = 0
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % 360
+  // 360/23 ≈ 15°, so nudge off the multiples of 30 where distinct names would
+  // otherwise land on visually identical hues.
+  return (h * 7) % 360
+}
 
 /** One concrete edge, plus the link type it is one instance of. */
 export interface LinkEdgeData extends Record<string, unknown> {
@@ -73,7 +100,14 @@ export function expandOntology(doc: OntologyDoc): {
       // shows the properties.
       propertyCount: (t.properties ?? []).length
     },
-    type: 'default'
+    type: 'default',
+    // The hue rides as a CSS variable rather than a resolved colour, because a
+    // colour computed here would be computed once and the theme can change
+    // under it. `next.css` picks the lightness for light and dark; this only
+    // says *which* hue. That is also why the white-on-white happened: the node
+    // kept the library's `background:#fff` while the text inherited the app's
+    // near-white dark-theme foreground — 1.05:1, unreadable and never styled.
+    style: { '--type-hue': hueOf(t.name) } as CSSProperties
   }))
 
   const edges: Edge<LinkEdgeData>[] = []
@@ -100,7 +134,11 @@ export function expandOntology(doc: OntologyDoc): {
           cardinality: link.cardinality ?? 'N:M',
           siblings: pairs.filter(([a, b]) => !(a === s && b === t)).map(([a, b]) => `${a} → ${b}`),
           wildcard
-        }
+        },
+        // Keyed on the **link type**, not the edge id — so the 9 fanning-out
+        // types are one colour each and the sharing is visible before anything
+        // is clicked.
+        style: { '--edge-hue': hueOf(link.name) } as CSSProperties
       })
     }
   }

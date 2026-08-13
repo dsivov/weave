@@ -200,7 +200,7 @@ export default function OntologyManager() {
           <Textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="e.g. A school district. Schools employ teachers. Teachers teach courses to students. Students enroll in courses and receive grades."
+            placeholder="e.g. A software team. Architects write RFCs; a change request cites the RFC it implements. Developers claim tasks, and a task implements one change request. Reviews approve or block a task, and merged work produces commits that touch modules."
             className="min-h-20"
           />
           <label className="flex items-center gap-2 text-sm">
