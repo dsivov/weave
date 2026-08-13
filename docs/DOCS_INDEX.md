@@ -65,6 +65,13 @@ multi-role support.
   and the raw ontology/rules JSON textareas replaced by the wizard's **interview → proposal → diff → sign**.
   **No new dependency, no new endpoint, no contract amendment** — it surfaces what P4–P6 already built.
 
+- [WEAVE_UI_DEFECTS.md](WEAVE_UI_DEFECTS.md) — **U1–U13**, 2026-08-13. Thirteen defects dsivov found in the running
+  demo, every mechanism verified: **13 reports → 13 confirmed, 7 root causes**. The headline is that a user could not
+  log out, could not see who they were, and could not act in the role they had just granted themselves — three
+  defects composing into a dead end. It also found that Weave extracts knowledge using the parent engine's few-shot
+  examples (a sci-fi story and a speaker sales call), **5 of which leaked into the demo graph as real entities** —
+  the half-rebrand in the one place the name-guard cannot reach. Assigned as **P10 → M10**; two decisions open.
+
 ## Plan & progress
 - [WEAVE_CODE_REVIEW_M7.md](WEAVE_CODE_REVIEW_M7.md) — **M7**, 2026-08-13. 0 Critical · 0 High · 2 Medium.
   The UI becomes Weave's (CR-001). **`bun test` ran for the first time in the project — 17 pass, 0 fail** — and a real

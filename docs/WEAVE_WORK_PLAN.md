@@ -706,6 +706,38 @@ The startup refusal is gone from the source, not merely unreachable. Suite green
 
 ---
 
+## P10 · The shell people actually use → **M10**
+
+> **Opened 2026-08-13 from `WEAVE_UI_DEFECTS.md`** — thirteen defects found by dsivov in twenty minutes
+> with the running demo, all confirmed, seven root causes. P7 made the UI Weave's; this phase makes it
+> usable by someone who is not holding the source open beside it.
+>
+> **The one that must not happen:** fixing the thirteen instances. Four of them are the same rule
+> (*a control that will not act says why, in place*) and three are the same omission (*the new shell
+> re-implemented the chrome and dropped what the old one owned*). Fix the rules; the instances follow.
+
+- [ ] **Contract check (R11)** — **A6** (the principal stays authenticated; showing the user their own identity is not self-stamping it), **A9** (no new endpoint — every fix is in the shell or an existing handler), **A11** (no new library; U9 is a static-asset mount, not a docs dependency), **A3** (U13, and note the guard sees spellings not initials).
+- [ ] **U11 · U12 · U13 — the session block.** `AppShell.tsx:196–203`: the signed-in user's initials, name and role, and logout. One change, three defects, and the place identity belonged from the start. Delete the `CG` literal.
+- [ ] **A test that the new shell keeps what the classic one owned** — derive the control set from `SiteHeader.tsx`, assert the shell offers each. The M7 miss was that view-reachability was checked and chrome-parity was not; a passing count is not a passing shell.
+- [ ] **U2 — the refusal renders where the click happened.** `WeaveBoard.tsx`: `act()`'s error belongs inside the `Modal`, not at page level behind it.
+- [ ] **U6 · U7 — say why the button is disabled**, in place, not in a `title`. `SignOff.tsx` already owns the decision as `canSign`; render its reason next to the control.
+- [ ] **U10 — Admin ▸ Users tells the truth about its own writes.** State the password rule before the button is pressed; confirm a role change visibly; say that it takes effect at the user's next sign-in — which is the sentence that would have prevented U1.
+- [ ] **U9 — the API tab renders.** `/static/swagger-ui/*` 404s; ship or mount the assets, and a test that fetches both.
+- [ ] **U5 — the features anchor stops pretending to be a question box**, and its empty state distinguishes *nothing matched* from *nothing exists*.
+- [ ] **U3 — no raw node id is ever shown to a reader** (`AnswerView.tsx:31`). Re-seed first and confirm the shape; the fallback may be masking a data defect rather than causing one.
+- [ ] **[manager]** drive all thirteen in a real browser, signed in as each of two roles. Not `curl`.
+
+**Gate (M10):** every U-number in `WEAVE_UI_DEFECTS.md` reproduced before the fix and driven after it, **in
+a browser**, by the manager. Sign out, sign in as a second user, and see the identity change on screen.
+`bun test` and `tsc --noEmit` green; suite green; name-guard clean.
+
+**Held for a decision (not in scope until dsivov answers):** U1's role model, and U8's extraction prompt —
+both in `WEAVE_UI_DEFECTS.md` § *Decisions needed*.
+
+**Review:** code review; log the outcome in `DECISIONS.md`.
+
+---
+
 
 ## Definition of Done (every task)
 
