@@ -21,6 +21,9 @@ from typing import Any, Callable, Dict, List, Optional
 from weave_core.utils import logger
 
 from weave_core.graph.types import RelationContext
+from weave.model.insights import (
+    insight_node, project_insight_node, review_node,
+)
 from weave.team.store import PRIORITY_RANK, WeaveTask, WeaveTaskStore
 
 # Who may publish a plan (the planning gate). Manager/Architect own intake and
@@ -297,11 +300,36 @@ class WeaveCoordinator:
         t = self._require(workspace, task_id)
         if t.pull_request is None:
             raise WeaveConflict(f"task '{task_id}' has no pull request to review")
-        t.reviews.append({"verdict": verdict, "by": by, "notes": notes})
+        entry = {"verdict": verdict, "by": by, "notes": notes}
+        t.reviews.append(entry)
         self._tasks.save(workspace, t)
+
+        # The typed `Review` node, written here rather than by a migration
+        # (D-043). `/ask/learnings` seeds on the type, so until P10.1 this
+        # method recorded a review that *what did we learn* could not find —
+        # on every workspace, until someone ran `weave migrate reviews`.
+        #
+        # The id is the task plus this entry's position, which is what the
+        # migration would compute from the same append-only list, so a
+        # migration run afterwards upserts the same node and creates nothing.
+        node = review_node(task_id, len(t.reviews) - 1, entry)
+        await self._write_artifact_node(workspace, node)
+
+        # **Node first, edge second, and that order is load-bearing.**
+        # `emit_decision_trace` creates a missing endpoint as a generic
+        # `ENTITY`; it will not touch one that already exists. Emitting the
+        # edge first would create the review as untyped and the typed write
+        # would then have to correct it — which is the shape of W17, and it is
+        # cheaper to be ordered than to be repaired.
+        #
+        # The edge runs task → review, matching the migration rather than the
+        # `PR:` source used before: `/ask/learnings?scope=TASK` walks out from
+        # the task and admits only `Review`/`Insight`, so an edge that hops
+        # through the PR node is a path the walk cannot follow. Live and
+        # migrated workspaces have to answer the scoped question the same way.
         await self._reflect_node(
             workspace, f"PR:{task_id}", {"entity_type": "PullRequest", "status": verdict},
-            src=f"PR:{task_id}", relation="reviewed in", tgt=f"review:{task_id}", by=by,
+            src=task_id, relation="reviewed in", tgt=node["entity_id"], by=by,
             why=f"review of {task_id}: {verdict}. {notes}".strip())
         return {"task": task_id, "verdict": verdict, "reviews": len(t.reviews)}
 
@@ -339,16 +367,53 @@ class WeaveCoordinator:
     ) -> Dict[str, Any]:
         """Record an insight the loop learned — a **must-succeed** decision so it
         is precedent-searchable for future tasks (the shared brain grows). When a
-        task is named the insight is also stapled to its chain."""
+        task is named the insight is also stapled to its chain.
+
+        **The typed `Insight` node is written here** (D-043). The decision trace
+        below is precedent — searchable by text, which is what `find_precedents`
+        needs — but `/ask/learnings` seeds on `entity_type`, and a trace has no
+        type. Recording only the trace is why a clean workspace answered *what
+        did we learn* with nothing while holding every learning it had been told
+        (W23).
+        """
         tgt = task_id or "project"
         if task_id is not None:
             t = self._require(workspace, task_id)
             t.learnings.append(insight)
             self._tasks.save(workspace, t)
+            node = insight_node(task_id, len(t.learnings) - 1, insight)
+        else:
+            # No task means no list and therefore no position to derive an id
+            # from; `project_insight_node` hashes the statement instead. The
+            # asymmetry is deliberate and documented where the id is built.
+            node = project_insight_node(insight)
+        # **Artifact first, precedent last.** The node and its edge are the
+        # thing that was learned; the decision trace is the record that the
+        # team learned it. Writing them in that order also keeps the `learned`
+        # decision the most recent one on the workspace, which is what a caller
+        # reading back the last decision means by "the learning".
+        await self._write_artifact_node(workspace, node)
+
+        if task_id is not None:
+            # task → insight, the edge the migration writes, for the same
+            # reason: the scoped question walks out from the task.
+            #
+            # **The edge alone — `_reflect_node` would write the node again.**
+            # The first version called it here, and a negative control caught
+            # what that costs: with two writers the *swallowing* one was enough
+            # to satisfy every assertion, so removing the must-succeed write
+            # changed nothing a test could see. A backend failure would then
+            # have lost the learning silently — the defect this phase is about,
+            # reintroduced by the code meant to fix it.
+            await self._audit_edge(
+                workspace, src=task_id, relation="yielded",
+                tgt=node["entity_id"], by=by, why=f"{task_id} yielded: {insight}")
+
         decision = await self.record_decision(
             workspace, src=by, tgt=tgt, relation="learned",
             decision_trace=insight, by=by, policy_ref="weave:insight")
-        return {"target": tgt, "insight": insight, "decision": decision}
+        return {"target": tgt, "insight": insight, "decision": decision,
+                "node": node["entity_id"]}
 
     def trace_chain(self, workspace: str, task_id: str) -> Dict[str, Any]:
         """Reconstruct a task's full artifact chain from Weave state — the change
@@ -465,6 +530,37 @@ class WeaveCoordinator:
         return {"task": task_id, "status": "done", "environment": env_id,
                 "run": green[-1].id, "decision": decision}
 
+    async def _write_artifact_node(self, workspace: str, node: Dict[str, Any]) -> None:
+        """Write a typed artifact node — **must-succeed** (D-043).
+
+        The counterpart to `_reflect_node`, and the difference is which copy is
+        the record. A `Commit` or `PullRequest` node is a reflection: the task
+        store holds the truth and the graph is an audit view, so a failed write
+        loses an audit row and is rightly best-effort. A `Review` or `Insight`
+        node is not a reflection — it is the only thing `/ask/learnings` reads,
+        and swallowing its failure is W23 arriving one write at a time, with no
+        error at the moment the answer is lost.
+
+        **There is no `try`, and that is the whole difference.** A backend that
+        refuses the write raises through to the caller, exactly as
+        `record_decision` does.
+
+        A rag with no `chunk_entity_relation_graph` at all is skipped rather
+        than refused: a real workspace cannot be in that state — every engine
+        carries one, and a workspace with Weave off fails earlier, in
+        `record_decision`, for want of `emit_decision_trace`. The only objects
+        that reach this branch are test doubles standing in for a graph they do
+        not have, so refusing here would assert something about production by
+        way of a shape production cannot take.
+        """
+        if self._resolve_rag is None:
+            raise WeaveError("no graph configured to record an artifact node")
+        rag = self._resolve_rag(workspace)
+        graph = getattr(rag, "chunk_entity_relation_graph", None)
+        if graph is None:
+            return
+        await graph.upsert_node(node["entity_id"], dict(node))
+
     async def _reflect_node(
         self, workspace: str, node_id: str, node_data: Dict[str, Any], *,
         src: str, relation: str, tgt: str, by: str, why: str,
@@ -481,6 +577,21 @@ class WeaveCoordinator:
                 await graph.upsert_node(node_id, {"entity_id": node_id, **node_data})
             except Exception as e:  # pragma: no cover - defensive
                 logger.debug(f"Weave artifact node upsert skipped: {e}")
+        await self._audit_edge(workspace, src=src, relation=relation, tgt=tgt,
+                               by=by, why=why)
+
+    async def _audit_edge(self, workspace: str, *, src: str, relation: str,
+                          tgt: str, by: str, why: str) -> None:
+        """The audit edge on its own — for a node already written elsewhere.
+
+        Split out of `_reflect_node` so a caller that has *already* written its
+        node must-succeed does not write it a second time best-effort. Two
+        writers of one node means the swallowing one decides whether the record
+        survives, which is the guarantee `_write_artifact_node` exists to make.
+        """
+        if self._resolve_rag is None:
+            return
+        rag = self._resolve_rag(workspace)
         if hasattr(rag, "emit_decision_trace"):
             rc = RelationContext(decision_trace=why, approved_by=by, approved_via="system",
                                  provenance=f"weave:artifact:{tgt}", confidence_score=1.0)

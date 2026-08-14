@@ -95,6 +95,9 @@ NOT_CARRIED_BUT_MENTIONS_CLAIMING = {
     "test_claim_protocol_unchanged.py",   # this file
     "test_membership.py",                 # P1 — workspace grants
     "test_devhost_outbound.py",           # P6 — A15, no claim assertions
+    # P10.1 — claims a task only to get one far enough to have a review
+    # recorded against it; every assertion is about what recording writes.
+    "test_recording_writes_what_the_answer_reads.py",
 }
 
 

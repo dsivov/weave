@@ -1,5 +1,13 @@
 """Lift task `reviews` and `learnings` into `Review` and `Insight` nodes (R25).
 
+**As of D-043 this is a one-off for instances that predate P10.1.** Recording a
+review or a learning now creates the typed node itself, using the same builder
+in `weave.model.insights` that this module calls — so on a workspace created
+after P10.1 there is nothing here to move, and a run over one reports
+`nodes_created: 0`. That zero is the assertion, not a formality: it is only true
+because both paths derive the same id from the same position.
+
+
 Before P2, a review was an entry in a list on a task record and a learning was a
 string in another list. Neither could be traversed, cited, or resolved back to a
 document — which is why "what did we learn" had no answer that was not a text
@@ -25,49 +33,38 @@ the fields.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
+from weave.model.insights import (  # noqa: F401 — re-exported: the ids are this
+    INSIGHT_PREFIX,                 # module's published surface (CLI, tests).
+    REVIEW_PREFIX,
+    insight_node,
+    insight_node_id,
+    migrated_from_learning,
+    migrated_from_review,
+    review_node,
+    review_node_id,
+)
 from weave_core.utils import logger
-
-#: Node-id prefixes. Deterministic and namespaced so a migrated node cannot
-#: collide with an authored one.
-REVIEW_PREFIX = "review"
-INSIGHT_PREFIX = "insight"
-
-
-def review_node_id(task_id: str, index: int) -> str:
-    return f"{REVIEW_PREFIX}:{task_id}:{index}"
-
-
-def insight_node_id(task_id: str, index: int) -> str:
-    return f"{INSIGHT_PREFIX}:{task_id}:{index}"
 
 
 def _review_node(task_id: str, index: int, entry: Dict[str, Any]) -> Dict[str, Any]:
-    """One `Review` node from a `{verdict, by, notes}` entry.
+    """The shared builder, told this node came from a migration (D-043).
 
-    `notes` becomes `summary`: it is an abstract written *about* the change, not
-    a copy of a document, so A5 is not in play. There is no locator, because the
-    entry never had one — a migration must not invent provenance it does not
-    have, and `scripts/check_locators.py` counts a missing locator honestly.
+    **The construction itself lives in `weave.model.insights` and is shared with
+    `record_review`.** Until P10.1 this module was the only code that produced a
+    `Review` node, which is why a clean workspace had none: recording wrote an
+    audit edge and the answer surface reads types. Two builders would let the
+    live node and the migrated node drift apart, and the drift would surface as
+    "the answer is right on the old tenant and wrong on the new one".
     """
-    return {
-        "entity_id": review_node_id(task_id, index),
-        "entity_type": "Review",
-        "verdict": str(entry.get("verdict") or ""),
-        "reviewer": str(entry.get("by") or ""),
-        "summary": str(entry.get("notes") or ""),
-        "migrated_from": f"task:{task_id}.reviews[{index}]",
-    }
+    return review_node(task_id, index, entry,
+                       migrated_from=migrated_from_review(task_id, index))
 
 
 def _insight_node(task_id: str, index: int, statement: str) -> Dict[str, Any]:
-    return {
-        "entity_id": insight_node_id(task_id, index),
-        "entity_type": "Insight",
-        "statement": statement,
-        "migrated_from": f"task:{task_id}.learnings[{index}]",
-    }
+    return insight_node(task_id, index, statement,
+                        migrated_from=migrated_from_learning(task_id, index))
 
 
 async def migrate_workspace(

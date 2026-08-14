@@ -62,7 +62,31 @@ None.
 
 ## Medium
 
-### M1 — W17: a generic upsert silently retypes a governed node, and the answer goes quiet
+### M1 — ~~a generic upsert silently retypes a governed node~~ — **corrected 2026-08-14, see below**
+
+> **This finding named a mechanism that does not exist, and the correction belongs here rather than
+> only in a later document, because this is where the wrong claim was published.**
+>
+> `emit_decision_trace` **cannot retype an existing node.** It creates a missing edge endpoint as a
+> generic `ENTITY` and **skips one that already exists** — `quadruple.py:1293`, `if … get_node(name)
+> is not None: continue`, with a comment saying exactly why. `git log -S` places that guard in
+> **`8610914`, the P0 fork commit**: it has never been able to do what this finding describes.
+>
+> **What actually happened.** `review:T-P0-FORK` is not an id the migration ever writes — the
+> migration writes `review:T-P0-FORK:0`. `record_review` pointed its audit edge at `review:{task}`
+> while the typed node lives at `review:{task}:{index}`, so the edge **created a twin** at an id no
+> typed node ever occupied. It was generic from birth. Two nodes, not one node retyped — and this
+> review compared the `entity_type` of one against the write of the other.
+>
+> **The real defect is larger, and is W23**: recording never wrote typed nodes at all, so
+> `/ask/learnings` answered **0** on every new workspace until a migration nobody was told to run had
+> been run. This finding was a symptom of that, misread as a separate mechanism. Fixed by **D-043**
+> and verified on a workspace created from nothing: `13 nodes — 7 Insight, 6 Review`, no migration.
+>
+> **Why it survived.** Every measurement was taken against the demo tenant, which had been migrated
+> historically and therefore already knew the answer. The original text follows unedited.
+
+### M1 (as published) — W17: a generic upsert silently retypes a governed node, and the answer goes quiet
 - **Found by the browser pass**, which is exactly what it was for — though not where anyone expected. `Learnings` rendered *"No insights recorded yet"* while the task store held 12 reviews and 14 learnings. **The page was right.**
 - `review:T-P0-FORK` still exists in the graph; its `entity_type` is `'ENTITY'` with `source_id='emit_decision_trace'`, where the migration wrote `'Review'`. `/ask/learnings` seeds on `entity_type in (Review, Insight)`, so a retyped node **vanishes from the answer with no error, no exception and no missing row** — the query simply finds nothing to start from.
 - **This weakens W5's closure rather than reversing it.** The P2 migration did run on real data and did verify complete. What it never established is that its output *survives* a later write by a path that does not know the type is load-bearing.
