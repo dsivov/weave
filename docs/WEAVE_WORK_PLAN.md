@@ -844,6 +844,28 @@ empty the answer. Suite green, name-guard clean.
 
 ---
 
+## P12 · A database image that can run the production path → **M12**
+
+> **Opened 2026-08-14 from D-046 and `CONSTRAINTS.md` v6.** A4 now says PostgreSQL is the multi-workspace
+> path **for records** and its graph half is not yet deployable. **This phase is what earns the stronger
+> sentence back** — and A4 is amended again only when the round-trip has actually run.
+>
+> **The one that must not happen:** declaring victory on an image that builds. `pgvector/pgvector:pg16`
+> builds, starts, and passes every existing test — and cannot run the adapter. The gate is a **graph
+> round-trip on live PostgreSQL**, not a container that starts.
+
+- [ ] **Contract check (R11)** — **A4 v6** (this phase is the amendment being paid off), **A11** (a database *image* is not a library, but it is a thing we would then maintain — say so plainly), **A1** (a database image is not a fourth Weave deployable; it is what the bundle runs *against*).
+- [ ] **Build the image**: `apache/age:release_PG16_1.6.0` + a pgvector build is the cheaper direction — compiling AGE needs `postgres-server-dev-16`, flex and bison, while pgvector is one `make install`. **Note the maintenance direction before committing:** pgvector's images refresh often; the AGE PG16 tag has been static for about eleven months.
+- [ ] `deploy/compose.yml` points at it, and **`WEAVE_GRAPH_STORAGE` keeps working as an override** (W20).
+- [ ] **`test_the_postgres_graph_path` runs green rather than skipping** — the same round-trip the Neo4j path answers, on a real database.
+- [ ] **[manager]** `curl /health` against a container raised by the **published steps**, and the round-trip green on live AGE — the two things nobody has ever seen.
+- [ ] `docs/CONSTRAINTS.md` → **v7**, A4's graph qualification removed, with an amendment row and a `D-NN`. **Only after the round-trip has run.**
+
+**Gate (M12):** the bundle's published steps raise a healthy server on PostgreSQL with `PGGraphStorage`, and
+the graph round-trip passes on a live database. Suite green with **no W30 skip**.
+
+---
+
 ## P11 · The extractor learns from software artifacts → **M11**
 
 > **Opened 2026-08-13 from D-041.** `weave_core/graph/prompt.py` teaches entity extraction with two few-shot
