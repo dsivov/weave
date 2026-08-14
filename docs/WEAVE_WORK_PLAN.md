@@ -866,6 +866,28 @@ the graph round-trip passes on a live database. Suite green with **no W30 skip**
 
 ---
 
+## P13 · One identity, both surfaces → **M13**  *(W33 · Critical)*
+
+> **Ahead of P9 and P11.** The MCP surface answers unauthenticated and takes its tenant from a client
+> header. A9 says one handler serves REST/UI and MCP; **the identity must be shared too, or "one handler"
+> is a fiction at the only layer that matters.**
+>
+> **The one that must not happen:** an MCP-specific auth scheme. A second token type is a second policy,
+> and the two will diverge the way the description and the route table did.
+
+- [ ] **Contract check (R11)** — **A6** (this is the violation), **A9** (one handler, and now one identity), **A10** (the kit *is* the client configuration — it must carry the credential), **A14** (the principal is a persisted user, not a header).
+- [ ] **Mount the MCP app behind the same auth dependency** as every REST route. `app.py:2123` mounts it outside.
+- [ ] **The principal and the workspace come from the token.** A `WEAVE-WORKSPACE` header may *select* among workspaces the principal is a member of; it may never *grant* one.
+- [ ] **`weave roles kit` writes the credential** into `.mcp.json`, mode `0600`, and `CLAUDE.md` says the file holds one.
+- [ ] **W16 closes here or is re-scoped** — an authenticated MCP session carries a role, so a governed workspace should stop denying agents. Verify; if it does not, that is its own finding.
+- [ ] `tests/` — unauthenticated `POST /mcp` fails **including `tools/list`**; a token for workspace A cannot reach B **by any header**; a developer's manifest differs from a manager's; the four `/ask` answers match across REST and MCP for one principal.
+
+**Gate (M13):** no MCP call succeeds without a credential; no header grants a tenant; and a manager can point
+Claude Code at a workspace using nothing but the kit. **[manager]** drives the last one by hand — it is the
+chapter the guide is waiting on.
+
+---
+
 ## P11 · The extractor learns from software artifacts → **M11**
 
 > **Opened 2026-08-13 from D-041.** `weave_core/graph/prompt.py` teaches entity extraction with two few-shot
