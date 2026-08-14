@@ -1066,3 +1066,27 @@ Status: `accepted` · `superseded by D-NN` · `reversed`.
   own failures** — `except Exception`, log a warning, carry on — which is why a missing extension surfaced
   forty frames later as `create_graph(unknown) does not exist` instead of at the point it went wrong. That
   is W20's family (a refusal you can act on) and it is a behaviour change, so it is **W31**, not a build fix.
+
+## D-048 · Workspace membership is enforced on every authenticated route
+- **Date:** 2026-08-14  ·  **Status:** accepted  ·  **Raised by:** developer (during W33)  ·  **Approved by:** dsivov (W34, Critical)
+- **Context:** `User.may_access` existed from **P1** and was asserted only **against the store**; no HTTP
+  path consulted it. Measured on current code before the fix: a user holding only `demo` read `default`
+  over REST with a `200` — and named a workspace that did not exist, **which was created for her**.
+- **Decision:** enforced in **`combined_dependency`** via `principal_may_access` — **one call, REST and MCP
+  alike**. Not per route: a per-route rule is one a new route can be added without, which is exactly how
+  `may_access` came to exist for four phases with no caller. **The MCP copy added by W33 was deleted** —
+  correct for a day, and two answers to *may this principal address this workspace* is the shape of defect
+  this whole run has been about; a test asserts it does not return.
+- **What this changes:** anything relying on cross-workspace reads stops working. A token whose grants do
+  not include the workspace it names gets **403**, **including when it names none** and falls back to the
+  server default. Principals whose tokens carry no grants — guest and administrator — are unaffected,
+  because the rule denies only on a **positive mismatch**.
+- **Blast radius, measured rather than estimated:** **zero failures across the suite.** Nothing in this
+  repository read across workspaces.
+- **The refusal names the right thing.** The check first sat inside a block that re-raises 401s and
+  swallows the rest, so a 403 was discarded and the caller got *"API Key required or login authentication
+  required"* — **a refusal naming the wrong reason sends the reader to fix the wrong thing.** It is a
+  distinct `WorkspaceForbidden` now, and it reads: *"the WEAVE-WORKSPACE header selects among the
+  workspaces you hold; it does not grant one."*
+- **Not covered, and recorded rather than implied:** workspace **admission** still happens before
+  authentication (**W35**), and one endpoint is public by accident of never having been declared (**W36**).
