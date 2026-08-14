@@ -1,0 +1,10 @@
+### chapter 1 · doctor, from an empty directory
+$ weave doctor
+weave doctor
+
+  claude installed : yes
+  subscription seat: ✓ ok — max via claude.ai (dev-claude2@polartie.com)
+  seat token set   : no (using the login on this machine)
+  metered vars     : ✓ none
+
+This machine is ready to carry Weave developers.

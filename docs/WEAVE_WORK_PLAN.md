@@ -656,16 +656,16 @@ Python **1091+ passed**; name-guard clean.
 > fleet end to end, and `bun test` is unverified since D-036. **Writing this guide by executing it is the
 > mechanism that finally tests them** — and where it cannot, the guide says so.
 
-- [ ] **Contract check (R11)** — touches **A1** (three deployables — the guide must not imply a fourth), **A10** (every role is a Claude Code session; no bespoke client), **A13** (subscription seats — the guide must never tell a reader to put a model key anywhere near a Claude Code process), **A15** (the dev host dials out; nothing dials in).
-- [ ] `docs/WEAVE_USER_GUIDE.html` `[new]` — house style, illustrated with inline SVG + mermaid, one document.
-- [ ] **Bootstrap & install** — clean machine to a running server: prerequisites, `environment.yml`, the token secret, the model backend (**W9's lesson: the guide must say the model has to stay resident, because a timeout reads as a Weave defect**), first administrator.
-- [ ] **Per role, what that person actually does day one:** **admin** (users, workspaces, membership, backups) · **manager** (the board, dispatch, the four questions) · **architect** (ontology, rules, lifecycle, the signed ledger, diagrams) · **developer** (claiming, worktrees, PRs, and the dev-agent seat).
-- [ ] **The dev-host service** — install the daemon on a second machine, register, heartbeat, scale, and why nothing dials in (A15).
-- [ ] **The Docker environment** — `deploy/compose.yml` and `compose.devhost.yml`, the three images, and the variables each refuses to start without.
-- [ ] **Troubleshooting**, carried from `first-fleet.md` and extended with what this project actually hit: the front door (W10), the resident-model timeout (W9), the batch-size limit on embeddings, `admin` ≠ supervisor, and the workspace header.
-- [ ] `docs/guides/first-fleet.md` — **deleted**, content absorbed (R10).
-- [ ] `docs/DOCS_INDEX.md` · `docs/index.html` — the guide linked from both; it is the page a new reader should land on.
-- [ ] **An execution log** — for each numbered step, what was run and what came back. Not shipped in the guide; kept as the evidence the gate is checked against.
+- [x] **Contract check (R11)** — touches **A1** (three deployables — the guide must not imply a fourth), **A10** (every role is a Claude Code session; no bespoke client), **A13** (subscription seats — the guide must never tell a reader to put a model key anywhere near a Claude Code process), **A15** (the dev host dials out; nothing dials in).
+- [x] `docs/guides/WEAVE_USER_GUIDE.html` `[new]` — **placed in `guides/` at dsivov's request, 2026-08-14** — house style, illustrated with inline SVG + mermaid, one document.
+- [x] **Bootstrap & install** — clean machine to a running server: prerequisites, `environment.yml`, the token secret, the model backend (**W9's lesson: the guide must say the model has to stay resident, because a timeout reads as a Weave defect**), first administrator.
+- [x] **Per role, what that person actually does day one:** **admin** (users, workspaces, membership, backups) · **manager** (the board, dispatch, the four questions) · **architect** (ontology, rules, lifecycle, the signed ledger, diagrams) · **developer** (claiming, worktrees, PRs, and the dev-agent seat).
+- [x] **The dev-host service** — install the daemon on a second machine, register, heartbeat, scale, and why nothing dials in (A15).
+- [x] **The Docker environment** — `deploy/compose.yml` and `compose.devhost.yml`, the three images, and the variables each refuses to start without.
+- [x] **Troubleshooting**, carried from `first-fleet.md` and extended with what this project actually hit: the front door (W10), the resident-model timeout (W9), the batch-size limit on embeddings, `admin` ≠ supervisor, and the workspace header.
+- [x] `docs/guides/first-fleet.md` — **deleted**, content absorbed (R10).
+- [x] `docs/DOCS_INDEX.md` · `docs/index.html` — the guide linked from both; it is the page a new reader should land on.
+- [x] **An execution log** — for each numbered step, what was run and what came back. Not shipped in the guide; kept as the evidence the gate is checked against.
 
 **Gate (M8):** **every step in the guide has been executed and its real output recorded**, or the step
 carries an explicit note saying what could not be run here and why. A reader following the guide on a clean

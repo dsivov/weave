@@ -1,0 +1,7 @@
+### the fleet, from the CLI — the two workers I registered by hand
+$ weave agents list
+usage: weave [-h] [--version] <group> ...
+weave: error: unrecognized arguments: --server http://127.0.0.1:9810 --user ada --password GuideDemo!2026
+no dev hosts registered in 'default'.
+  A machine joins by running, on that machine:
+    python3 -m weave.devhost --server <url> --workspace default

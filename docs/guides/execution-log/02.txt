@@ -1,0 +1,11 @@
+### chapter 2 · init — note what it writes now
+$ weave init
+initialised /tmp/claude-1000/-storage-Work-Weave/cc3c15d2-2cf8-4ceb-8bc0-cac9b47bd34b/scratchpad/freshinstall/weave_storage
+
+  weave.env   a fresh token secret, mode 0600
+
+Next:
+  source /tmp/claude-1000/-storage-Work-Weave/cc3c15d2-2cf8-4ceb-8bc0-cac9b47bd34b/scratchpad/freshinstall/weave_storage/weave.env
+  weave up
+  weave user add <name> --role manager --workspaces <workspace>
+  weave roles install --workspace <workspace> --approver <name>

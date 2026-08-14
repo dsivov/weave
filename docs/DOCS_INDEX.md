@@ -75,6 +75,15 @@ multi-role support.
   examples (a sci-fi story and a speaker sales call), **5 of which leaked into the demo graph as real entities** —
   the half-rebrand in the one place the name-guard cannot reach. Assigned as **P10 → M10**; two decisions open.
 
+## The guide
+- [guides/WEAVE_USER_GUIDE.html](guides/WEAVE_USER_GUIDE.html) — **the page a new reader should land on.**
+  Fourteen chapters from a clean machine to a fleet: install, first server, first administrator, governance,
+  the project, attaching a dev host, watching and steering, the four roles, API and MCP, upgrading, Docker,
+  troubleshooting. Illustrated with screenshots of a real installation. **Every step was executed before it
+  was written** — the transcripts are in [guides/execution-log/](guides/execution-log/), and the rule found
+  **ten of the twenty defects** fixed in P10, including the published dev-host command that never
+  authenticated (W32). Absorbs and replaces the former `guides/first-fleet.md`.
+
 ## Plan & progress
 - [WEAVE_CODE_REVIEW_M10.md](WEAVE_CODE_REVIEW_M10.md) — **M10**, 2026-08-14. 0 Critical · 0 High · 2 Medium.
   **Seventeen defects fixed — thirteen dsivov found in twenty minutes, four nobody had reported.** The four extra

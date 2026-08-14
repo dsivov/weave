@@ -1,0 +1,188 @@
+
+WeaveEngine log file: /tmp/claude-1000/-storage-Work-Weave/cc3c15d2-2cf8-4ceb-8bc0-cac9b47bd34b/scratchpad/freshinstall/weave_storage/weave_core.log
+
+[36m
+    ╔══════════════════════════════════════════════════════════════╗
+    ║                WeaveEngine Server v0.1.0/0271                ║
+    ║         A governed graph for an AI development team          ║
+    ╚══════════════════════════════════════════════════════════════╝
+    [0m
+[35m
+📡 Server Configuration:[0m
+[37m    ├─ Host: [0m[33m127.0.0.1[0m
+[37m    ├─ Port: [0m[33m9810[0m
+[37m    ├─ Workers: [0m[33m1[0m
+[37m    ├─ Timeout: [0m[33m300[0m
+[37m    ├─ CORS Origins: [0m[33m*[0m
+[37m    ├─ SSL Enabled: [0m[33mFalse[0m
+[37m    ├─ Log Level: [0m[33mINFO[0m
+[37m    ├─ Verbose Debug: [0m[33mFalse[0m
+[37m    ├─ API Key: [0m[33mNot Set[0m
+[37m    └─ JWT Auth: [0m[33mNo users yet[0m
+[35m
+📂 Directory Configuration:[0m
+[37m    ├─ Working Directory: [0m[33m/tmp/claude-1000/-storage-Work-Weave/cc3c15d2-2cf8-4ceb-8bc0-cac9b47bd34b/scratchpad/freshinstall/weave_storage[0m
+[37m    └─ Input Directory: [0m[33m/tmp/claude-1000/-storage-Work-Weave/cc3c15d2-2cf8-4ceb-8bc0-cac9b47bd34b/scratchpad/freshinstall/inputs[0m
+[35m
+🤖 LLM Configuration:[0m
+[37m    ├─ Binding: [0m[33mollama[0m
+[37m    ├─ Host: [0m[33mhttp://localhost:11434[0m
+[37m    ├─ Model: [0m[33mmistral-nemo:latest[0m
+[37m    ├─ Max Async for LLM: [0m[33m4[0m
+[37m    ├─ Summary Context Size: [0m[33m12000[0m
+[37m    ├─ LLM Cache Enabled: [0m[33mTrue[0m
+[37m    └─ LLM Cache for Extraction Enabled: [0m[33mTrue[0m
+[35m
+📊 Embedding Configuration:[0m
+[37m    ├─ Binding: [0m[33mollama[0m
+[37m    ├─ Host: [0m[33mhttp://localhost:11434[0m
+[37m    ├─ Model: [0m[33mNone[0m
+[37m    └─ Dimensions: [0m[33mNone[0m
+[35m
+⚙️ RAG Configuration:[0m
+[37m    ├─ Summary Language: [0m[33mEnglish[0m
+[37m    ├─ Entity Types: [0m[33m['Person', 'Creature', 'Organization', 'Location', 'Event', 'Concept', 'Method', 'Content', 'Data', 'Artifact', 'NaturalObject', 'LossReason', 'Objection', 'Competitor'][0m
+[37m    ├─ Max Parallel Insert: [0m[33m2[0m
+[37m    ├─ Chunk Size: [0m[33m1200[0m
+[37m    ├─ Chunk Overlap Size: [0m[33m100[0m
+[37m    ├─ Cosine Threshold: [0m[33m0.2[0m
+[37m    ├─ Top-K: [0m[33m40[0m
+[37m    └─ Force LLM Summary on Merge: [0m[33m8[0m
+[35m
+💾 Storage Configuration:[0m
+[37m    ├─ KV Storage: [0m[33mJsonKVStorage[0m
+[37m    ├─ Vector Storage: [0m[33mNanoVectorDBStorage[0m
+[37m    ├─ Graph Storage: [0m[33mNetworkXStorage[0m
+[37m    ├─ Document Status Storage: [0m[33mJsonDocStatusStorage[0m
+[37m    └─ Workspace: [0m[33m-[0m
+[32m
+✨ Server starting up...
+[0m
+[35m
+🌐 Server Access Information:[0m
+[37m    ├─ WebUI (local): [0m[33mhttp://127.0.0.1:9810[0m
+[37m    ├─ API Documentation: [0m[33mhttp://127.0.0.1:9810/docs[0m
+[37m    └─ Alternative Documentation: [0m[33mhttp://127.0.0.1:9810/redoc[0m
+[33m
+⚠️  No users exist yet:[0m
+[37m    Every request is served with a guest token until the first user is
+    created. Create one with `weave user add`, or in Admin ▸ Users.
+    [0m
+INFO: Frontend build is up-to-date
+INFO: Ollama LLM Options: {}
+INFO: Ollama Embedding Options: {}
+INFO: Embedding config: binding=ollama model=None embedding_dim=1024 max_token_size=8192
+INFO: Send embedding dimension: False by env var (dimensions=1024, has_param=True, binding=ollama)
+INFO: Embedding max_token_size: 8192 (from ollama provider default)
+INFO: Reranking is disabled
+INFO: Weave mode ENABLED — using WeaveGraph for contextual quadruple extraction and CGR3 reasoning.
+INFO: [default] Created new empty graph file: /tmp/claude-1000/-storage-Work-Weave/cc3c15d2-2cf8-4ceb-8bc0-cac9b47bd34b/scratchpad/freshinstall/weave_storage/default/graph_chunk_entity_relation.graphml
+INFO:nano-vectordb:Init {'embedding_dim': 1024, 'metric': 'cosine', 'storage_file': '/tmp/claude-1000/-storage-Work-Weave/cc3c15d2-2cf8-4ceb-8bc0-cac9b47bd34b/scratchpad/freshinstall/weave_storage/default/vdb_entities.json'} 0 data
+INFO:nano-vectordb:Init {'embedding_dim': 1024, 'metric': 'cosine', 'storage_file': '/tmp/claude-1000/-storage-Work-Weave/cc3c15d2-2cf8-4ceb-8bc0-cac9b47bd34b/scratchpad/freshinstall/weave_storage/default/vdb_relationships.json'} 0 data
+INFO:nano-vectordb:Init {'embedding_dim': 1024, 'metric': 'cosine', 'storage_file': '/tmp/claude-1000/-storage-Work-Weave/cc3c15d2-2cf8-4ceb-8bc0-cac9b47bd34b/scratchpad/freshinstall/weave_storage/default/vdb_chunks.json'} 0 data
+INFO:nano-vectordb:Init {'embedding_dim': 1024, 'metric': 'cosine', 'storage_file': '/tmp/claude-1000/-storage-Work-Weave/cc3c15d2-2cf8-4ceb-8bc0-cac9b47bd34b/scratchpad/freshinstall/weave_storage/default/vdb_decisions.json'} 0 data
+INFO:nano-vectordb:Init {'embedding_dim': 1024, 'metric': 'cosine', 'storage_file': '/tmp/claude-1000/-storage-Work-Weave/cc3c15d2-2cf8-4ceb-8bc0-cac9b47bd34b/scratchpad/freshinstall/weave_storage/default/vdb_communities.json'} 0 data
+INFO: Seeded workspace: default (pending async init)
+/storage/Work/Weave/weave/server/routers/reasoning.py:526: FastAPIDeprecationWarning: `example` has been deprecated, please use `examples` instead
+  src: str = Query(
+/storage/Work/Weave/weave/server/routers/reasoning.py:531: FastAPIDeprecationWarning: `example` has been deprecated, please use `examples` instead
+  tgt: str = Query(
+/storage/Work/Weave/weave/server/routers/reasoning.py:634: FastAPIDeprecationWarning: `example` has been deprecated, please use `examples` instead
+  entity_name: str = Query(
+/storage/Work/Weave/weave/server/routers/reasoning.py:873: FastAPIDeprecationWarning: `example` has been deprecated, please use `examples` instead
+  q: str = Query(
+/storage/Work/Weave/weave/server/routers/reasoning.py:945: FastAPIDeprecationWarning: `example` has been deprecated, please use `examples` instead
+  approved_by: Optional[str] = Query(
+/storage/Work/Weave/weave/server/routers/reasoning.py:950: FastAPIDeprecationWarning: `example` has been deprecated, please use `examples` instead
+  approved_via: Optional[str] = Query(
+/storage/Work/Weave/weave/server/routers/reasoning.py:955: FastAPIDeprecationWarning: `example` has been deprecated, please use `examples` instead
+  policy_ref: Optional[str] = Query(
+/storage/Work/Weave/weave/server/routers/reasoning.py:966: FastAPIDeprecationWarning: `example` has been deprecated, please use `examples` instead
+  active_as_of: Optional[str] = Query(
+INFO: Rules API routes registered
+INFO: Ingress API routes registered
+INFO: Flow engine API routes registered
+INFO: Studio API routes registered
+INFO: Diagram API routes registered
+INFO: Weave API routes registered
+INFO: Ontology API routes registered
+INFO: RBAC API routes registered
+INFO: Lifecycle API routes registered
+INFO: Actions API routes registered
+INFO: Workspace manifest + onboard API routes registered
+INFO: WebUI assets mounted at /webui
+/storage/conda/envs/weave/lib/python3.12/site-packages/pydantic_settings/sources/utils.py:47: IncompleteFieldDefinitionWarning: Field 'lifespan' has an incomplete definition: its annotation contains an unresolved forward reference, so settings sources may fail to correctly resolve its value. Call `model_rebuild()` on the model where the field is defined, once all the referenced types are defined.
+  warnings.warn(
+INFO: MCP server mounted at /mcp (Streamable HTTP, stateless)
+INFO: Started server process [1871417]
+INFO: Waiting for application startup.
+INFO: [default] Process 1871417 KV load full_docs with 0 records
+INFO: [default] Process 1871417 KV load text_chunks with 0 records
+INFO: [default] Process 1871417 KV load full_entities with 0 records
+INFO: [default] Process 1871417 KV load full_relations with 0 records
+INFO: [default] Process 1871417 KV load entity_chunks with 0 records
+INFO: [default] Process 1871417 KV load relation_chunks with 0 records
+INFO: [default] Process 1871417 KV load llm_response_cache with 0 records
+INFO: [default] Process 1871417 doc status load doc_status with 0 records
+INFO: Workspace 'default' fully initialized
+INFO:mcp.server.streamable_http_manager:StreamableHTTP session manager started
+INFO: Application startup complete.
+INFO: Uvicorn running on http://127.0.0.1:9810 (Press CTRL+C to quit)
+INFO: 127.0.0.1:52254 - "POST /login HTTP/1.1" 200
+INFO: Initializing workspace: demo
+INFO: [demo] Created new empty graph file: /tmp/claude-1000/-storage-Work-Weave/cc3c15d2-2cf8-4ceb-8bc0-cac9b47bd34b/scratchpad/freshinstall/weave_storage/demo/graph_chunk_entity_relation.graphml
+INFO:nano-vectordb:Init {'embedding_dim': 1024, 'metric': 'cosine', 'storage_file': '/tmp/claude-1000/-storage-Work-Weave/cc3c15d2-2cf8-4ceb-8bc0-cac9b47bd34b/scratchpad/freshinstall/weave_storage/demo/vdb_entities.json'} 0 data
+INFO:nano-vectordb:Init {'embedding_dim': 1024, 'metric': 'cosine', 'storage_file': '/tmp/claude-1000/-storage-Work-Weave/cc3c15d2-2cf8-4ceb-8bc0-cac9b47bd34b/scratchpad/freshinstall/weave_storage/demo/vdb_relationships.json'} 0 data
+INFO:nano-vectordb:Init {'embedding_dim': 1024, 'metric': 'cosine', 'storage_file': '/tmp/claude-1000/-storage-Work-Weave/cc3c15d2-2cf8-4ceb-8bc0-cac9b47bd34b/scratchpad/freshinstall/weave_storage/demo/vdb_chunks.json'} 0 data
+INFO:nano-vectordb:Init {'embedding_dim': 1024, 'metric': 'cosine', 'storage_file': '/tmp/claude-1000/-storage-Work-Weave/cc3c15d2-2cf8-4ceb-8bc0-cac9b47bd34b/scratchpad/freshinstall/weave_storage/demo/vdb_decisions.json'} 0 data
+INFO:nano-vectordb:Init {'embedding_dim': 1024, 'metric': 'cosine', 'storage_file': '/tmp/claude-1000/-storage-Work-Weave/cc3c15d2-2cf8-4ceb-8bc0-cac9b47bd34b/scratchpad/freshinstall/weave_storage/demo/vdb_communities.json'} 0 data
+INFO: Creating WeaveEngine instance with workspace='demo' while default workspace is set to 'default'
+INFO: [demo] Process 1871417 KV load full_docs with 0 records
+INFO: [demo] Process 1871417 KV load text_chunks with 0 records
+INFO: [demo] Process 1871417 KV load full_entities with 0 records
+INFO: [demo] Process 1871417 KV load full_relations with 0 records
+INFO: [demo] Process 1871417 KV load entity_chunks with 0 records
+INFO: [demo] Process 1871417 KV load relation_chunks with 0 records
+INFO: [demo] Process 1871417 KV load llm_response_cache with 0 records
+INFO: [demo] Process 1871417 doc status load doc_status with 0 records
+INFO: Workspace 'demo' ready
+INFO: 127.0.0.1:52270 - "GET /weave/status HTTP/1.1" 200
+INFO: 127.0.0.1:33136 - "GET /webui/assets/index-BmusWhs5.js HTTP/1.1" 200
+INFO: 127.0.0.1:33140 - "GET /webui/assets/index-DQS9USOr.css HTTP/1.1" 200
+INFO: 127.0.0.1:33136 - "GET /webui/favicon.png HTTP/1.1" 200
+INFO: 127.0.0.1:33136 - "GET /auth-status HTTP/1.1" 200
+INFO: 127.0.0.1:33140 - "GET /webui/favicon.svg HTTP/1.1" 200
+INFO: 127.0.0.1:33140 - "GET /webui/logo.svg HTTP/1.1" 200
+INFO: 127.0.0.1:33140 - "POST /login HTTP/1.1" 200
+INFO: 127.0.0.1:33140 - "GET /live/stream HTTP/1.1" 200
+INFO: 127.0.0.1:33136 - "GET /workspaces HTTP/1.1" 200
+INFO: 127.0.0.1:33152 - "GET /weave/status HTTP/1.1" 200
+INFO: 127.0.0.1:33168 - "GET /rbac HTTP/1.1" 200
+INFO: 127.0.0.1:33174 - "GET /lifecycle HTTP/1.1" 200
+INFO: 127.0.0.1:33174 - "GET /weave/tasks HTTP/1.1" 200
+INFO: 127.0.0.1:33168 - "GET /weave/workers HTTP/1.1" 200
+INFO: 127.0.0.1:33152 - "GET /weave/environments HTTP/1.1" 200
+INFO: 127.0.0.1:33174 - "GET /live/stream HTTP/1.1" 200
+INFO: 127.0.0.1:33168 - "GET /weave/project HTTP/1.1" 200
+INFO: 127.0.0.1:33136 - "GET /weave/hosts HTTP/1.1" 200
+INFO: 127.0.0.1:33184 - "GET /weave/workers HTTP/1.1" 200
+INFO: 127.0.0.1:52332 - "GET /rbac HTTP/1.1" 200
+INFO: 127.0.0.1:52336 - "GET /lifecycle HTTP/1.1" 200
+INFO: 127.0.0.1:52338 - "GET /wizard/templates HTTP/1.1" 200
+INFO: 127.0.0.1:52338 - "GET /docs HTTP/1.1" 200
+INFO: 127.0.0.1:52336 - "GET /static/swagger-ui/swagger-ui-bundle.js HTTP/1.1" 200
+INFO: 127.0.0.1:52338 - "GET /static/swagger-ui/swagger-ui.css HTTP/1.1" 200
+INFO: 127.0.0.1:52336 - "GET /openapi.json HTTP/1.1" 200
+INFO: 127.0.0.1:52336 - "GET /openapi.json HTTP/1.1" 200
+INFO: 127.0.0.1:59422 - "POST /login HTTP/1.1" 200
+INFO: 127.0.0.1:59436 - "POST /weave/workers HTTP/1.1" 404
+INFO: 127.0.0.1:59450 - "POST /weave/workers/dev-1/heartbeat HTTP/1.1" 404
+INFO: Shutting down
+INFO: Waiting for application shutdown.
+INFO: Shutting down workspace: default
+INFO: Successfully finalized 12 storages
+INFO: Shutting down workspace: demo
+INFO: Successfully finalized 12 storages
+INFO:mcp.server.streamable_http_manager:StreamableHTTP session manager shutting down
+INFO: Application shutdown complete.
+INFO: Finished server process [1871417]

@@ -1,0 +1,12 @@
+$ weave agents --help
+usage: weave agents [-h] <action> ...
+
+positional arguments:
+  <action>
+    list      the fleet: desired vs running per host
+    scale     set how many developers a machine should run
+    up        same as scale — the word you reach for first
+    down      retire a machine's developers (scale to 0, or --control stop)
+
+options:
+  -h, --help  show this help message and exit

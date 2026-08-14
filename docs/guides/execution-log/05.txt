@@ -1,0 +1,11 @@
+### chapter 4 · governance
+$ weave roles install --workspace demo --approver ada
+governance installed into 'demo', signed by ada:
+  ontology   → ontology v1
+  actions    → action v1
+  lifecycle  → lifecycle v1
+  rules      → rule v1
+  rbac       → rbac v1
+
+Each layer is a signed ledger version, so it can be rolled back and it says who signed it.
+The rules layer is enforced from now, not after a restart.

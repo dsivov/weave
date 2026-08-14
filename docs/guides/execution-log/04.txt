@@ -1,0 +1,4 @@
+### chapter 3 · the first administrator, with no --working-dir anywhere
+$ weave user add ada --role manager --workspaces demo
+INFO: user store: created 'ada' with role 'manager'
+Created 'ada' with role 'manager'.
