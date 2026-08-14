@@ -68,6 +68,13 @@ multi-role support.
   and the raw ontology/rules JSON textareas replaced by the wizard's **interview → proposal → diff → sign**.
   **No new dependency, no new endpoint, no contract amendment** — it surfaces what P4–P6 already built.
 
+- [WEAVE_METHODOLOGY_CHANGE_REQUEST.md](WEAVE_METHODOLOGY_CHANGE_REQUEST.md) — **CR-002, proposed** 2026-08-14.
+  The house methodology's artifacts reach Weave today only because a role kit *tells* a session to ingest them —
+  **nothing enforces it and nothing notices when it does not happen**, so a plan can publish over a graph that
+  does not contain the document it was derived from. Adds a precondition to `PublishPlan` and one CLI verb,
+  `weave docs sync`. **No new storage, node type or dependency.** Ships with the guide's methodology chapter,
+  because a documented workflow nothing enforces is how the gap was created.
+
 - [WEAVE_UI_DEFECTS.md](WEAVE_UI_DEFECTS.md) — **U1–U13**, 2026-08-13. Thirteen defects dsivov found in the running
   demo, every mechanism verified: **13 reports → 13 confirmed, 7 root causes**. The headline is that a user could not
   log out, could not see who they were, and could not act in the role they had just granted themselves — three

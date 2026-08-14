@@ -53,11 +53,12 @@
   <a href="#project">7 · Say what you are building</a>
   <a href="#fleet">8 · Attach a machine</a>
   <a href="#supervise">9 · Watch and steer</a>
-  <a href="#roles">10 · The four roles</a>
-  <a href="#api">11 · The API and MCP</a>
-  <a href="#upgrade">12 · Upgrading</a>
-  <a href="#docker">13 · Docker</a>
-  <a href="#trouble">14 · When something is wrong</a>
+  <a href="#methodology">10 · The methodology</a>
+  <a href="#roles">11 · The four roles</a>
+  <a href="#api">12 · The API and MCP</a>
+  <a href="#upgrade">13 · Upgrading</a>
+  <a href="#docker">14 · Docker</a>
+  <a href="#trouble">15 · When something is wrong</a>
 </nav>
 
 <main>
@@ -86,7 +87,7 @@ afterwards.</p>
 
 <p>You need a machine with <b>Python 3.12</b>, <b>conda</b>, <b>git</b>, and — because every Weave
 role is a Claude Code session — a <b>Claude subscription seat</b> logged in on that machine.
-Docker is needed only for the containerised deployment in <a href="#docker">§13</a> and for
+Docker is needed only for the containerised deployment in <a href="#docker">§14</a> and for
 running dev agents in containers.</p>
 
 <div class="callout key">
@@ -352,7 +353,119 @@ them works on: each worker <b>claims</b> its own task from the ready queue, and 
 wins. Dispatch offers work by ordering a queue; it never hands a task to a worker. No model sits in
 that path — the coordination is deterministic graph logic.</p>
 
-<h2 id="roles">10 · The four roles</h2>
+<h2 id="methodology">10 · Working the methodology through Weave</h2>
+
+<p>The house methodology produces artifacts in a fixed order — <b>BLOG → RFC ↔ DRP → CONSTRAINTS →
+ARCHITECTURE / CR → WORK PLAN → milestone reviews</b>. Weave is where the team's answers live. This
+chapter is how the two meet.</p>
+
+<h3>Connecting a manager or architect session</h3>
+
+<p>There is no Weave client to install. A role's <b>kit</b> <i>is</i> the client configuration:</p>
+
+<pre>$ weave roles kit --role manager --workspace demo --out ./manager-seat
+
+kit for 'manager' in workspace 'demo' → ./manager-seat
+  written   .mcp.json
+  written   CLAUDE.md
+
+Point a Claude Code session at ./manager-seat and start it.</pre>
+
+<p><code>.mcp.json</code> points Claude Code at the server's <code>/mcp</code> endpoint with the
+workspace header. <code>CLAUDE.md</code> carries that role's loop, the methodology skills it should
+author with, and the governed actions it may invoke. Start Claude Code in that directory and the
+session <i>is</i> the manager seat. The same command with <code>--role architect</code> produces the
+architect's.</p>
+
+<h3>What the surface actually is</h3>
+
+<p>Nineteen MCP tools, and they fall into five jobs. <b>This is the whole of how a human role works
+with Weave</b> — there is no other API for it.</p>
+
+<table>
+  <tr><th>Job</th><th>Tools</th><th>What it is for</th></tr>
+  <tr>
+    <td><b>Ask the four questions</b></td>
+    <td><code>ask_changes</code> <code>ask_why</code> <code>ask_features</code> <code>ask_learnings</code></td>
+    <td>The standing questions, answered as <b>nodes you can cite and resolve</b> — not prose. Identical through REST, the UI and MCP, because one handler serves all three.</td>
+  </tr>
+  <tr>
+    <td><b>Search what was ingested</b></td>
+    <td><code>query_auto</code> (the default) <code>query_knowledge_graph</code> <code>query_cgr3</code> <code>query_data</code></td>
+    <td>Retrieval over the documents in the workspace. <code>query_data</code> returns structure without a synthesised answer.</td>
+  </tr>
+  <tr>
+    <td><b>Decision memory</b></td>
+    <td><code>search_precedents</code> <code>list_decisions</code> <code>get_edge_context</code> <code>get_entity_context</code> <code>record_decision</code></td>
+    <td><b>Why the shape is what it is.</b> <code>search_precedents</code> is the one to reach for before a design call — it finds past decisions similar to the situation in front of you.</td>
+  </tr>
+  <tr>
+    <td><b>Do governed work</b></td>
+    <td><code>get_manifest</code> then <code>invoke_action</code></td>
+    <td>See below — this pair is the most important idea on the page.</td>
+  </tr>
+  <tr>
+    <td><b>Shared pictures</b></td>
+    <td><code>list_diagrams</code> <code>get_diagram</code> <code>save_diagram</code></td>
+    <td>One diagram set per workspace: the picture you read is the picture your teammates read. <b>Read before you draw</b> — revise the existing id rather than starting a second picture of the same thing.</td>
+  </tr>
+</table>
+
+<div class="callout key">
+  <p><b>There is no tool per action, and that is the design.</b> <code>get_manifest</code> tells you
+  what your role may do <i>right now</i>, filtered by the RBAC in force; <code>invoke_action</code>
+  performs any of them, validating arguments, checking permissions, checking the lifecycle and running
+  the rules before anything is written.</p>
+  <p>So <b>changing who may do what takes effect without updating any client</b> — the manifest simply
+  answers differently on the next call. It is also the answer to <i>"how do I know Weave has what I need
+  for this stage?"</i>: ask the manifest. A capability you cannot see is one your role does not have,
+  not one that is missing.</p>
+</div>
+
+<h3>Getting the artifacts in</h3>
+
+<p>An artifact is a file in <code>docs/</code> <b>and</b> a node in the graph, joined by a locator —
+<code>repo · path · rev</code>. Weave never stores a copy of the document; it stores a reference that
+resolves to the real file at a real revision, which is why a citation cannot rot silently.</p>
+
+<p>Ingest a document so it becomes retrievable:</p>
+
+<pre>POST /documents/text     { "text": "…", "file_source": "docs/WEAVE_DRP.md" }</pre>
+
+<div class="callout caveat">
+  <p><b>Two things to know, because both are silent.</b></p>
+  <p><b>Nothing uploads automatically.</b> There is no watcher and no hook. The manager's kit
+  <i>instructs</i> the session to ingest as step 3 of its loop — if a session skips it, nothing notices,
+  and a plan can be published over a graph that does not contain the document it was derived from.</p>
+  <p><b>The response is acceptance, not completion.</b> <code>POST /documents/text</code> answers
+  <code>status: success</code> with a <code>track_id</code> the moment the text is received; processing
+  happens afterwards and can fail. <b>Check <code>GET /documents</code> for the outcome</b> rather than
+  trusting the 200.</p>
+  <p>Both are addressed by <b>CR-002</b>, which adds <code>weave docs sync</code> and makes publishing a
+  plan <i>refuse</i> when a document it references is not there.</p>
+</div>
+
+<h3>Checking that the information is actually there</h3>
+
+<table>
+  <tr><th>Question</th><th>How to answer it</th></tr>
+  <tr><td>What may my role do at this stage?</td><td><code>get_manifest</code> — RBAC-filtered, live.</td></tr>
+  <tr><td>Do the citations still resolve?</td><td><code>python scripts/check_locators.py --workspace demo</code>. Exit <b>0</b> clean, <b>1</b> dangling, <b>2</b> could not run — the three are distinct so a scheduled check can tell <i>nothing is broken</i> from <i>I could not look</i>.</td></tr>
+  <tr><td>What has the team already decided about this?</td><td><code>search_precedents</code>, before you decide it again.</td></tr>
+  <tr><td>Is the artifact for this stage present at all?</td><td><b>Nothing answers this today.</b> <code>check_locators</code> finds references that broke, not ones that were never made. This is exactly what CR-002 exists to close.</td></tr>
+</table>
+
+<h3>What the developer sees</h3>
+
+<p>When a dev agent claims a task it fetches a <b>brief</b>: the task, the change request it serves, its
+dependencies, the files it <code>touches</code>, and <b>precedent</b> — prior decisions semantically
+similar to this task. That last field is the orient step, and it is only as good as what was ingested.</p>
+
+<p>So the chain the methodology depends on is: <b>author in <code>docs/</code> → ingest → the plan
+references it → a task inherits it → the agent orients on it → what it learns is recorded back.</b>
+Every link exists today. The first one is the one nothing enforces yet.</p>
+
+<h2 id="roles">11 · The four roles</h2>
 
 <div class="role-grid">
   <div class="card"><h3>Admin</h3><p>Creates and administers accounts and workspace membership. Note this is <b>not</b> a governance role: administering people is separate from directing work.</p></div>
@@ -364,7 +477,7 @@ that path — the coordination is deterministic graph logic.</p>
 <p>Every one of these is an ordinary Claude Code session pointed at the server's MCP endpoint. There
 is no separate client to install for humans, and no separate surface for agents.</p>
 
-<h2 id="api">11 · The API and MCP</h2>
+<h2 id="api">12 · The API and MCP</h2>
 
 <p>The <b>API</b> tab serves the full OpenAPI documentation from the server itself — no internet
 required, which matters for an air-gapped install.</p>
@@ -405,7 +518,7 @@ physical batch and Weave's chunks reach ~1500, so every embedding call returns 5
 <p>The error names the cause exactly — <b>in the model server's log, not Weave's</b>, which is the
 only reason it is hard to find.</p>
 
-<h2 id="upgrade">12 · Upgrading an existing install</h2>
+<h2 id="upgrade">13 · Upgrading an existing install</h2>
 
 <pre>weave migrate reviews --workspace demo --dry-run
 weave migrate reviews --workspace demo
@@ -420,7 +533,7 @@ Running it twice is safe.</p>
   directly. The migration exists for workspaces that predate that.</p>
 </div>
 
-<h2 id="docker">13 · Docker</h2>
+<h2 id="docker">14 · Docker</h2>
 
 <p>The bundle in <code>deploy/</code> raises the server and its databases together. It needs three
 secrets, none of which has a default:</p>
@@ -449,7 +562,7 @@ server container, install governance, and carry on.</p>
   <code>NanoVectorDBStorage</code>.</p>
 </div>
 
-<h2 id="trouble">14 · When something is wrong</h2>
+<h2 id="trouble">15 · When something is wrong</h2>
 
 <table>
   <tr><th>What you see</th><th>What it means</th></tr>
