@@ -24,6 +24,42 @@ export interface ParseResult {
   error: string | null
 }
 
+// ─── Flowchart header ─────────────────────────────────────────────────────────
+//
+// **Measured against mermaid 11.16.1 rather than remembered** (U18). Every form
+// below was run through `mermaid.parse` and accepted; only nonsense like
+// `flowchart XX` is a lexical error. The editor previously matched
+// `/^flowchart\s+(TD|LR|BT|RL)/`, which rejected two thirds of what the viewer
+// beside it renders:
+//
+//   flowchart TB   the official synonym for TD — mermaid's own preferred spelling
+//   graph TD       the older keyword, and the commonest form in anything
+//                  written before 2023, which is most documentation
+//   graph LR;      a trailing semicolon, ordinary in the older style
+//   flowchart      no direction at all — mermaid defaults to top-to-bottom
+//   graph v        the arrow-shaped direction synonyms
+//
+// A diagram pasted from documentation, from a model, or from this repository's
+// own markdown hit that regex and became an unopenable artifact: source intact
+// on the server, empty canvas, and a message that named the one spelling the
+// editor happened to accept.
+// The direction slot is optional but not permissive: `flowchart XX` is a
+// lexical error in mermaid, and accepting it here would quietly invent a node
+// called `XX` — the two panes disagreeing again, in the other direction. A
+// statement may follow on the same line only after a `;`, which is the form the
+// older style actually uses (`graph LR; A-->B`).
+const HEADER_RE =
+  /^(?:flowchart|graph)(?![\w-])(?:\s*(TD|TB|BT|RL|LR|v|\^|>|<)(?![\w-]))?\s*(?:;\s*(.*))?$/
+
+//: The synonyms collapsed onto the four directions the store models. TB and TD
+//: are the same direction under two names, and dagre is told `TB` for both.
+const DIRECTION_ALIASES: Record<string, Direction> = {
+  TD: 'TD', TB: 'TD', v: 'TD',
+  BT: 'BT', '^': 'BT',
+  LR: 'LR', '>': 'LR',
+  RL: 'RL', '<': 'RL',
+}
+
 // ─── Node shape detection ─────────────────────────────────────────────────────
 // Parses a node suffix like [label], (label), {label}, etc.
 // Supports both quoted ("label") and unquoted (label) forms.
@@ -298,7 +334,26 @@ export function parseMermaidFlowchart(syntax: string): ParseResult {
   }
 
   try {
-    const lines = syntax.split('\n').map((l) => l.trim()).filter(Boolean)
+    // A header may carry the first statement on its own line — `graph LR; A-->B`
+    // is ordinary in the older style. Split it here rather than in the loop, so
+    // that statement is parsed instead of discarded: dropping it would lose a
+    // node with no error, which is the same failure as U18 wearing a smaller
+    // hat.
+    const lines: string[] = []
+    let headerSeen = false
+    for (const raw of syntax.split('\n')) {
+      const line = raw.trim()
+      if (!line) continue
+      const header = headerSeen || line.startsWith('%%') ? null : line.match(HEADER_RE)
+      if (!header) {
+        lines.push(line)
+        continue
+      }
+      headerSeen = true
+      const trailing = (header[2] ?? '').trim()
+      lines.push(trailing ? line.slice(0, line.length - header[2].length).trim() : line)
+      if (trailing) lines.push(trailing)
+    }
 
     let direction: Direction = 'TD'
     let theme: Theme = 'default'
@@ -348,11 +403,16 @@ export function parseMermaidFlowchart(syntax: string): ParseResult {
       }
 
       // ── Flowchart header
-      const headerMatch = line.match(/^flowchart\s+(TD|LR|BT|RL)/)
-      if (headerMatch) {
-        direction = headerMatch[1] as Direction
-        foundHeader = true
-        continue
+      if (!foundHeader) {
+        const headerMatch = line.match(HEADER_RE)
+        if (headerMatch) {
+          // No direction is legal and means top-to-bottom, which is also what
+          // this editor defaults to — so an absent direction is not an error to
+          // report, it is an answer.
+          direction = DIRECTION_ALIASES[headerMatch[1]] ?? 'TD'
+          foundHeader = true
+          continue
+        }
       }
 
       if (!foundHeader) continue
@@ -440,7 +500,12 @@ export function parseMermaidFlowchart(syntax: string): ParseResult {
     }
 
     if (!foundHeader) {
-      return { ...empty, error: 'No valid flowchart header found. Start with "flowchart TD" (or LR/BT/RL).' }
+      return {
+        ...empty,
+        error: 'This does not start with a flowchart header. The first line ' +
+          'should be "flowchart" or "graph", optionally followed by a ' +
+          'direction (TD, TB, LR, RL or BT).',
+      }
     }
 
     if (nodesMap.size === 0) {
@@ -464,6 +529,20 @@ export function parseMermaidFlowchart(syntax: string): ParseResult {
 
     return { nodes, edges, direction, theme, look, curveStyle, error: null }
   } catch (err) {
-    return { ...empty, error: err instanceof Error ? err.message : 'Parse error' }
+    // **A JavaScript error message is not an explanation** (U19). This branch
+    // used to return `err.message`, and the screen then told a manager their
+    // diagram failed because of *"Cannot set properties of undefined (setting
+    // 'rank')"* — a dagre stack frame presented as the reason, inside an
+    // otherwise good sentence. Nobody can act on that, and it is not even about
+    // their diagram: it is about ours.
+    //
+    // The raw error still exists, in the console, where the person who can use
+    // it will look.
+    console.error('diagram parse failed', err)
+    return {
+      ...empty,
+      error: 'This diagram could not be read as a mermaid flowchart. The ' +
+        'source is unchanged — the full details are in the browser console.',
+    }
   }
 }

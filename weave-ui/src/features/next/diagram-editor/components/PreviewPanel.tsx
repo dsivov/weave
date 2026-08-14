@@ -1,6 +1,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import mermaid from 'mermaid'
+import { readableError } from '../lib/errors'
 
 interface PreviewPanelProps {
   syntax: string
@@ -39,7 +40,9 @@ export function PreviewPanel({ syntax }: PreviewPanelProps) {
       } catch (err) {
         // Clean up the leftover element mermaid may have inserted on error
         document.getElementById(id)?.remove()
-        setError(err instanceof Error ? err.message : 'Render error')
+        // mermaid's own diagnostics are about the reader's source and are
+        // worth showing; a runtime failure of ours is not (U19).
+        setError(readableError(err, 'This diagram could not be rendered.'))
       }
     }
 

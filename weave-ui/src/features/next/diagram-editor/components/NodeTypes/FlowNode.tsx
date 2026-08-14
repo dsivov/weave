@@ -261,12 +261,24 @@ function NodeLabel({
       />
     )
   }
+  // `<br/>` is how mermaid writes a line break in a label, and the preview pane
+  // beside this canvas honours it. Rendering it literally meant the two panes
+  // disagreed about the same source — the canvas showing `Weave server<br/>and
+  // UI` on one line, with the markup as text. Split rather than
+  // `dangerouslySetInnerHTML`: a label is user content, and the only tag we owe
+  // it is the one we are handling here.
+  const lines = value.split(/<br\s*\/?>/i)
   return (
     <span
       className="text-center break-words text-sm font-medium leading-snug select-none"
       style={{ color: color || '#1f2937' }}
     >
-      {value}
+      {lines.map((line, i) => (
+        <span key={i}>
+          {i > 0 && <br />}
+          {line}
+        </span>
+      ))}
     </span>
   )
 }

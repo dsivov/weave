@@ -1,6 +1,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import mermaid from 'mermaid'
+import { readableError } from '../../lib/errors'
 
 let initialized = false
 let renderId = 0
@@ -26,7 +27,9 @@ function DiagramView({ syntax, containerRef }: { syntax: string; containerRef: R
         }
       } catch (err) {
         document.getElementById(id)?.remove()
-        setError(err instanceof Error ? err.message : 'Render error')
+        // mermaid's own diagnostics are about the reader's source and are
+        // worth showing; a runtime failure of ours is not (U19).
+        setError(readableError(err, 'This diagram could not be rendered.'))
       }
     }
     render()
