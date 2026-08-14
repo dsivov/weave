@@ -307,9 +307,56 @@ there, and it starts or stops containers until reality matches.</p>
 </div>
 
 <p>Each developer is a container running Claude Code headless in a git worktree. The machine has one
-subscription seat, provisioned by an interactive login on that box, and the daemon propagates it
-into every container while scrubbing API-key, Bedrock and Vertex variables on the way in — so a
-container cannot silently fall back to metered auth.</p>
+subscription seat, and the daemon propagates it into every container while scrubbing API-key, Bedrock
+and Vertex variables on the way in — so a container cannot silently fall back to metered auth.</p>
+
+<h3>Two credentials — and only one of them is model access</h3>
+
+<div class="callout key">
+  <p><b>Every agent runs on the subscription seat. Always. There is no alternative and no setting that
+  provides one.</b> Before a worker starts, Weave scrubs sixteen variables that could push Claude Code
+  onto a paid path — every Anthropic key and base URL, every Bedrock and Vertex variable — and then
+  asserts that <code>claude</code> reports subscription auth, <b>refusing to start if it does not</b>.</p>
+  <p>The other token below is <b>not model access</b>. It is the daemon's identity in Weave — the
+  equivalent of a username, used to register a machine and read its instructions. It never reaches
+  Claude Code, and no model call is ever made with it.</p>
+</div>
+
+<p>So a dev host holds two tokens that answer to different systems. Keeping them straight is the single
+most important thing on this page.</p>
+
+<table>
+  <tr><th></th><th><code>--token</code></th><th>the seat</th></tr>
+  <tr><td><b>Answers</b></td><td>who this daemon is <i>in Weave</i></td><td>what lets Claude Code run on your subscription</td></tr>
+  <tr><td><b>Issued by</b></td><td>Weave, at <code>/login</code></td><td>Anthropic, by <code>claude</code> logging in</td></tr>
+  <tr><td><b>Verified by</b></td><td>Weave, against its own signing secret</td><td>Anthropic</td></tr>
+  <tr><td><b>Carried as</b></td><td><code>--token</code></td><td><code>CLAUDE_CODE_OAUTH_TOKEN</code>, or <code>--seat-file</code></td></tr>
+</table>
+
+<div class="callout danger">
+  <p><b>Do not use one as the other.</b> Weave cannot verify a Claude credential — it is not an
+  Anthropic client and the SDK is deliberately not a dependency — so a seat presented as
+  <code>--token</code> simply fails to authenticate. The reverse is worse: it would make the Weave
+  server a custodian of subscription credentials, which is the opposite of the boundary this product is
+  built around. <b>Neither substitution weakens the subscription rule</b> — an agent has no paid path to
+  fall back to either way; it just stops working.</p>
+</div>
+
+<h3>Getting the seat onto the machine</h3>
+
+<p>The seat does <b>not</b> require an interactive login on every box. Either works:</p>
+
+<pre># the machine has its own login
+claude   # sign in once on that box
+
+# or ship a seat from a machine that is already signed in
+export CLAUDE_CODE_OAUTH_TOKEN=&lt;seat&gt;
+# or, friendlier for a service, keep it in a file that survives a reboot
+python3 -m weave.devhost --seat-file /etc/weave/seat --server … --workspace … --token &lt;token&gt;</pre>
+
+<p><code>weave doctor</code> on that machine tells you which of the three states you are in: no seat, a
+seat with no subscription, or a metered variable in the environment. Run it there before the daemon,
+not on the server.</p>
 
 <p>Scale from the board's <b>Dispatch</b> control, or from the CLI:</p>
 

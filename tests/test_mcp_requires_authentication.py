@@ -198,15 +198,26 @@ def test_the_membership_rule(principal, workspace, allowed):
 
 def test_the_principal_carries_its_grants_from_the_token():
     """Server-derived, like the role. A grant read from a header would be the
-    self-stamped principal A6 exists to forbid."""
-    import inspect
+    self-stamped principal A6 exists to forbid.
 
-    from weave.server.utils import get_principal
+    **Asserted on behaviour, not on where the code lives.** The first version
+    read `get_principal`'s source for the string `"workspaces"`, and broke the
+    moment the body moved into a shared `principal_from_token` — the property
+    was still true and the test still failed. A test coupled to a location
+    reports refactors as defects.
+    """
+    from weave.server.auth import auth_handler
+    from weave.server.utils import principal_from_token
 
-    source = inspect.getsource(get_principal)
-    assert '"workspaces"' in source
-    assert "metadata" in source, (
-        "the grant no longer comes from the validated token's metadata"
+    token = auth_handler.create_token(
+        username="erin", role="developer",
+        metadata={"auth_mode": "enabled", "workspaces": ["alpha", "beta"]})
+    principal = principal_from_token(auth_handler.validate_token(token))
+
+    assert principal["username"] == "erin"
+    assert principal["role"] == "developer"
+    assert principal["workspaces"] == ["alpha", "beta"], (
+        "the grant no longer travels in the validated token"
     )
 
 

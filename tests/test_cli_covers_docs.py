@@ -65,6 +65,12 @@ def _text(path: pathlib.Path) -> str:
     """
     text = path.read_text(encoding="utf-8")
     if path.suffix in (".html", ".htm"):
+        # A closing `</code>` or `</pre>` **ends the command**. Without this,
+        # `<code>weave doctor</code> tells you which state you are in` becomes
+        # one line and the prose is read as arguments — the guide is fine and
+        # the extractor reports it broken. Tags become a space; the end of a
+        # code element becomes a newline.
+        text = re.sub(r"</(code|pre|kbd|samp)>", "\n", text)
         text = re.sub(r"<[^>]+>", " ", text)
         text = html.unescape(text)
     # A trailing `#` comment is ordinary in a documented command line and is not
