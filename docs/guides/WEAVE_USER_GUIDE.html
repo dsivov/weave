@@ -189,8 +189,11 @@ environment-variable accounts and no default login.</p>
 
 <div class="callout info">
   <p><b>A workspace is the tenant boundary.</b> Everything below — governance, the project, tasks,
-  the graph — belongs to one workspace. A user sees only the workspaces they are a member of.
-  <code>demo</code> above is just a name; use whatever you like.</p>
+  the graph — belongs to one workspace. <code>demo</code> above is just a name; use whatever you like.</p>
+  <p><b>Membership is enforced on every request.</b> The <code>WEAVE-WORKSPACE</code> header <i>selects
+  among the workspaces you hold; it does not grant one</i> — naming a workspace you are not a member of
+  is a <b>403</b>, on REST and MCP alike. That includes naming <i>none</i>: a token that does not hold
+  the server's default workspace must say which workspace it means.</p>
 </div>
 
 <div class="callout caveat">
@@ -430,11 +433,23 @@ kit for 'manager' in workspace 'demo' → ./manager-seat
 
 Point a Claude Code session at ./manager-seat and start it.</pre>
 
-<p><code>.mcp.json</code> points Claude Code at the server's <code>/mcp</code> endpoint with the
-workspace header. <code>CLAUDE.md</code> carries that role's loop, the methodology skills it should
-author with, and the governed actions it may invoke. Start Claude Code in that directory and the
-session <i>is</i> the manager seat. The same command with <code>--role architect</code> produces the
-architect's.</p>
+<p><code>.mcp.json</code> points Claude Code at the server's <code>/mcp</code> endpoint, with the
+workspace header and <b>your credential</b>. <code>CLAUDE.md</code> carries that role's loop, the
+methodology skills it should author with, and the governed actions it may invoke. Start Claude Code in
+that directory and the session <i>is</i> the manager seat. The same command with
+<code>--role architect</code> produces the architect's.</p>
+
+<p>Pass a token so the kit is complete:</p>
+
+<pre>weave roles kit --role manager --workspace demo --out ./manager-seat --token &lt;token&gt;</pre>
+
+<div class="callout caveat">
+  <p><b>Both files are written <code>0600</code>, and <code>.mcp.json</code> holds a credential.</b> It is
+  your Weave identity — not a model key (see <a href="#fleet">§8</a>) — but it is still a credential:
+  do not commit it, and regenerate the kit rather than copying one between people.</p>
+  <p>Without a token the kit is still written and <code>/mcp</code> will refuse it — the command says so
+  and tells you how to get one.</p>
+</div>
 
 <h3>What the surface actually is</h3>
 
@@ -500,9 +515,9 @@ resolves to the real file at a real revision, which is why a citation cannot rot
   <code>status: success</code> with a <code>track_id</code> the moment the text is received; processing
   happens afterwards and can fail. <b>Check <code>GET /documents</code> for the outcome</b> rather than
   trusting the 200.</p>
-  <p>Both are addressed by <b>CR-002</b> (proposed): it adds a sync command and makes publishing a plan
-  <i>refuse</i> when a document it references is not there. <b>Until that ships, ingesting is a step you
-  have to remember</b> — and checking <code>GET /documents</code> afterwards is how you know it worked.</p>
+  <p><b>So treat ingesting as part of authoring, not as a chore afterwards</b> — and check
+  <code>GET /documents</code> before you rely on it. The habit that works: publish the artifact in the
+  same session that wrote it, while you still know it exists.</p>
 </div>
 
 <h3>Checking that the information is actually there</h3>
@@ -512,7 +527,7 @@ resolves to the real file at a real revision, which is why a citation cannot rot
   <tr><td>What may my role do at this stage?</td><td><code>get_manifest</code> — RBAC-filtered, live.</td></tr>
   <tr><td>Do the citations still resolve?</td><td><code>python scripts/check_locators.py --workspace demo</code>. Exit <b>0</b> clean, <b>1</b> dangling, <b>2</b> could not run — the three are distinct so a scheduled check can tell <i>nothing is broken</i> from <i>I could not look</i>.</td></tr>
   <tr><td>What has the team already decided about this?</td><td><code>search_precedents</code>, before you decide it again.</td></tr>
-  <tr><td>Is the artifact for this stage present at all?</td><td><b>Nothing answers this today.</b> <code>check_locators</code> finds references that broke, not ones that were never made. This is exactly what CR-002 exists to close.</td></tr>
+  <tr><td>Is the artifact for this stage present at all?</td><td><b>Nothing answers this for you.</b> <code>check_locators</code> finds references that broke, not ones that were never made — so a document nobody ingested looks exactly like a stage nobody has reached. Check <code>GET /documents</code> after each publish.</td></tr>
 </table>
 
 <h3>What the developer sees</h3>
@@ -638,6 +653,9 @@ server container, install governance, and carry on.</p>
   <tr><td>Every task “fails its tests”</td><td>The test command may not exist on that host. The worker halts loudly rather than recording a false learning about your code.</td></tr>
   <tr><td>Ingestion times out on a local model</td><td>The model is unloading between calls — pin it and raise <code>WEAVE_TIMEOUT</code>. See §4.</td></tr>
   <tr><td>Every embedding call returns 500</td><td>The embedding server's batch is smaller than a chunk. Read <b>its</b> log, not Weave's. See §4.</td></tr>
+  <tr><td><code>403</code> — <i>not a member of workspace '…'</i></td><td>Your token does not hold that workspace. The header chooses among the ones you have; it does not grant one. Add the membership (<code>weave user add … --workspaces</code>) and sign in again.</td></tr>
+  <tr><td>A Claude Code session cannot reach <code>/mcp</code></td><td>The kit was written without a token. Regenerate it with <code>--token</code>; <code>/mcp</code> refuses unauthenticated requests, including tool discovery.</td></tr>
+  <tr><td>A role change had no effect</td><td>The role travels in the token. Sign in again — the current session still carries the old one.</td></tr>
   <tr><td>An agent finished but nothing merged</td><td>By design. Dev agents hold no git credentials and cannot merge — the output of a run is a branch and a pull request.</td></tr>
 </table>
 
