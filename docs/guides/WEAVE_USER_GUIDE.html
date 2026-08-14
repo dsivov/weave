@@ -1,0 +1,479 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Weave — the user guide</title>
+<link rel="stylesheet" href="../assets/house.css">
+<style>
+  .shot{border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);margin:18px 0}
+  .shot img{display:block;width:100%}
+  .shot figcaption{padding:10px 14px;background:var(--panel);color:var(--ink-soft);font-size:13.5px;border-top:1px solid var(--line)}
+  pre{background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:14px 16px;overflow:auto;font-size:14px;line-height:1.55}
+  pre b{color:var(--ok);font-weight:600}
+  .role-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px;margin:18px 0}
+  h2{margin-top:2.2em;padding-top:.5em;border-top:1px solid var(--line-soft)}
+  h3{margin-top:1.8em}
+  table{border-collapse:collapse;width:100%;font-size:14.5px}
+  th,td{border:1px solid var(--line);padding:8px 11px;text-align:left;vertical-align:top}
+  th{background:var(--panel);color:var(--ink)}
+  .step{color:var(--a);font-weight:700}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="hero-inner">
+    <div class="eyebrow">Weave · user guide</div>
+    <h1>Run an AI development team on one governed graph</h1>
+    <p class="lede">Install Weave, sign in, give your team a vocabulary, point it at a repository,
+      and put autonomous developers to work — with every action passing governance and every
+      answer resolving to a real document.</p>
+    <div class="byline">
+      Written for someone who has never seen Weave. <b>Every command and every screenshot in this
+      guide was executed against a real installation before it was written</b> — where something
+      cannot be run, the guide says so rather than describing it optimistically.
+    </div>
+    <div class="hero-tags">
+      <span class="tag"><b>Python</b> 3.12 · conda</span>
+      <span class="tag"><b>Roles</b> admin · manager · architect · developer</span>
+      <span class="tag"><b>Deploy</b> source or Docker</span>
+    </div>
+  </div>
+</header>
+
+<div class="layout">
+<nav class="toc">
+  <a href="#what">1 · What Weave is</a>
+  <a href="#before">2 · Before you start</a>
+  <a href="#install">3 · Install</a>
+  <a href="#server">4 · Start the server</a>
+  <a href="#admin">5 · The first administrator</a>
+  <a href="#governance">6 · Give the team a vocabulary</a>
+  <a href="#project">7 · Say what you are building</a>
+  <a href="#fleet">8 · Attach a machine</a>
+  <a href="#supervise">9 · Watch and steer</a>
+  <a href="#roles">10 · The four roles</a>
+  <a href="#api">11 · The API and MCP</a>
+  <a href="#upgrade">12 · Upgrading</a>
+  <a href="#docker">13 · Docker</a>
+  <a href="#trouble">14 · When something is wrong</a>
+</nav>
+
+<main>
+
+<h2 id="what">1 · What Weave is</h2>
+
+<p>Weave runs a development team in which some members are people and some are autonomous agents,
+and both are governed the same way. Work is tasks on a board. Every action — claiming a task,
+approving a review, changing who may do what — passes role permissions, a lifecycle, and a rules
+engine before it is written. What the team learned is recorded as it happens and is queryable
+afterwards.</p>
+
+<div class="callout key">
+  <p><b>Three ideas explain most of the product.</b></p>
+  <p><b>Every role is a Claude Code session.</b> Humans run it interactively — CLI, desktop app or
+  IDE extension. Dev agents run it headless in a container. Same client, same MCP surface; only the
+  runtime and the identity differ.</p>
+  <p><b>Governance is a signed ledger, not a config file.</b> Roles, lifecycles and rules are
+  versions with a signature and a reason. They take effect on the next request, without a restart,
+  and rolling a version back restores the behaviour it replaced.</p>
+  <p><b>The hub never dials out.</b> Machines that carry agents register and heartbeat; supervision
+  is state they read back. That is what lets a dev host sit behind NAT or in a private VPC.</p>
+</div>
+
+<h2 id="before">2 · Before you start</h2>
+
+<p>You need a machine with <b>Python 3.12</b>, <b>conda</b>, <b>git</b>, and — because every Weave
+role is a Claude Code session — a <b>Claude subscription seat</b> logged in on that machine.
+Docker is needed only for the containerised deployment in <a href="#docker">§13</a> and for
+running dev agents in containers.</p>
+
+<div class="callout info">
+  <p><b>The seat is not optional and not an API key.</b> Weave never puts a model credential near a
+  Claude Code process — human or agent. The server has its own model backend for graph building and
+  retrieval, and that is the only place a model credential exists. If you have
+  <code>ANTHROPIC_API_KEY</code> exported for other work, leave it: Weave does not use it and scrubs
+  it from what reaches an agent.</p>
+</div>
+
+<h2 id="install">3 · Install</h2>
+
+<pre>conda env create -f environment.yml
+conda activate weave
+pip install -e .</pre>
+
+<p>That last line is what puts the <code>weave</code> command on your PATH. Every step below uses
+it.</p>
+
+<div class="callout caveat">
+  <p><b>Do not skip <code>pip install -e .</code></b> — it is the step whose absence makes every
+  later command correct and the whole sequence end at <code>weave: command not found</code>.</p>
+</div>
+
+<p>Then check the machine:</p>
+
+<pre>$ weave doctor
+
+  claude installed : yes
+  <b>subscription seat: ✓ ok</b> — max via claude.ai (you@example.com)
+  seat token set   : no (using the login on this machine)
+  <b>metered vars     : ✓ none</b>
+
+This machine is ready to carry Weave developers.</pre>
+
+<p><code>doctor</code> separates three failures that otherwise look identical: no seat, a seat with
+no subscription, and a metered variable exported in your shell. It <b>reports</b>; it does not
+change anything.</p>
+
+<h2 id="server">4 · Start the server</h2>
+
+<pre>weave init
+source ./weave_storage/weave.env
+weave up --host 0.0.0.0 --port 9800</pre>
+
+<p><code>init</code> creates the working directory and writes <code>weave.env</code> — a fresh
+signing secret at mode <code>0600</code>, plus the two feature flags the server needs. It is not
+optional: the server refuses to start on the published default secret, because every token it
+issues carries the role permissions are enforced against.</p>
+
+<div class="callout info">
+  <p><b>Bind <code>0.0.0.0</code> if anyone else will reach this</b> — including your own Claude Code
+  sessions from another machine. <code>weave up</code> runs in the foreground; Ctrl-C stops it. Under
+  a process manager, use <code>python3 -m weave.server.app</code> with the same flags.</p>
+</div>
+
+<p>What you should see, and the parts worth reading:</p>
+
+<pre>WeaveEngine log file: ./weave_storage/weave_core.log
+
+    ╔══════════════════════════════════════════════════════════════╗
+    ║                WeaveEngine Server v0.1.0                     ║
+    ║         <b>A governed graph for an AI development team</b>          ║
+    ╚══════════════════════════════════════════════════════════════╝
+
+📡 Server Configuration:
+    ├─ Host: 0.0.0.0
+    ├─ Port: 9800
+    ├─ <b>Workers: 1</b></pre>
+
+<p><b>One worker is the default and it is deliberate.</b> The in-process event bus does not fan out
+across worker processes, so a client connected to one worker would silently never receive events
+published on another. If you run more than one worker, you must also switch the event bus to the
+PostgreSQL adapter — the server refuses the unsafe pairing rather than letting it fail quietly.</p>
+
+<p>Open <code>http://&lt;host&gt;:9800/</code>. The root redirects to the UI.</p>
+
+<figure class="shot">
+  <img src="assets/ch2-login.png" alt="The Weave sign-in screen">
+  <figcaption>The sign-in screen. There are no accounts yet — you make the first one from the
+  command line, next.</figcaption>
+</figure>
+
+<h2 id="admin">5 · The first administrator</h2>
+
+<pre>$ weave user add ada --role manager --workspaces demo
+Created 'ada' with role 'manager'.</pre>
+
+<p>Users are records with hashed passwords and explicit per-workspace membership. There are no
+environment-variable accounts and no default login.</p>
+
+<div class="callout info">
+  <p><b>A workspace is the tenant boundary.</b> Everything below — governance, the project, tasks,
+  the graph — belongs to one workspace. A user sees only the workspaces they are a member of.
+  <code>demo</code> above is just a name; use whatever you like.</p>
+</div>
+
+<div class="callout caveat">
+  <p><b>Two roles that sound alike and are not.</b> <code>admin</code> administers <i>users</i>.
+  <code>manager</code> and <code>architect</code> direct <i>work</i> — they are the roles allowed to
+  install governance and define the project. Make your first account a <b>manager</b> unless you
+  have a reason not to.</p>
+  <p>And a role change takes effect at the user's <b>next sign-in</b>, because the role travels in
+  the session token. The Users screen says so when you change one.</p>
+</div>
+
+<h2 id="governance">6 · Give the team a vocabulary</h2>
+
+<p>A new workspace has no governance at all: no object types, no roles, no lifecycles, no rules.
+Nothing works until you install some. There are two ways, and they are not the same.</p>
+
+<h3>From the command line</h3>
+
+<pre>$ weave roles install --workspace demo --approver ada
+
+governance installed into 'demo', signed by ada:
+  ontology   → ontology v1
+  actions    → action v1
+  lifecycle  → lifecycle v1
+  rules      → rule v1
+  rbac       → rbac v1
+
+Each layer is a signed ledger version, so it can be rolled back and it says who signed it.
+The rules layer is enforced from now, not after a restart.</pre>
+
+<h3>Or from the board</h3>
+
+<p>Sign in and the board offers <b>Install governance</b> with the same effect. Either way, five
+layers land as signed versions.</p>
+
+<figure class="shot">
+  <img src="assets/ch4-board.png" alt="The team board just after governance is installed">
+  <figcaption>The board on a fresh install. The chip top-right names the governance in force; the
+  project panel is the next thing to fill in.</figcaption>
+</figure>
+
+<h3>Seeing what is in force</h3>
+
+<p><b>Team vocabulary</b> opens with what is actually installed — read from the signed artifacts
+themselves, so it cannot claim one thing while the runtime enforces another.</p>
+
+<figure class="shot">
+  <img src="assets/ch4-in-force.png" alt="The in-force governance panel">
+  <figcaption>Who may do what, and which lifecycles are enforced. Below it, the two team shapes you
+  can switch to — each marked as <i>replacing</i> what is in force.</figcaption>
+</figure>
+
+<div class="callout caveat">
+  <p><b>The wizard's shapes replace the preset.</b> <code>weave roles install</code> lays down the
+  standard preset (four roles, four lifecycles). The wizard offers <b>Solo</b> — one operator, agents
+  doing the work — and <b>Reviewed</b> — nothing merges unreviewed. Choosing either <i>replaces</i>
+  what is installed. That is a real change to who may do what, so the screen shows you a diff and
+  asks for a reason before it signs.</p>
+</div>
+
+<h2 id="project">7 · Say what you are building</h2>
+
+<p>On the board, fill in the <b>Project</b> panel: the clone URL your machines can reach, the base
+branch, the developer image, and the command that proves the work is good.</p>
+
+<table>
+  <tr><th>Field</th><th>What it is for</th></tr>
+  <tr><td>Repository</td><td>A clone URL the dev hosts can reach. Every machine that registers picks it up on its next heartbeat — there is nothing to configure on the machines themselves.</td></tr>
+  <tr><td>Base branch</td><td>What each task branches from.</td></tr>
+  <tr><td>Test command</td><td>What decides whether a task passed. An agent's work is not accepted because it finished; it is accepted because this passed.</td></tr>
+  <tr><td>Setup command</td><td>Optional, run once per worktree.</td></tr>
+</table>
+
+<p>Only a <b>manager</b> or <b>architect</b> may set this. If you are refused, check the role in the
+footer beside your name — and remember a role change needs a fresh sign-in.</p>
+
+<h2 id="fleet">8 · Attach a machine that carries developers</h2>
+
+<p>On the machine that should run agents — a spare box, a laptop, a VM in a private subnet:</p>
+
+<pre>python3 -m weave.devhost \
+  --server http://&lt;server&gt;:9800 \
+  --workspace demo \
+  --token &lt;a token for a Weave account&gt;</pre>
+
+<p>The daemon authenticates as an ordinary Weave identity — <b><code>--token</code> is not
+optional</b>. Without it the daemon starts, confirms the machine's seat, and then loops on
+<code>HTTP 401 Unauthorized</code> while holding zero containers. Obtain one by signing in:</p>
+
+<pre>curl -s -X POST http://&lt;server&gt;:9800/login \
+  -d 'username=ada&amp;password=…' | python3 -c 'import sys,json;print(json.load(sys.stdin)["access_token"])'</pre>
+
+<p>What a successful start looks like:</p>
+
+<pre>INFO: Weave worker: subscription seat 'max' via claude.ai (you@example.com)
+INFO: Weave worker: subscription auth confirmed; API/Bedrock/Vertex scrubbed
+INFO: <b>devhost 'guide-host' registered [seat=ok]</b>
+WARNING: devhost 'guide-host': no project repository configured for workspace 'demo'</pre>
+
+<p>That last warning is expected until <a href="#project">§7</a> is done — the machine has joined and
+has nothing to build yet.</p>
+
+<p>It registers, then heartbeats. Each reply tells it how many developers the team wants running
+there, and it starts or stops containers until reality matches.</p>
+
+<div class="callout key">
+  <p><b>Nothing ever connects <i>to</i> that machine.</b> The server never dials a host or a worker.
+  Supervision is state the host reads back on its next heartbeat. That is precisely what lets it sit
+  behind NAT, on someone's desk, or in a VPC with no inbound access — and it is why there is no
+  "push" anywhere in this product.</p>
+</div>
+
+<p>Each developer is a container running Claude Code headless in a git worktree. The machine has one
+subscription seat, provisioned by an interactive login on that box, and the daemon propagates it
+into every container while scrubbing API-key, Bedrock and Vertex variables on the way in — so a
+container cannot silently fall back to metered auth.</p>
+
+<p>Scale from the board's <b>Dispatch</b> control, or from the CLI:</p>
+
+<pre>weave agents list          # the fleet: desired vs running per host
+weave agents up   &lt;host&gt;   # one more developer there
+weave agents down &lt;host&gt;   # retire that machine's developers</pre>
+
+<h2 id="supervise">9 · Watch and steer</h2>
+
+<p>The board is the monitoring surface. Tasks move through their lifecycle live; the fleet shows
+each worker, what it holds, <b>which step of its loop it is in and how long it has been there</b>.</p>
+
+<figure class="shot">
+  <img src="assets/ch5-fleet-steps.png" alt="The fleet showing each worker's current step and duration">
+  <figcaption><code>building · 1m</code> — the step and its age. The duration is time <i>in that
+  step</i>, not time since the last heartbeat, which is what makes it answer “is it stuck?”.</figcaption>
+</figure>
+
+<p>A worker's loop is: <span class="step">waiting → claiming → orienting → building → testing →
+opening-pr → recording</span>. <code>building</code> is the model doing the work and the only step
+usually measured in minutes.</p>
+
+<h3>What you can change</h3>
+
+<table>
+  <tr><th>Act</th><th>Where</th><th>What actually happens</th></tr>
+  <tr><td>Approve a task</td><td>Board, task drawer</td><td>A governed lifecycle transition. Refused if your role may not make it — and the refusal appears under the button.</td></tr>
+  <tr><td>Pause / stop a worker</td><td>Fleet</td><td>Written as the worker's control state; honoured <b>between steps</b>, so it never stops mid-commit.</td></tr>
+  <tr><td>Scale a machine</td><td>Dispatch, or <code>weave agents</code></td><td>Sets <code>desired_workers</code>. The host reconciles on its next heartbeat.</td></tr>
+</table>
+
+<div class="callout caveat">
+  <p><b>Weave shows you the artifact trail, not the conversation.</b> You see what an agent produced
+  — commits, the pull request, reviews, what it learned — and which step it is on. You do not see it
+  thinking, and there is no transcript view. If you are used to watching an agent work in a terminal,
+  this is the difference, and it is deliberate: at ten agents, reading ten transcripts is not
+  supervision.</p>
+</div>
+
+<h3>Nobody assigns work</h3>
+
+<p>The daemon decides <i>how many</i> developers run on a machine. It does not decide what any of
+them works on: each worker <b>claims</b> its own task from the ready queue, and exactly one claimant
+wins. Dispatch offers work by ordering a queue; it never hands a task to a worker. No model sits in
+that path — the coordination is deterministic graph logic.</p>
+
+<h2 id="roles">10 · The four roles</h2>
+
+<div class="role-grid">
+  <div class="card"><h3>Admin</h3><p>Creates and administers accounts and workspace membership. Note this is <b>not</b> a governance role: administering people is separate from directing work.</p></div>
+  <div class="card"><h3>Manager</h3><p>Installs governance, defines the project, steers the fleet, approves work. The role to start with.</p></div>
+  <div class="card"><h3>Architect</h3><p>Approves and merges. In the <b>Reviewed</b> shape, nothing reaches <code>approved</code> without one.</p></div>
+  <div class="card"><h3>Developer</h3><p>Claims tasks, commits, opens pull requests, records decisions. This is the role dev agents hold — and a human developer holds exactly the same one.</p></div>
+</div>
+
+<p>Every one of these is an ordinary Claude Code session pointed at the server's MCP endpoint. There
+is no separate client to install for humans, and no separate surface for agents.</p>
+
+<h2 id="api">11 · The API and MCP</h2>
+
+<p>The <b>API</b> tab serves the full OpenAPI documentation from the server itself — no internet
+required, which matters for an air-gapped install.</p>
+
+<figure class="shot">
+  <img src="assets/ch7-api.png" alt="The API documentation served by the server">
+  <figcaption>Every endpoint the server serves, from the server. The description names only
+  capabilities that have routes behind them.</figcaption>
+</figure>
+
+<p>Agents and human sessions speak the same surface over HTTP at <code>/mcp</code>. Each of the four
+standing questions — <i>what changed</i>, <i>why</i>, <i>what features exist</i>, <i>what did we
+learn</i> — is served by one handler shared by REST, the UI and MCP, so the human and agent answers
+cannot drift apart.</p>
+
+<h3>If the server's model backend is a local one</h3>
+
+<p>The server has its own model backend, and it is the <b>only</b> place in Weave a model credential
+exists. Point it at a hosted API and there is nothing more to do. Point it at a local runtime and two
+settings decide whether ingestion works at all — <b>both present as bugs rather than as
+configuration</b>, which is why they are here and not in a tuning appendix.</p>
+
+<p><b>Keep the model resident.</b> With a runtime that unloads between calls, every chunk pays the
+cold start again — measured at about <b>15 s per chunk</b>, with extraction dying on
+<code>httpx.ReadTimeout</code> before finishing a single document. Pin the model (ollama:
+<code>keep_alive</code>) and give the server room:</p>
+
+<pre>export WEAVE_TIMEOUT=600</pre>
+
+<p>With the model pinned and that timeout, the same document processed in about a minute. The symptom
+is a timeout, so it reads as a Weave defect. It is not.</p>
+
+<p><b>Give the embedding backend a batch that fits a chunk.</b> llama.cpp defaults to a 512-token
+physical batch and Weave's chunks reach ~1500, so every embedding call returns 500:</p>
+
+<pre>--batch-size 8192 --ubatch-size 8192</pre>
+
+<p>The error names the cause exactly — <b>in the model server's log, not Weave's</b>, which is the
+only reason it is hard to find.</p>
+
+<h2 id="upgrade">12 · Upgrading an existing install</h2>
+
+<pre>weave migrate reviews --workspace demo --dry-run
+weave migrate reviews --workspace demo
+weave migrate reviews --workspace demo --verify</pre>
+
+<p>Reviews and learnings were once list fields on a task record. They are nodes now, so they can be
+traversed and cited. Run the dry run first — the number it prints is the number a real run creates.
+Running it twice is safe.</p>
+
+<div class="callout info">
+  <p><b>New installations do not need this.</b> Recording a review or a learning creates the node
+  directly. The migration exists for workspaces that predate that.</p>
+</div>
+
+<h2 id="docker">13 · Docker</h2>
+
+<p>The bundle in <code>deploy/</code> raises the server and its databases together. It needs three
+secrets, none of which has a default:</p>
+
+<pre>cd deploy
+export WEAVE_TOKEN_SECRET="$(python -c 'import secrets; print(secrets.token_urlsafe(48))')"
+export WEAVE_POSTGRES_PASSWORD=...
+export WEAVE_NEO4J_PASSWORD=...
+docker compose up -d --build</pre>
+
+<div class="callout info">
+  <p><b>The database image is built from <code>deploy/postgres.Dockerfile</code>, not pulled.</b>
+  Weave's PostgreSQL graph storage needs both the <code>age</code> and <code>vector</code>
+  extensions in one database, and no published image ships both — so the bundle builds one.</p>
+</div>
+
+<p>Then <code>curl http://localhost:9800/health</code> and continue from
+<a href="#admin">§5</a>: create the first administrator with <code>weave user add</code> inside the
+server container, install governance, and carry on.</p>
+
+<div class="callout caveat">
+  <p><b>Quadruple mode and PostgreSQL are refused together.</b> The <code>decisions</code> and
+  <code>communities</code> vector stores have no tables in the PostgreSQL adapter yet, so the server
+  refuses that pairing <i>at startup</i>, naming the two ways out, rather than failing at first use.
+  Set <code>WEAVE_ENABLE_QUADRUPLE=false</code>, or point <code>WEAVE_VECTOR_STORAGE</code> at
+  <code>NanoVectorDBStorage</code>.</p>
+</div>
+
+<h2 id="trouble">14 · When something is wrong</h2>
+
+<table>
+  <tr><th>What you see</th><th>What it means</th></tr>
+  <tr><td><code>weave: command not found</code></td><td><code>pip install -e .</code> was skipped, or the conda environment is not active.</td></tr>
+  <tr><td>The server refuses to start, naming <code>WEAVE_TOKEN_SECRET</code></td><td>You did not <code>source weave.env</code>. The server will not run on the published default secret.</td></tr>
+  <tr><td><i>Weave is unavailable</i> on the board</td><td>The server was started without the Weave flags. <code>weave init</code> writes both into <code>weave.env</code>; if you started the server by hand, set <code>WEAVE_ENABLE_TEAM=true</code> and <code>WEAVE_ENABLE_QUADRUPLE=true</code>.</td></tr>
+  <tr><td><i>This workspace has no governance yet</i></td><td>Expected on a new workspace. Press <b>Install governance</b>, or run <code>weave roles install</code>.</td></tr>
+  <tr><td>A button does nothing</td><td>It should not — every control that will not act says why, and every refusal appears where you clicked. If you find one that is silent, that is a defect worth reporting.</td></tr>
+  <tr><td>You created a user and cannot sign in</td><td>Check the CLI and the server are using the same working directory. Sourcing <code>weave.env</code> sets <code>WEAVE_WORKING_DIR</code> for both.</td></tr>
+  <tr><td>The board is empty and nothing moves</td><td>Run <code>weave doctor</code> <b>on the dev host</b> — a machine with no seat cannot do any work at all.</td></tr>
+  <tr><td>A host shows <code>desired 3 · running 0</code></td><td>The daemon is not heartbeating. Check it can reach the server; nothing reaches <i>in</i> to tell you.</td></tr>
+  <tr><td>A permissions change did nothing</td><td>It is a signed ledger version — check History for it. If there is no version, it was written outside the ledger, and that is a bug rather than a setting.</td></tr>
+  <tr><td>Every task “fails its tests”</td><td>The test command may not exist on that host. The worker halts loudly rather than recording a false learning about your code.</td></tr>
+  <tr><td>Ingestion times out on a local model</td><td>The model is unloading between calls — pin it and raise <code>WEAVE_TIMEOUT</code>. See §4.</td></tr>
+  <tr><td>Every embedding call returns 500</td><td>The embedding server's batch is smaller than a chunk. Read <b>its</b> log, not Weave's. See §4.</td></tr>
+  <tr><td>An agent finished but nothing merged</td><td>By design. Dev agents hold no git credentials and cannot merge — the output of a run is a branch and a pull request.</td></tr>
+</table>
+
+<div class="callout ok">
+  <p><b>Everything in this guide was run before it was written.</b> The commands are transcripts, the
+  screenshots are of a real installation, and where a path is not yet available the guide says so
+  instead of describing it. If a step here does not work on your machine, that is a defect in Weave
+  or in this document — not something you are expected to work around.</p>
+</div>
+
+<div class="footer">
+  Weave — <a href="../WEAVE_ARCHITECTURE.html">architecture</a> ·
+  <a href="../CONSTRAINTS.md">the contract</a> ·
+  <a href="../DECISIONS.md">decisions</a>
+</div>
+
+</main>
+</div>
+</body>
+</html>
