@@ -746,6 +746,28 @@ prompt is rewritten as a measured change, and that is **P11**, not P10.
 
 ---
 
+### P10.4 · The API description names nothing the server does not serve *(D-044, dsivov 2026-08-14)*
+
+> The guard that would have caught the emulation claim on the day of the fork. **Scoped to one class on
+> purpose:** a capability *asserted on the public contract* that no route serves. It does not adjudicate
+> content that is merely wrong — the extraction prompt (D-041) and the wizard templates are a different
+> problem and no route table can settle them.
+
+- [ ] **Compose the description from declared claims** — `API_CLAIMS = [(text, route_prefix), …]` — so prose cannot be added without declaring what it asserts.
+- [ ] `tests/` — build the app with **every feature on** and assert each claim matches ≥1 path in `app.openapi()["paths"]`.
+- [ ] **The reach:** the description must be *exactly* the composition of declared claims, so free text cannot creep back.
+- [ ] Negative-control both: a claim whose prefix has no routes, and a clause hand-appended to the description.
+
+**Measured, and both facts changed the design:** `app.routes` yields **14** entries where the OpenAPI document
+yields **154** — the route list is not what a reader sees. And the table is configuration-dependent:
+`create_app()` with no flags gives **77 paths and zero `/weave/*`**, so a guard built on a default app would
+fail a true claim. `/api/*` is **0 even at full configuration**, which is why the emulation claim is the
+clean first test.
+
+**Gate:** the description names only capabilities with routes, and neither negative control passes.
+
+---
+
 ### P10.1 · Recording writes what the answer reads *(D-043, W23 — blocks P8)*
 
 > **The defect a clean tenant found and a week of re-running the demo could not.** Record 7 learnings and 6
