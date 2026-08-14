@@ -772,6 +772,21 @@ empty the answer. Suite green, name-guard clean.
 
 ---
 
+### P10.2 · The diagram editor accepts the mermaid it renders *(U18, U19)*
+
+> Found by editing a diagram dsivov created, through the real surfaces — the save path is governed and
+> correct (v5, signed, rules gate PASS); the **open** path is where the gaps are.
+
+- [ ] **U18 — accept `flowchart TB` and `graph <dir>`.** `parser.ts:351` allows only `TD|LR|BT|RL` after the literal `flowchart`. Both rejected forms are valid mermaid and both render in the viewer, so a diagram written anywhere else opens as an empty canvas.
+- [ ] **U19 — an edge whose endpoint is a subgraph id must not crash the layout.** Isolated: `daemon --> hub` fails with `Cannot set properties of undefined (setting 'rank')`; re-pointing at a node inside the same subgraph opens 12 nodes / 11 edges.
+- [ ] **No raw `TypeError` reaches the reader.** The surrounding sentence is already right — *"Its source is still intact on the server"* — the middle of it is a stack frame.
+- [ ] `<br/>` in a node label renders literally on the canvas while the mermaid pane renders the break.
+- [ ] `tests/` — a fixture per accepted header form, and one diagram with edges to a subgraph, asserting the parse **and** the layout. Negative-controlled.
+
+**Gate:** every mermaid form this repository's own documents use opens in the editor, and no failure message contains a JavaScript error string.
+
+---
+
 ## P11 · The extractor learns from software artifacts → **M11**
 
 > **Opened 2026-08-13 from D-041.** `weave_core/graph/prompt.py` teaches entity extraction with two few-shot

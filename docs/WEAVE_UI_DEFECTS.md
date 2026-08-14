@@ -341,6 +341,45 @@ directly, the runtime changes, and the label keeps saying Reviewed.
   guess.
 - The board's `installed` chip names the mode.
 
+## U18 · The diagram editor rejects valid mermaid it will happily render
+
+Found by editing dsivov's diagram 002 through the real surfaces. `parser.ts:351` matches
+`/^flowchart\s+(TD|LR|BT|RL)/` — so:
+
+| header | mermaid | Weave's editor |
+|---|---|---|
+| `flowchart TD` | valid | opens |
+| **`flowchart TB`** | **valid — the official synonym for TD** | *"No valid flowchart header found"* |
+| **`graph TD`** | **valid — the older form, and the commonest in the wild** | rejected |
+
+**The viewer renders all three; only the editor refuses them.** So a diagram pasted from anywhere else —
+documentation, an LLM, this repository's own `.md` files — round-trips as an unopenable artifact whose
+source is intact and whose canvas is empty.
+
+**The product behaves well around it**, which is why this is Medium and not High: it refuses in place,
+names the fix, and says *"Its source is still intact on the server"* — the U2/U6 rule holding on a screen
+that was never part of P10.
+
+## U19 · An edge targeting a subgraph crashes the layout, and the crash is shown raw
+
+Same session, isolated by changing one thing: with `daemon --> hub` where `hub` is a **subgraph**, Open
+fails with
+
+> *'002' could not be laid out on the canvas: **Cannot set properties of undefined (setting 'rank')**.*
+
+Re-point the same edge at a node *inside* the subgraph and the identical diagram opens — 12 nodes, 11
+edges. **Edges to and from subgraphs are ordinary mermaid**; dagre needs the cluster registered before
+`setEdge`, and it is not.
+
+Two defects in one line, worth separating:
+1. **The layout cannot handle a legal construct.**
+2. **A raw JavaScript `TypeError` is rendered to the user as an explanation.** *"Cannot set properties of
+   undefined (setting 'rank')"* tells a manager nothing they can act on — the sentence around it is
+   excellent and the middle of it is a stack frame.
+
+**Minor, same screen:** `<br/>` inside a node label renders literally on the canvas while the mermaid
+preview beside it renders the line break. Cosmetic, and worth one line in whatever fixes the above.
+
 ## Severity and sequence
 
 | ID | Defect | Severity | Why that severity |
