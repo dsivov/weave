@@ -976,3 +976,34 @@ Status: `accepted` · `superseded by D-NN` · `reversed`.
   wizard templates noted with it: **exclusions are enforced on files, and claims live in sentences.**
 - **Consequences:** the API description describes what the server does. The guide's API chapter can show
   `/docs` without a footnote. Anyone who set `WEAVE_SIMULATED_MODEL_*` was configuring nothing.
+
+## D-045 · A worker reports which step it is on, and stops truncating its output into a commit subject
+- **Date:** 2026-08-14  ·  **Status:** accepted  ·  **Raised by:** dsivov  ·  **Approved by:** dsivov
+- **Context:** dsivov supervises a developer session in tmux today and asked whether Weave gives the same
+  observation of a containerised agent. **It does not, and the difference was measured:** a worker's
+  heartbeat carries exactly one field, `current_task`. `claude -p` runs under `capture_output=True`
+  (`worker.py:494`), its stdout is truncated to **400 characters**, and the remainder is **discarded** —
+  not merely unsurfaced, but destroyed, so `docker logs` on the dev host shows nothing either.
+- **The supervisory question is not *"what is it saying?"* but *"is it alive, on what, and for how long?"***
+  That is answerable on the beat that already exists, and it is the gap that matters even at one agent —
+  between claiming a task and opening a PR, a worker is opaque for as long as the model takes.
+- **Decision, two parts, both small:**
+  1. **Step-level progress.** The heartbeat carries the worker's current step and when it entered it —
+     `waiting · claiming · orienting · building · testing · opening-pr · recording`, from the real sequence
+     in `run_worker`. The fleet shows *"building · 4m"*. **`building` is the one that matters**: it is the
+     `claude -p` call and the only step measured in minutes.
+  2. **The truncation.** `record_commit(subject=result.summary)` puts 400 characters of model stdout into a
+     **commit subject** (`worker.py:320`). A commit subject reads like a commit subject; the agent's account
+     of what it did belongs in the decision trace, which already receives it (`worker.py:352`). The 400 was
+     never a chosen number.
+- **The constraint that keeps this honest: the step is diagnostic, never governed.** The task lifecycle is
+  the governed state, enforced by the ledger. `step` is transient liveness and **must not gate anything,
+  drive a transition, or become a second thing that says where a task is** — that would be A8's failure in a
+  new place. It is written to be read by a human and by nothing else.
+- **A15 untouched:** it rides the existing outbound heartbeat. Nothing connects to a worker.
+- **Deliberately not built: transcript streaming.** It answers trust rather than supervision — and the
+  review gate, the tests and the PR are what answer trust. It also needs a governance answer nobody has:
+  an agent's reasoning is the most revealing artifact in the system and RBAC has no notion of who may read
+  it. Building it before answering that is how a permission model gets retrofitted around a feature.
+- **Left open as `W29`:** that the transcript is *destroyed* is a defect in its own right, separable from
+  where it should go. **Not destroying it is cheap; deciding who may read it is not.**

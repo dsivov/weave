@@ -746,6 +746,26 @@ prompt is rewritten as a measured change, and that is **P11**, not P10.
 
 ---
 
+### P10.5 · A worker says which step it is on *(D-045, dsivov 2026-08-14)*
+
+> dsivov watches a developer in tmux and asked for the equivalent over a containerised agent. Measured:
+> the heartbeat carries **one** field, `current_task`, and `claude -p` runs under `capture_output=True`
+> with its stdout truncated to 400 characters and the rest **discarded**. The supervisory question is
+> *"is it alive, on what, for how long?"* — answerable on the beat that already exists.
+
+- [ ] **Contract check (R11)** — **A15** (rides the existing outbound heartbeat; nothing connects to a worker), **A8** (the step is diagnostic and must not become a second source of truth about where a task is), **A9** (fleet state is read through the existing handler).
+- [ ] **The heartbeat carries `step` and when it was entered** — `waiting · claiming · orienting · building · testing · opening-pr · recording`, taken from the real sequence in `run_worker`, not invented.
+- [ ] **The fleet shows `building · 4m`** — the duration is the point. *"building"* alone does not answer *"is it stuck?"*, which is the whole reason for the change.
+- [ ] **`record_commit` gets a real subject**, and the model's account goes to the decision trace that already receives it. **The 400-character cap was never chosen** — pick a number deliberately or remove it.
+- [ ] `tests/` — a worker driven through the loop reports each step in order; **and a test that nothing branches on `step`**, because the moment something does, it is a second lifecycle.
+
+**Gate:** the fleet shows the current step and its duration for a live worker; no commit subject contains model
+stdout; nothing in the codebase reads `step` to make a decision.
+
+**Deliberately not in scope:** shipping the transcript — see D-045 and **W29**.
+
+---
+
 ### P10.4 · The API description names nothing the server does not serve *(D-044, dsivov 2026-08-14)*
 
 > The guard that would have caught the emulation claim on the day of the fork. **Scoped to one class on
@@ -896,3 +916,5 @@ already installed (R10).
 
 | W27 | **The CLI and the server disagree about where the store lives, and the split is silent.** `weave/cli/users.py:32` and `cli/_local.py:31` default to **`./weave_storage`**; `weave/server/config.py:185` defaults to **`./rag_storage`**. Reproduced in an empty directory with `WEAVE_WORKING_DIR` unset: `weave user add alice …` created `./weave_storage/`, while `parse_args().working_dir` resolves to `./rag_storage`. **So an operator who creates the first administrator and then starts the server without setting the variable has an account the server cannot see** — which presents as *"I made an admin and cannot log in"*, with both halves reporting success. The documented path is safe because `weave init` writes `WEAVE_WORKING_DIR` into `weave.env`; **every path that deviates from it is not.** | Manager's sweep, 2026-08-14 | **Before P8**, which cannot honestly document two defaults for one thing. One default, in one place, shared by both — and a test that the CLI and the server resolve the same directory from the same environment. |
 | W28 | **The parent's vocabulary is still on the public API surface, and it is the page the guide screenshots.** Not name-guard hits — no banned string — the same **semantic** half-rebrand as D-041. Live from a running server: `/openapi.json` `info.description` reads *"Providing API for WeaveEngine core, Web UI and **Ollama Model Emulation**"*. Also `config.py:186` *"Working directory for **RAG storage**"*, `config.py:275` *"Name for the simulated **Ollama** model"*, and response descriptions through `routers/query.py` (*"Successful **RAG** query response"*, *"the generated response from the **RAG** system"*) and `routers/documents.py` (*"a sample text to be inserted into the **RAG** system"*). **`weave --help` and `weave up --help` are clean** — the wrapper was rebranded and the surface underneath it was not. | Same sweep | **With W26**, before the guide's API chapter. Decide once whether Ollama emulation is a Weave feature at all; if it is not, the description should stop advertising it. |
+
+| W29 | **The agent's transcript is destroyed, not merely unsurfaced.** `worker.py:494` runs `claude -p` under `capture_output=True`; stdout is truncated to **400 characters** at line 501 and the remainder is dropped. It is never printed, written or shipped — so `docker logs` on the dev host shows the worker loop, **not the conversation**, and there is no copy anywhere. **In a system whose premise is that the *why* is recorded permanently and every answer resolves to a real document, the most detailed account of why a piece of code looks the way it does is thrown away** and replaced with 400 characters used as a commit subject. Separable from D-045's step reporting, and separable again from *displaying* it: **not destroying it is cheap; deciding who may read it is not** — an agent's reasoning is the most revealing artifact in the system and RBAC has no notion of read-access to it. | dsivov's question about monitoring, 2026-08-14 | **A `D-NN` before anything is built.** Persisting it beside the worktree on the dev host is the cheap half and needs no new surface; retention, size and who may read it are the decision. Do not let it arrive as a side effect of a monitoring feature. |
