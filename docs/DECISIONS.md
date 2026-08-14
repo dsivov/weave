@@ -964,5 +964,15 @@ Status: `accepted` · `superseded by D-NN` · `reversed`.
 - **Contract:** a public contract *narrows* — two CLI flags disappear. No sentence in `CONSTRAINTS.md`
   becomes false; nothing in A1, A9 or A11 depends on the emulation, and the non-goals list does not name
   it. **No amendment; this decision is the record.**
+- **How it got here, since the answer is on the record.** The emulation router was **deliberately not
+  copied**: the P0 work plan says `weave/server/routers/` ← **12 of 15**, *"drop `webingest_routes.py` and
+  `ollama_api.py`"*, and `PROVENANCE.md` gives the reason — *"a compatibility surface for a product Weave is
+  not; it was also the one route group answering without passing governance (A6)"*. The 723-line router
+  stayed behind. **The sentence advertising it did not**, because it lives as a string constant inside
+  `app.py` — a file that *was* copied. The copy was selective at **module** granularity, and the
+  advertisement was inside a module that was kept. Nothing caught it afterwards: *"Ollama Model Emulation"*
+  is neither a banned spelling nor a misspelling, so the name-guard had no reason to look.
+- **Third instance of the same class**, after the extraction prompt's few-shot examples (D-041) and the
+  wizard templates noted with it: **exclusions are enforced on files, and claims live in sentences.**
 - **Consequences:** the API description describes what the server does. The guide's API chapter can show
   `/docs` without a footnote. Anyone who set `WEAVE_SIMULATED_MODEL_*` was configuring nothing.
