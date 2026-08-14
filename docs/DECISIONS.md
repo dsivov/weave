@@ -1040,3 +1040,29 @@ Status: `accepted` · `superseded by D-NN` · `reversed`.
   **skips** where AGE is absent, with the defect named in the skip reason (dsivov's call): a pending
   decision should not hold every unrelated gate red, and a permanently red suite trains people to skim.
   **P8's Docker chapter documents the bundle that runs**, and says plainly which path is not yet available.
+
+## D-047 · The production path runs — A4 goes back up, with evidence
+- **Date:** 2026-08-14  ·  **Status:** accepted  ·  **Raised by:** manager (P12 gate)  ·  **Approved by:** dsivov
+- **Context:** **D-046 lowered A4 because the claim had no evidence.** P12 built the evidence: a PostgreSQL
+  image carrying both extensions (`deploy/postgres.Dockerfile` — `apache/age:release_PG16_1.6.0` with
+  pgvector 0.8.5 compiled on top, both stages on one base, AGE in `shared_preload_libraries` so it holds
+  however the container is started).
+- **Measured, and none of it had ever been seen before:**
+  - `pg_available_extensions` → `age 1.6.0` **and** `vector 0.8.5`; `shared_preload_libraries = age`.
+  - **`test_the_postgres_graph_path` passes on a live database** — the round-trip that has never run.
+  - The bundle's **published steps** raise a healthy server: `/health` 200, 112 endpoints, and the splash
+    reports `Graph Storage: PGGraphStorage` with all four storages on PostgreSQL. **No third override.**
+  - The server created the graph: `ag_catalog.ag_graph` holds `chunk_entity_relation`.
+  - Full suite **1262 passed / 3 skipped**, every skip Neo4j-not-configured. **The W30 skip is gone.**
+- **Decision:** `CONSTRAINTS.md` **v7** — A4 says the multi-workspace production path runs, records and
+  graph, against a database image the bundle ships. **pgvector pinned to 0.8.5** deliberately: it is what
+  `pgvector/pgvector:pg16` shipped, so every PostgreSQL test that has ever passed did so against exactly
+  that version — the image adds the graph half without also moving the vector half.
+- **What this costs, stated rather than discovered later:** we now maintain a database image. Building on
+  AGE means we track the slower-moving half by hand — pgvector refreshes often, the AGE PG16 tag has been
+  static for about eleven months — so moving to a new AGE tag is a deliberate act, and the reasoning is in
+  the Dockerfile rather than in anyone's memory.
+- **Left open, deliberately:** `configure_age_extension` and `configure_vector_extension` **swallow their
+  own failures** — `except Exception`, log a warning, carry on — which is why a missing extension surfaced
+  forty frames later as `create_graph(unknown) does not exist` instead of at the point it went wrong. That
+  is W20's family (a refusal you can act on) and it is a behaviour change, so it is **W31**, not a build fix.
