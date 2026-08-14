@@ -1007,3 +1007,36 @@ Status: `accepted` · `superseded by D-NN` · `reversed`.
   it. Building it before answering that is how a permission model gets retrofitted around a feature.
 - **Left open as `W29`:** that the transcript is *destroyed* is a defect in its own right, separable from
   where it should go. **Not destroying it is cheap; deciding who may read it is not.**
+
+## D-046 · A4 says what is true: PostgreSQL's graph half is not yet deployable
+- **Date:** 2026-08-14  ·  **Status:** accepted  ·  **Raised by:** manager (W30)  ·  **Approved by:** dsivov
+- **Context:** Running the compose bundle end to end for the first time — M6's unclosed half — found that
+  its default graph store cannot work on its default database image. Pulling that thread found worse.
+- **Measured, not inferred:**
+  - `pgvector/pgvector:pg16` (the bundle's image, **and the container this project has tested PostgreSQL
+    against since M1**) offers `vector 0.8.5` and `pg_trgm`; **`age` is not available at all**. The adapter
+    dies on `create_graph(unknown) does not exist` — an Apache AGE function.
+  - `apache/age:release_PG16_1.6.0` offers `age 1.6.0` and no `vector`. The adapter dies **earlier**, in the
+    shared `PostgreSQLDB` connect path: *"extension vector is not available"* → *"unknown type:
+    public.vector"*. **So AGE alone is not an escape route: the graph adapter needs both.**
+  - **No maintained image ships both.** Everything that does is a personal repository.
+  - No test exercises the adapter. `test_storage_paths.py` has a live `test_the_neo4j_graph_path`; for
+    PostgreSQL it had only `test_all_three_graph_adapters_import`, which asserts a module imports.
+- **So A4's strongest sentence had the least evidence behind it.** Multi-workspace production requires
+  `PGGraphStorage` — A4 itself rules out file-based (single-operator) and Neo4j (experimental,
+  single-workspace) — and `PGGraphStorage` has never run anywhere and cannot run on any published image.
+  **It passed seven milestone gates** because the only test touching it checked importability, which is
+  *builds-is-not-runs* wearing a test's clothes.
+- **Options:** (a) amend A4 to the truth and build the image as work · (b) build the image first and leave
+  A4 as written · (c) defer, ship what runs, revisit
+- **Decision: (a).** `CONSTRAINTS.md` **v6** — PostgreSQL is the multi-workspace path **for records**, and
+  its **graph half is not yet deployable**. **Amended before any code**, per R11.
+- **Why not (b):** it leaves the contract asserting something no deployment can do while the fix is
+  attempted, which is exactly the situation **v4 corrected for Neo4j**. A contract that runs ahead of the
+  evidence is the thing this file exists to prevent, and it is worse when the gap is the *production* path.
+- **Why not (c):** deferring keeps the claim and drops the pressure.
+- **Consequences:** the dual-extension image becomes **P12**, and building it makes the stronger sentence
+  true again — at which point A4 is amended back, with evidence. The new `test_the_postgres_graph_path`
+  **skips** where AGE is absent, with the defect named in the skip reason (dsivov's call): a pending
+  decision should not hold every unrelated gate red, and a permanently red suite trains people to skim.
+  **P8's Docker chapter documents the bundle that runs**, and says plainly which path is not yet available.
