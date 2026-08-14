@@ -766,6 +766,21 @@ stdout; nothing in the codebase reads `step` to make a decision.
 
 ---
 
+### P10.3 · The first screen belongs to Weave *(W25 · W26 · W27 · W28)*
+
+> Placed by the manager after the fact — the developer left it to me rather than edit a file I was working in,
+> which is the right call on a shared checkout.
+
+- [x] **W27 — one working-directory default, and one resolver.** `DEFAULT_WORKING_DIR` + `resolve_working_dir()` in `weave/server/__init__.py`, five copies collapsed onto it. It lives there rather than in `config.py` because **`config.py` calls `load_dotenv()` at import**, so reading a constant from it would load a `.env` from the caller's directory as a side effect.
+- [x] **The guard that already existed and did not cover this.** `test_the_cli_and_the_server_lay_out_storage_the_same_way` has been in the suite since P6, its docstring describing W27 exactly — and it compared the directories *beneath* the working directory and never the **root**. **Sixth instance of reach-not-rule**, and the cleanest: a test that passed while the defect it described was live. The new assertion went into the same file, and the old docstring now says what it does not cover.
+- [x] **W25 — nothing in the startup path asks a human.** The prompt is gone and both `if not check_env_file(): sys.exit(1)` callers with it. The rule is the class: **no `input()`, no branch on `isatty()`** — a server whose behaviour depends on whether a human is watching has defects that only users find, which is exactly why this survived every capture either of us took under `nohup`.
+- [x] **W26 — the splash, the workers default, the log.** *"A governed graph for an AI development team"*. `DEFAULT_WORKERS = 1` — **the flag's help already said `1` while the code used `2`**, three disagreements in one flag, and A7 *refuses* two workers on the in-process bus that is the default. The log goes to the working directory, not the cwd.
+- [x] **W28 — API prose.** *"the RAG system"* → Weave. **Bare "RAG" deliberately kept** in the `/query` descriptions: *"the RAG system"* asserts this product **is** one; *"Comprehensive RAG query endpoint"* names a technique the endpoint genuinely performs. The guard bans **phrases of self-description**, not the token — banning the token would have flagged six honest descriptions and taught the next person to add an exemption.
+
+**Verified by the manager:** the divergent-literal control fails `test_the_cli_and_the_server_resolve_the_same_working_directory`; the startup path is free of `input()`/`isatty()`; suite 1228, `bun test` 51/0, name-guard clean.
+
+---
+
 ### P10.4 · The API description names nothing the server does not serve *(D-044, dsivov 2026-08-14)*
 
 > The guard that would have caught the emulation claim on the day of the fork. **Scoped to one class on
@@ -773,10 +788,10 @@ stdout; nothing in the codebase reads `step` to make a decision.
 > content that is merely wrong — the extraction prompt (D-041) and the wizard templates are a different
 > problem and no route table can settle them.
 
-- [ ] **Compose the description from declared claims** — `API_CLAIMS = [(text, route_prefix), …]` — so prose cannot be added without declaring what it asserts.
-- [ ] `tests/` — build the app with **every feature on** and assert each claim matches ≥1 path in `app.openapi()["paths"]`.
-- [ ] **The reach:** the description must be *exactly* the composition of declared claims, so free text cannot creep back.
-- [ ] Negative-control both: a claim whose prefix has no routes, and a clause hand-appended to the description.
+- [x] **Composed from `API_CLAIMS`** in `weave/server/app.py`. The web UI is deliberately **not** a claim: it is a `Mount` and never appears in the OpenAPI paths, so admitting it would mean matching some claims against `app.routes` and others against the document — an exception that would be the obvious place for the next unbacked sentence to hide.
+- [x] `tests/test_the_api_describes_what_it_serves.py` — the maximal app (`enable_weave` + `use_quadruple`) yields **154 paths**, and the fixture asserts its own premise (`> 100`) before anything is concluded from it.
+- [x] **The reach** — asserted. The emulation clause was never *declared*, it was prose, so checking only that declared claims have routes would have left the original defect open.
+- [x] Both controls fire, plus seven more across W25–W28. And a test that the **Ollama binding survives**: two things answer to that name, A13 blesses the backend connector, and a grep-driven sweep would have broken a supported deployment.
 
 **Measured, and both facts changed the design:** `app.routes` yields **14** entries where the OpenAPI document
 yields **154** — the route list is not what a reader sees. And the table is configuration-dependent:
@@ -819,11 +834,11 @@ empty the answer. Suite green, name-guard clean.
 > Found by editing a diagram dsivov created, through the real surfaces — the save path is governed and
 > correct (v5, signed, rules gate PASS); the **open** path is where the gaps are.
 
-- [ ] **U18 — accept `flowchart TB` and `graph <dir>`.** `parser.ts:351` allows only `TD|LR|BT|RL` after the literal `flowchart`. Both rejected forms are valid mermaid and both render in the viewer, so a diagram written anywhere else opens as an empty canvas.
-- [ ] **U19 — an edge whose endpoint is a subgraph id must not crash the layout.** Isolated: `daemon --> hub` fails with `Cannot set properties of undefined (setting 'rank')`; re-pointing at a node inside the same subgraph opens 12 nodes / 11 edges.
-- [ ] **No raw `TypeError` reaches the reader.** The surrounding sentence is already right — *"Its source is still intact on the server"* — the middle of it is a stack frame.
-- [ ] `<br/>` in a node label renders literally on the canvas while the mermaid pane renders the break.
-- [ ] `tests/` — a fixture per accepted header form, and one diagram with edges to a subgraph, asserting the parse **and** the layout. Negative-controlled.
+- [x] **U18 — the grammar is now mermaid's, measured from mermaid.** Every header form was run through `mermaid.parse` at the pinned 11.16.1: `flowchart`/`graph` × `TD TB BT RL LR v ^ > <` × optional `;` × **no direction at all** — 22 forms, all accepted, and `flowchart XX` the only neighbouring form mermaid refuses. Two extras found in passing: `graph LR; A-->B` **silently dropped** the statement on the header line, and my first regex accepted `flowchart XX` and would have invented a node called `XX`.
+- [x] **U19 — a cluster endpoint is resolved to a member before `setEdge`.** The **real edge is untouched** — React Flow still draws it to the subgraph box; the substitution only decides where things sit. Five fixtures: out of a subgraph, between two, into an empty one, from a member into its own parent, into a nested one.
+- [x] **No raw `TypeError` reaches the reader — and widening the rule found two more sites.** `PreviewPanel` and `MermaidLiveSection` also rendered `err.message` straight from `mermaid.render`. Those needed a distinction rather than a ban: **mermaid's diagnostics are written for the reader** (*"Parse error on line 3 … Expecting 'SEMI'"*), a dagre `TypeError` is written for us. One helper, `lib/errors.ts`, passes the first through and swallows the second into a sentence.
+- [x] `<br/>` splits into real line breaks — split, not `dangerouslySetInnerHTML`: a label is user content.
+- [x] `tests/` — `__tests__/parser.test.ts` (behaviour, for `bun test`) + `tests/test_the_editor_opens_what_the_viewer_renders.py` (the class). **Eleven controls; two were silent and both were my tests' fault:** the grid fallback made a broken layout look identical to a working one, and a layout test greped for a symbol that stayed *defined* while never being reached.
 
 **Gate:** every mermaid form this repository's own documents use opens in the editor, and no failure message contains a JavaScript error string.
 

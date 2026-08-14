@@ -10,8 +10,10 @@ from weave_core.constants import (
 )
 
 
-# Get log directory path from environment variable
-log_dir = os.getenv("WEAVE_LOG_DIR", os.getcwd())
+# Into the working directory, not the current one (W26) — see app.py.
+from weave.server import resolve_working_dir
+
+log_dir = os.getenv("WEAVE_LOG_DIR") or resolve_working_dir()
 log_file_path = os.path.abspath(os.path.join(log_dir, DEFAULT_LOG_FILENAME))
 
 # Ensure log directory exists

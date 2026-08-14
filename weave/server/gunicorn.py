@@ -7,13 +7,13 @@ import os
 import sys
 import platform
 import pipmaster as pm
+from weave.server import DEFAULT_WORKERS
 from weave.server.utils import display_splash_screen, check_env_file
 from weave.server.config import global_args
 from weave_core.utils import get_env_value
 from weave_core.store.locks import initialize_share_data
 
 from weave_core.constants import (
-    DEFAULT_WOKERS,
     DEFAULT_TIMEOUT,
 )
 
@@ -53,9 +53,8 @@ def main():
     # Set Gunicorn mode flag for lifespan cleanup detection
     os.environ["WEAVE_GUNICORN_MODE"] = "1"
 
-    # Check .env file
-    if not check_env_file():
-        sys.exit(1)
+    # Advice, not a gate: this used to prompt and exit (W25).
+    check_env_file()
 
     # Check DOCLING compatibility with Gunicorn multi-worker mode on macOS
     if (
@@ -203,7 +202,7 @@ def main():
             gunicorn_config.workers = (
                 global_args.workers
                 if global_args.workers
-                else get_env_value("WEAVE_WORKERS", DEFAULT_WOKERS, int)
+                else get_env_value("WEAVE_WORKERS", DEFAULT_WORKERS, int)
             )
 
             # Bind configuration prioritizes command line arguments

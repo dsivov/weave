@@ -210,7 +210,7 @@ class InsertTextRequest(BaseModel):
     """Request model for inserting a single text document
 
     Attributes:
-        text: The text content to be inserted into the RAG system
+        text: The text content to be inserted into Weave
         file_source: Source of the text (optional)
     """
 
@@ -233,7 +233,7 @@ class InsertTextRequest(BaseModel):
     class Config:
         json_schema_extra = {
             "example": {
-                "text": "This is a sample text to be inserted into the RAG system.",
+                "text": "This is a sample text to be inserted into Weave.",
                 "file_source": "Source of the text (optional)",
             }
         }
@@ -243,7 +243,7 @@ class InsertTextsRequest(BaseModel):
     """Request model for inserting multiple text documents
 
     Attributes:
-        texts: List of text contents to be inserted into the RAG system
+        texts: List of text contents to be inserted into Weave
         file_sources: Sources of the texts (optional)
     """
 
@@ -1086,7 +1086,7 @@ def _extract_xlsx(file_bytes: bytes) -> str:
     """Extract XLSX content in tab-delimited format with clear sheet separation.
 
     This function processes Excel workbooks and converts them to a structured text format
-    suitable for LLM prompts and RAG systems. Each sheet is clearly delimited with
+    suitable for LLM prompts and retrieval. Each sheet is clearly delimited with
     separator lines, and special characters are escaped to preserve the tab-delimited structure.
 
     Features:
@@ -2258,9 +2258,9 @@ def create_document_routes(
         request: InsertTextRequest, background_tasks: BackgroundTasks
     ):
         """
-        Insert text into the RAG system.
+        Insert text into Weave.
 
-        This endpoint allows you to insert text data into the RAG system for later retrieval
+        This endpoint allows you to insert text data into Weave for later retrieval
         and use in generating responses.
 
         Args:
@@ -2338,9 +2338,9 @@ def create_document_routes(
         request: InsertTextsRequest, background_tasks: BackgroundTasks
     ):
         """
-        Insert multiple texts into the RAG system.
+        Insert multiple texts into Weave.
 
-        This endpoint allows you to insert multiple text entries into the RAG system
+        This endpoint allows you to insert multiple text entries into Weave
         in a single request.
 
         Args:
@@ -2417,7 +2417,7 @@ def create_document_routes(
     )
     async def clear_documents():
         """
-        Clear all documents from the RAG system.
+        Clear all documents from Weave.
 
         This endpoint deletes all documents, entities, relationships, and files from the system.
         It uses the storage drop methods to properly clean up all data and removes all files

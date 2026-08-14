@@ -13,7 +13,6 @@ import asyncio
 import os
 import logging
 import logging.config
-import sys
 import uvicorn
 import pipmaster as pm
 from fastapi.staticfiles import StaticFiles
@@ -402,6 +401,28 @@ def refuse_readably(args) -> None:
         raise SystemExit(f"\nWeave will not start.\n\n{refusal}\n") from None
 
 
+#: **Every claim the API description makes, and the routes that make it true.**
+#:
+#: `(claim, path prefix)`. A claim whose prefix matches no path in the OpenAPI
+#: table is a capability the server does not serve, and
+#: `tests/test_the_api_describes_what_it_serves.py` fails on it (D-044).
+#:
+#: The description is *composed* from this list rather than written beside it,
+#: which is the point: prose cannot be added to the public contract without
+#: declaring what it asserts, and a declaration without routes does not survive
+#: the suite.
+#:
+#: The web UI is deliberately **not** a claim. It is a `Mount`, so it never
+#: appears in the OpenAPI paths, and admitting it would mean matching some
+#: claims against `app.routes` and others against the document — an exception
+#: that would be the obvious place for the next unbacked sentence to hide.
+API_CLAIMS = [
+    ("the governed team surface", "/weave/"),
+    ("the four standing questions", "/ask/"),
+    ("the signed ledger", "/studio/"),
+]
+
+
 def create_app(args):
     # Re-asserted here because every path into a running server goes through
     # `create_app` — uvicorn's `main()`, gunicorn's `get_application()`, and the
@@ -693,9 +714,20 @@ def create_app(args):
                     )
 
     # Initialize FastAPI
-    base_description = (
-        "Providing API for WeaveEngine core, Web UI and Ollama Model Emulation"
-    )
+    #
+    # **The description is composed from declared claims, not written** (D-044).
+    # It used to say *"Providing API for WeaveEngine core, Web UI and Ollama
+    # Model Emulation"* — and the server serves no Ollama-shaped route at all.
+    # The emulation router was deliberately excluded at P0 (12 of 15 routers
+    # carried; `ollama_api.py` dropped as "a compatibility surface for a product
+    # Weave is not", and the one route group that answered without passing
+    # governance, A6). **The 723-line module stayed behind; the sentence
+    # advertising it did not** — because exclusions are enforced on files, and
+    # claims live in strings inside files that were copied.
+    #
+    # A stale name misleads about what a thing is called. This misled about what
+    # the product does, on the public contract, where a reader can act on it.
+    base_description = "Providing API for " + ", ".join(t for t, _ in API_CLAIMS)
     swagger_description = (
         base_description
         + (" (API-Key Enabled)" if api_key else "")
@@ -1357,13 +1389,6 @@ def create_app(args):
     else:
         logger.info("Reranking is disabled")
 
-    # Create ollama_server_infos from command line arguments
-    from weave.server.config import OllamaServerInfos
-
-    ollama_server_infos = OllamaServerInfos(
-        name=args.simulated_model_name, tag=args.simulated_model_tag
-    )
-
     # Initialize RAG with unified configuration.
     # Use WeaveGraph when WEAVE_ENABLE_QUADRUPLE=true for contextual quadruple
     # extraction (h,r,t,rc) and the CGR3 iterative reasoning paradigm.
@@ -1407,7 +1432,6 @@ def create_app(args):
             "language": args.summary_language,
             "entity_types": args.entity_types,
         },
-        ollama_server_infos=ollama_server_infos,
     )
 
     # Per-task LLM roles (upstream 1.5.x alignment): build role-bound LLM callables
@@ -2120,12 +2144,19 @@ def configure_logging():
         logger.handlers = []
         logger.filters = []
 
-    # Get log directory path from environment variable
-    log_dir = os.getenv("WEAVE_LOG_DIR", os.getcwd())
+    # **Into the working directory, not wherever the operator was standing** (W26).
+    # This defaulted to `os.getcwd()`, so a 1.2 MB log appeared in whatever
+    # directory `weave up` happened to be run from — including a home directory
+    # or a checkout — and a second run from elsewhere started a second one.
+    from weave.server import resolve_working_dir
+
+    log_dir = os.getenv("WEAVE_LOG_DIR") or resolve_working_dir()
     log_file_path = os.path.abspath(os.path.join(log_dir, DEFAULT_LOG_FILENAME))
 
     print(f"\nWeaveEngine log file: {log_file_path}\n")
-    os.makedirs(os.path.dirname(log_dir), exist_ok=True)
+    # `dirname(log_dir)` created the *parent* of the log directory, which was
+    # harmless only while the default was the cwd (it always exists).
+    os.makedirs(log_dir, exist_ok=True)
 
     # Get log file max size and backup count from environment variables
     log_max_bytes = get_env_value("WEAVE_LOG_MAX_BYTES", DEFAULT_LOG_MAX_BYTES, int)
@@ -2231,9 +2262,8 @@ def main():
         print("Running under Gunicorn - worker management handled by Gunicorn")
         return
 
-    # Check .env file
-    if not check_env_file():
-        sys.exit(1)
+    # Advice, not a gate: this used to prompt and exit (W25).
+    check_env_file()
 
     # Check and install dependencies
     check_and_install_dependencies()

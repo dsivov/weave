@@ -22,19 +22,16 @@ from __future__ import annotations
 
 import argparse
 import getpass
-import os
 from typing import Optional
 
+from weave.server import resolve_working_dir
 from weave.server.users import JsonUserStore, User, UserError, UserService
 
-#: Where the server keeps its data when nothing says otherwise. Matches the
-#: default in `weave/server/config.py`.
-DEFAULT_WORKING_DIR = "./weave_storage"
 
 
 def default_store(working_dir: Optional[str] = None) -> JsonUserStore:
     """The store the server would use, resolved from the environment."""
-    base = working_dir or os.environ.get("WEAVE_WORKING_DIR", DEFAULT_WORKING_DIR)
+    base = resolve_working_dir(working_dir)
     return JsonUserStore(str(base))
 
 

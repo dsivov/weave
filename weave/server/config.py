@@ -6,6 +6,7 @@ import os
 import argparse
 import logging
 from dotenv import load_dotenv
+from weave.server import DEFAULT_WORKERS, DEFAULT_WORKING_DIR
 from weave_core.utils import get_env_value
 from weave_core.llm.binding_options import (
     GeminiEmbeddingOptions,
@@ -14,11 +15,9 @@ from weave_core.llm.binding_options import (
     OllamaLLMOptions,
     OpenAILLMOptions,
 )
-from weave_core.graph.base import OllamaServerInfos
 import sys
 
 from weave_core.constants import (
-    DEFAULT_WOKERS,
     DEFAULT_TIMEOUT,
     DEFAULT_TOP_K,
     DEFAULT_CHUNK_TOP_K,
@@ -37,8 +36,6 @@ from weave_core.constants import (
     DEFAULT_SUMMARY_LANGUAGE,
     DEFAULT_EMBEDDING_FUNC_MAX_ASYNC,
     DEFAULT_EMBEDDING_BATCH_NUM,
-    DEFAULT_OLLAMA_MODEL_NAME,
-    DEFAULT_OLLAMA_MODEL_TAG,
     DEFAULT_RERANK_BINDING,
     DEFAULT_ENTITY_TYPES,
 )
@@ -49,7 +46,6 @@ from weave_core.constants import (
 load_dotenv(dotenv_path=".env", override=False)
 
 
-ollama_server_infos = OllamaServerInfos()
 
 
 class DefaultRAGStorageConfig:
@@ -182,8 +178,13 @@ def parse_args() -> argparse.Namespace:
     # Directory configuration
     parser.add_argument(
         "--working-dir",
-        default=get_env_value("WEAVE_WORKING_DIR", "./rag_storage"),
-        help="Working directory for RAG storage (default: from env or ./rag_storage)",
+        # **The same default the CLI uses** (W27). This said `./rag_storage`
+        # while every `weave` command said `./weave_storage`, so creating the
+        # first administrator and then starting the server without
+        # `WEAVE_WORKING_DIR` produced an account the server could not see —
+        # with both halves reporting success.
+        default=get_env_value("WEAVE_WORKING_DIR", DEFAULT_WORKING_DIR),
+        help=f"Where Weave keeps its state (default: from env or {DEFAULT_WORKING_DIR})",
     )
     parser.add_argument(
         "--input-dir",
@@ -267,21 +268,6 @@ def parse_args() -> argparse.Namespace:
         help="Path to SSL private key file (required if --ssl is enabled)",
     )
 
-    # Ollama model configuration
-    parser.add_argument(
-        "--simulated-model-name",
-        type=str,
-        default=get_env_value("WEAVE_OLLAMA_EMULATING_MODEL_NAME", DEFAULT_OLLAMA_MODEL_NAME),
-        help="Name for the simulated Ollama model (default: from env or weave_core)",
-    )
-
-    parser.add_argument(
-        "--simulated-model-tag",
-        type=str,
-        default=get_env_value("WEAVE_OLLAMA_EMULATING_MODEL_TAG", DEFAULT_OLLAMA_MODEL_TAG),
-        help="Tag for the simulated Ollama model (default: from env or latest)",
-    )
-
     # Namespace
     parser.add_argument(
         "--workspace",
@@ -294,8 +280,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--workers",
         type=int,
-        default=get_env_value("WEAVE_WORKERS", DEFAULT_WOKERS, int),
-        help="Number of worker processes (default: from env or 1)",
+        default=get_env_value("WEAVE_WORKERS", DEFAULT_WORKERS, int),
+        help=f"Number of worker processes (default: from env or {DEFAULT_WORKERS})",
     )
 
     # LLM and embedding bindings
@@ -585,8 +571,6 @@ def parse_args() -> argparse.Namespace:
     args.garbage_filter_enabled = get_env_value("WEAVE_GARBAGE_FILTER_ENABLED", True, bool)
     args.garbage_closed_world = get_env_value("WEAVE_GARBAGE_CLOSED_WORLD", False, bool)
 
-    ollama_server_infos.WEAVE_NAME = args.simulated_model_name
-    ollama_server_infos.WEAVE_TAG = args.simulated_model_tag
 
     return args
 

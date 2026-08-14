@@ -304,9 +304,71 @@ def test_an_empty_fleet_is_not_a_failure(tmp_path, capsys):
 # ── the layout the local commands and the server must agree on ───────────────
 
 
+def test_the_cli_and_the_server_resolve_the_same_working_directory(monkeypatch):
+    """**The root, which the test below never checked** (W27).
+
+    The test that follows compares every directory *beneath* the working
+    directory and is named for exactly this property — *the CLI and the server
+    lay out storage the same way* — and it passed for months while the two
+    disagreed about the working directory itself. `weave/server/config.py`
+    defaulted to `./rag_storage`; every `weave` command defaulted to
+    `./weave_storage`.
+
+    So `weave user add alice` created an administrator the server could not see,
+    **and both halves reported success**. It presents as *"I created an admin and
+    cannot log in"* — the hardest kind of thing to diagnose, because nothing
+    failed. The documented path escaped it only because `weave init` writes
+    `WEAVE_WORKING_DIR` into `weave.env`; Docker, a process manager, or anyone
+    who skipped `init` did not.
+
+    **A guard that compares the leaves of a tree has said nothing about its
+    root** — the fifth time in this project that a guard's reach, rather than its
+    rule, was the defect.
+
+    The property is *the same directory from the same environment*, not a
+    particular string, so it is asserted both ways: with the variable set and
+    with it unset.
+    """
+    import argparse
+    import sys
+
+    from weave.cli import _local
+    from weave.server import resolve_working_dir
+    from weave.server.config import parse_args
+
+    def server_working_dir() -> str:
+        argv = sys.argv
+        sys.argv = ["weave-server"]
+        try:
+            return os.path.abspath(parse_args().working_dir)
+        finally:
+            sys.argv = argv
+
+    def cli_working_dir() -> str:
+        return _local.working_dir(argparse.Namespace(working_dir=""))
+
+    monkeypatch.delenv("WEAVE_WORKING_DIR", raising=False)
+    assert cli_working_dir() == server_working_dir(), (
+        "with no WEAVE_WORKING_DIR the CLI and the server use different "
+        "directories — an operator who creates the first administrator and then "
+        "starts the server has an account the server cannot see"
+    )
+
+    pinned = os.path.abspath("./_w27_not_created")
+    monkeypatch.setenv("WEAVE_WORKING_DIR", pinned)
+    assert cli_working_dir() == server_working_dir() == pinned
+
+    assert resolve_working_dir("/explicit") == "/explicit", (
+        "an explicit --working-dir no longer wins over the environment"
+    )
+
+
 def test_the_cli_and_the_server_lay_out_storage_the_same_way(tmp_path):
     """The failure this prevents reports success: a command that writes to a
     directory the server never reads.
+
+    **Beneath the working directory only** — the root itself is the test above,
+    which exists because this one did not cover it (W27).
 
     `weave/server/app.py` is the authority. If it moves a governance directory,
     this fails here rather than leaving an operator to discover that their signed

@@ -26,9 +26,13 @@ from __future__ import annotations
 
 import argparse
 import os
+
+from weave.server import DEFAULT_WORKING_DIR, resolve_working_dir  # noqa: F401
 from typing import Any, Dict
 
-DEFAULT_WORKING_DIR = "./weave_storage"
+# The default and the precedence both live in `weave.server` — one definition
+# for the CLI and the server alike (W27). This module used to carry its own
+# copy, which is the drift its own docstring warns about.
 
 #: `<working-dir>/<name>` for each governance layer, exactly as `app.py` lays it out.
 GOVERNANCE_DIRS = {
@@ -57,8 +61,7 @@ def add_common_arguments(parser: argparse.ArgumentParser) -> None:
 
 def working_dir(args: argparse.Namespace) -> str:
     return os.path.abspath(
-        getattr(args, "working_dir", "")
-        or os.environ.get("WEAVE_WORKING_DIR", DEFAULT_WORKING_DIR))
+        resolve_working_dir(getattr(args, "working_dir", "") or None))
 
 
 def team_dir(args: argparse.Namespace) -> str:

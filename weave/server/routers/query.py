@@ -361,7 +361,7 @@ def create_query_routes(rag, api_key: Optional[str] = None, top_k: int = 60):
                             "properties": {
                                 "response": {
                                     "type": "string",
-                                    "description": "The generated response from the RAG system",
+                                    "description": "The generated response from Weave",
                                 },
                                 "references": {
                                     "type": "array",

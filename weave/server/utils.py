@@ -18,7 +18,7 @@ from fastapi import HTTPException, Security, Request, Response, status
 from fastapi.security import APIKeyHeader, OAuth2PasswordBearer
 from starlette.status import HTTP_403_FORBIDDEN
 from weave.server.auth import auth_handler
-from weave.server.config import ollama_server_infos, global_args, get_env_value
+from weave.server.config import global_args, get_env_value
 
 logger = logging.getLogger("weave_core")
 
@@ -41,20 +41,41 @@ _TOKEN_RENEWAL_SKIP_PATHS = [
 
 
 def check_env_file():
-    """
-    Check if .env file exists and handle user confirmation if needed.
-    Returns True if should continue, False if should exit.
-    """
-    if not os.path.exists(".env"):
-        warning_msg = "Warning: Startup directory must contain .env file for multi-instance support."
-        ASCIIColors.yellow(warning_msg)
+    """Say something useful about configuration, and **never block** (W25).
 
-        # Check if running in interactive terminal
-        if sys.stdin.isatty():
-            response = input("Do you want to continue? (yes/no): ")
-            if response.lower() != "yes":
-                ASCIIColors.red("Server startup cancelled")
-                return False
+    This looked for a file literally named `.env` in the *startup* directory and,
+    finding none, asked `Do you want to continue? (yes/no)` — exiting on anything
+    but `yes`. Three things were wrong with that:
+
+    1. **It asked about the wrong file.** `weave init` writes `weave.env` in the
+       *working* directory and tells you to `source` it. The documented sequence
+       therefore warned that something was missing when nothing was.
+    2. **It blocked a server on stdin.** A service that waits for a human to type
+       is a service that hangs under a process manager the moment it inherits a
+       terminal.
+    3. **Its behaviour depended on who was watching.** The prompt is guarded by
+       `sys.stdin.isatty()`, so an operator following the guide by hand was
+       stopped while every script — and every capture taken under `nohup` —
+       sailed past. A defect that only appears interactively is one that will be
+       found by a user rather than by us; it took executing the install spine on
+       a real terminal to see it at all.
+
+    Startup already refuses, loudly and without asking, on the things that
+    genuinely cannot proceed — a missing or published token secret, an
+    unsupported backend pairing. This one is advice, so it is printed as advice.
+    """
+    from weave.server import DEFAULT_WORKING_DIR
+
+    working_dir = os.environ.get("WEAVE_WORKING_DIR") or DEFAULT_WORKING_DIR
+    weave_env = os.path.join(working_dir, "weave.env")
+    if os.path.exists(".env") or os.path.exists(weave_env):
+        return True
+
+    ASCIIColors.yellow(
+        f"Note: no configuration file found (looked for ./.env and {weave_env}).\n"
+        "      Run 'weave init' to create one, then source it:\n"
+        f"          source {weave_env}"
+    )
     return True
 
 
@@ -327,7 +348,9 @@ def display_splash_screen(args: argparse.Namespace) -> None:
     width = len(top_border) - 4  # width inside the borders
 
     line1_text = f"WeaveEngine Server v{core_version}/{api_version}"
-    line2_text = "Fast, Lightweight RAG Server Implementation"
+    # The first sentence of a documented install (W26). It described the
+    # product this was forked from, on the first screen an operator sees.
+    line2_text = "A governed graph for an AI development team"
 
     line1 = f"║ {line1_text.center(width)} ║"
     line2 = f"║ {line2_text.center(width)} ║"
@@ -359,8 +382,6 @@ def display_splash_screen(args: argparse.Namespace) -> None:
         ASCIIColors.yellow(f"{args.ssl_certfile}")
         ASCIIColors.white("    ├─ SSL Key: ", end="")
         ASCIIColors.yellow(f"{args.ssl_keyfile}")
-    ASCIIColors.white("    ├─ Ollama Emulating Model: ", end="")
-    ASCIIColors.yellow(f"{ollama_server_infos.WEAVE_MODEL}")
     ASCIIColors.white("    ├─ Log Level: ", end="")
     ASCIIColors.yellow(f"{args.log_level}")
     ASCIIColors.white("    ├─ Verbose Debug: ", end="")

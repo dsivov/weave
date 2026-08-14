@@ -26,9 +26,9 @@ import argparse
 import asyncio
 import json
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
-DEFAULT_WORKING_DIR = "./weave_storage"
+from weave.server import resolve_working_dir
 
 
 def register(groups) -> None:
@@ -64,8 +64,7 @@ def register(groups) -> None:
 
 
 def _working_dir(args: argparse.Namespace) -> str:
-    return (args.working_dir
-            or os.environ.get("WEAVE_WORKING_DIR", DEFAULT_WORKING_DIR))
+    return resolve_working_dir(args.working_dir or None)
 
 
 async def _open(args: argparse.Namespace):
