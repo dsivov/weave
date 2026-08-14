@@ -200,20 +200,34 @@ def roles() -> List[Dict[str, Any]]:
     ]
 
 
-def _mcp_config(ws: str, server_url: str) -> Dict[str, Any]:
-    """The `.mcp.json` an agent wires into Claude Code — the single Weave tool surface."""
+def _mcp_config(ws: str, server_url: str, token: str = "") -> Dict[str, Any]:
+    """The `.mcp.json` an agent wires into Claude Code — the single Weave tool surface.
+
+    **The token is why this file is now a credential** (W33). `/mcp` used to
+    answer without one, so the workspace header alone was enough to reach a
+    tenant; it is now behind the same authentication as every REST route, and
+    the header selects among the workspaces the *token* holds rather than
+    granting one.
+
+    Written empty when no token is supplied, so the file still documents the
+    shape and an operator can paste one in — an incomplete config that says what
+    is missing beats one that silently omits the line.
+    """
+    headers = {WORKSPACE_HEADER: ws}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
     return {
         "mcpServers": {
             "weave": {
                 "type": "http",
                 "url": f"{server_url}/mcp",
-                "headers": {WORKSPACE_HEADER: ws},
+                "headers": headers,
             }
         }
     }
 
 
-def role_kit(role: str, ws: str, server_url: str) -> Dict[str, Any]:
+def role_kit(role: str, ws: str, server_url: str, token: str = "") -> Dict[str, Any]:
     """The full role kit bundle for `GET /weave/kit?role=…`.
 
     Everything one identity needs to operate as *role* in *ws*: the MCP config, a
@@ -241,7 +255,7 @@ def role_kit(role: str, ws: str, server_url: str) -> Dict[str, Any]:
         "optional": r.get("optional", False),
         "composed_of": list(r.get("composed_of", [])),
         "summary": r["summary"],
-        "mcp_config": _mcp_config(ws, server_url),
+        "mcp_config": _mcp_config(ws, server_url, token),
         "claude_md": claude_md(role, ws, server_url),
         "loop": list(r["loop"]),
         "skills": list(r.get("skills", [])),

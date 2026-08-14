@@ -48,6 +48,17 @@ class WeaveWorker:
     control: str = "run"                    # run · pause · stop  (what the loop obeys)
     status: str = "active"                  # active · paused · stopped  (stored)
     current_task: Optional[str] = None
+    #: Which step of the loop this worker is in, and when it entered it (P10.5).
+    #:
+    #: **Diagnostic, never governed.** The task lifecycle is the governed state
+    #: and it is enforced by the signed ledger; this is transient liveness that
+    #: exists so a supervisor can tell *working* from *stuck* without opening a
+    #: terminal. Nothing may branch on it, gate on it, or drive a transition
+    #: from it — a field the runtime reads that nobody signed is A8's failure
+    #: arriving in a new place, and this is exactly the kind of field that
+    #: acquires a reader six months later because it happens to be there.
+    step: str = ""
+    step_since: float = 0.0
     registered_at: float = 0.0
     last_heartbeat: float = 0.0
 
@@ -62,6 +73,7 @@ class WeaveWorker:
             owner=d.get("owner", ""),
             control=d.get("control", "run"), status=d.get("status", "active"),
             current_task=d.get("current_task"),
+            step=d.get("step", ""), step_since=d.get("step_since", 0.0),
             registered_at=d.get("registered_at", 0.0),
             last_heartbeat=d.get("last_heartbeat", 0.0))
 
@@ -139,6 +151,7 @@ class WorkerRegistry:
 
     def heartbeat(self, workspace: str, worker_id: str, *,
                   current_task: Optional[str] = None, owner: Optional[str] = None,
+                  step: Optional[str] = None,
                   ) -> Dict[str, Any]:
         """Refresh presence and return the control-state the loop must obey. Only
         the worker's owner may heartbeat it (so a stray caller can't keep a dead
@@ -152,9 +165,17 @@ class WorkerRegistry:
         w.last_heartbeat = self._now()
         if current_task is not None:
             w.current_task = current_task or None
+        if step is not None and step != w.step:
+            # The clock restarts only when the step actually changes, which is
+            # what makes the duration mean anything: `building · 4m` has to be
+            # four minutes in `building`, not four minutes since the last beat.
+            # Compared old-against-new — never against a literal, which is the
+            # line between plumbing and reading meaning into this field.
+            w.step = step
+            w.step_since = self._now()
         self._workers.save(workspace, w)
         return {"worker": worker_id, "control": w.control, "status": w.status,
-                "current_task": w.current_task}
+                "current_task": w.current_task, "step": w.step}
 
     def set_control(self, workspace: str, worker_id: str, action: str) -> WeaveWorker:
         """Supervisor control. ``pause``/``resume`` toggle the run state; ``stop``
@@ -219,6 +240,11 @@ class WorkerRegistry:
         if stale and w.status != "stopped":
             d["status"] = "offline"
         d["stale"] = stale
+        # How long this worker has been on this step, computed here so every
+        # surface says the same number rather than each one subtracting its own
+        # clock from a timestamp.
+        d["step_seconds"] = (
+            max(0.0, self._now() - w.step_since) if w.step and w.step_since else None)
         return d
 
     async def _reflect(self, workspace: str, w: WeaveWorker, relation: str, why: str) -> None:

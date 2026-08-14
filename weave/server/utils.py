@@ -331,7 +331,47 @@ def get_principal(request: Request) -> Optional[dict]:
         info = auth_handler.validate_token(token)
     except Exception:
         return None
-    return {"username": info.get("username"), "role": info.get("role")}
+    # `workspaces` travels in the token's metadata, put there at login from the
+    # stored record — so the grant is as server-derived as the role is, and a
+    # client cannot widen it by editing a header (W33).
+    metadata = info.get("metadata") or {}
+    return {
+        "username": info.get("username"),
+        "role": info.get("role"),
+        "workspaces": metadata.get("workspaces"),
+    }
+
+
+def principal_may_access(principal: Optional[dict], workspace: Optional[str]) -> bool:
+    """May this principal act in this workspace? (R14, A6, W33)
+
+    **One rule, deliberately written where both surfaces can reach it.** Today
+    only the MCP mount calls it; `User.may_access` has existed since P1 and is
+    asserted in `tests/test_membership.py` against the *store*, while no HTTP
+    path has ever consulted it. That gap is wider than this fix and is reported
+    rather than closed here — enforcing membership across every REST route
+    changes who can see what, which is a decision and not a repair.
+
+    The rule is *deny only on a positive mismatch*:
+
+    * no principal — a server with auth switched off, or an API-key caller that
+      has no identity — is not refused here. `combined_auth` has already decided
+      whether the request may proceed at all, and second-guessing it in a second
+      place is how the two drift apart.
+    * a principal whose token carries **no** workspace list is not refused. Guest
+      and administrator tokens are minted without one, and reading absence as
+      "member of nothing" would lock them out of a product that has never
+      required the grant.
+    * a principal whose token **does** carry a list, asking for a workspace
+      outside it, is refused. That is the case the client-supplied header could
+      otherwise satisfy on its own.
+    """
+    if not principal or not workspace:
+        return True
+    granted = principal.get("workspaces")
+    if granted is None:
+        return True
+    return workspace in granted
 
 
 def display_splash_screen(args: argparse.Namespace) -> None:

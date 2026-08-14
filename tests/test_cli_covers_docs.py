@@ -17,6 +17,7 @@ and demanding one would push filler into the docs to satisfy a test.
 
 from __future__ import annotations
 
+import html
 import pathlib
 import re
 
@@ -37,13 +38,51 @@ _PLACEHOLDER = re.compile(r"^<.*>$")
 
 
 def _guides() -> list[pathlib.Path]:
-    return sorted(_GUIDES.glob("*.md"))
+    """Every guide, whatever it is written in.
+
+    **This globbed `*.md` and the guide became HTML** (P8), so the check that
+    every documented command exists silently covered nothing — five tests went
+    red at the moment the document they guard stopped matching the pattern.
+    A coverage check keyed to a file extension covers a file extension.
+
+    The commands are in `<pre>` blocks either way, and the regex reads lines, so
+    HTML needs no special handling beyond being looked at.
+    """
+    return sorted(p for p in _GUIDES.rglob("*")
+                  if p.suffix in (".md", ".html") and p.is_file())
+
+
+def _text(path: pathlib.Path) -> str:
+    """A guide as a *reader* sees it, not as it is stored.
+
+    **Six places in this file used to call `read_text` directly**, which was
+    fine while every guide was Markdown and wrong the moment one was HTML: the
+    extractor took `--port 9800</pre>` and `&lt;host&gt;` as part of a command
+    and reported a correct guide as unparseable. One reader, so a seventh caller
+    cannot reintroduce it.
+
+    Tags become a **space**, not nothing — `agents</code>Sets` is not a word.
+    """
+    text = path.read_text(encoding="utf-8")
+    if path.suffix in (".html", ".htm"):
+        text = re.sub(r"<[^>]+>", " ", text)
+        text = html.unescape(text)
+    # A trailing `#` comment is ordinary in a documented command line and is not
+    # part of the command. Stripped here so `weave agents list  # the fleet`
+    # parses as `weave agents list`.
+    text = re.sub(r"\s+#[^\n]*", "", text)
+    # A documented command is often shown as a transcript (`$ weave …`) and often
+    # wrapped across lines with a trailing backslash. Both are how commands are
+    # written for humans; neither is part of the command.
+    text = re.sub(r"\\\n\s*", " ", text)
+    text = re.sub(r"(?m)^\s*\$ ", "", text)
+    return text
 
 
 def _documented_commands() -> list[tuple[pathlib.Path, str, str | None]]:
     found = []
     for path in _guides():
-        for line in path.read_text(encoding="utf-8").splitlines():
+        for line in _text(path).splitlines():
             # Skip prose that merely mentions the product name.
             for match in _WEAVE_CMD.finditer(line):
                 group, action = match.group(1), match.group(2)
@@ -64,7 +103,7 @@ def test_every_guide_names_at_least_one_command():
     """A guide with no commands is a description, and the gate is about steps
     someone can follow."""
     for path in _guides():
-        assert _WEAVE_CMD.search(path.read_text(encoding="utf-8")), (
+        assert _WEAVE_CMD.search(_text(path)), (
             f"{path.name} documents no runnable step"
         )
 
@@ -149,7 +188,7 @@ def test_documented_commands_parse_with_their_flags():
     failures = []
 
     for path in _guides():
-        for line in path.read_text(encoding="utf-8").splitlines():
+        for line in _text(path).splitlines():
             stripped = line.strip()
             if not stripped.startswith("weave "):
                 continue
@@ -184,12 +223,17 @@ _MODULE_CMD = re.compile(r"^python3?\s+-m\s+([\w.]+)")
 def _documented_modules() -> list[tuple[pathlib.Path, str, list[str]]]:
     found = []
     for path in _guides():
-        for line in path.read_text(encoding="utf-8").splitlines():
+        for line in _text(path).splitlines():
             match = _MODULE_CMD.match(line.strip())
             if match:
+                # **Substitute placeholders, do not drop them.** Dropping
+                # `<token>` leaves `--token` with no value, so a correctly
+                # documented command fails to parse for a reason the guide is
+                # not guilty of — and the flag/value pairing, which is most of
+                # what this test is checking, stops being checked at all.
                 argv = [
-                    token for token in line.strip().split()[3:]
-                    if not _PLACEHOLDER.match(token)
+                    "PLACEHOLDER" if _PLACEHOLDER.match(token) else token
+                    for token in line.strip().split()[3:]
                 ]
                 found.append((path, match.group(1), argv))
     return found
@@ -274,7 +318,7 @@ def test_documented_module_flags_parse():
 def test_the_guide_covers_the_steps_the_gate_measures():
     """The M6 gate is *clean machine → live fleet by the published steps only*.
     If a step is missing from the guide, the measurement is of something else."""
-    text = "\n".join(p.read_text(encoding="utf-8") for p in _guides()).lower()
+    text = "\n".join(_text(p) for p in _guides()).lower()
 
     for needed, why in [
         ("weave doctor", "the seat check — nothing works without one"),
@@ -291,7 +335,7 @@ def test_the_guide_does_not_promise_that_dispatch_starts_anything():
     """A15 is easiest to misdescribe in prose. Dispatch records intent; hosts
     reconcile on their next heartbeat, and a guide implying otherwise teaches the
     wrong mental model to every reader."""
-    text = "\n".join(p.read_text(encoding="utf-8") for p in _guides()).lower()
+    text = "\n".join(_text(p) for p in _guides()).lower()
     assert "heartbeat" in text
     assert "nothing starts immediately" in text or "pulls, not a command" in text
 
@@ -320,7 +364,7 @@ def test_the_first_user_the_guide_creates_can_actually_do_something():
 
     named = []
     for path in _guides():
-        for line in path.read_text(encoding="utf-8").splitlines():
+        for line in _text(path).splitlines():
             stripped = line.strip()
             if not stripped.startswith("weave user add"):
                 continue

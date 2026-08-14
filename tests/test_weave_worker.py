@@ -154,14 +154,20 @@ class FakeClient:
         self.registered = None
         self.claims, self.prs, self.commits, self.decisions, self.learnings = ([] for _ in range(5))
         self.heartbeats = 0
+        self.steps: list = []
 
     def register(self, worker_id, *, role="developer", host="", goal=""):
         self.registered = {"worker": worker_id, "role": role, "goal": goal}
 
-    def heartbeat(self, worker_id, *, current_task=None):
+    def heartbeat(self, worker_id, *, current_task=None, step=None):
         self.heartbeats += 1
+        # Recorded, not merely tolerated: the step is the whole point of P10.5,
+        # and a fake that swallowed it would let the loop stop reporting without
+        # any test noticing.
+        if step is not None:
+            self.steps.append(step)
         ctl = self._controls.pop(0) if self._controls else "run"
-        return {"control": ctl, "current_task": current_task}
+        return {"control": ctl, "current_task": current_task, "step": step}
 
     def wait_for_ready(self, timeout=25.0):
         return self._ready.pop(0) if self._ready else []

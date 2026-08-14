@@ -64,7 +64,7 @@ class RecordingClient:
     def register(self, worker_id, *, role="developer", host="", goal=""):
         pass
 
-    def heartbeat(self, worker_id, *, current_task=None):
+    def heartbeat(self, worker_id, *, current_task=None, step=None):
         return {"control": "run", "current_task": current_task}
 
     def wait_for_ready(self, timeout=25.0):

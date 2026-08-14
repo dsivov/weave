@@ -66,6 +66,10 @@ def register(groups) -> None:
     kit.add_argument("--server", default="",
                      help="the URL roles will reach (default: $WEAVE_PUBLIC_URL, "
                           "then http://localhost:9800)")
+    kit.add_argument("--token", default="",
+                     help="the bearer token the session authenticates with "
+                          "(from POST /login). Written into .mcp.json, which is "
+                          "then mode 0600 — /mcp requires a credential (W33)")
     kit.add_argument("--json", action="store_true")
     kit.set_defaults(handler=_kit)
 
@@ -139,12 +143,13 @@ def _list(args: argparse.Namespace) -> int:
 # ── kit ──────────────────────────────────────────────────────────────────────
 
 
-def _kit_contents(role: str, workspace: str, server: str) -> List[Tuple[str, str]]:
+def _kit_contents(role: str, workspace: str, server: str,
+                  token: str = "") -> List[Tuple[str, str]]:
     """The kit as (filename, text) pairs — one generator, every role (R52a)."""
     from weave.team import playbook
 
     try:
-        kit: Dict[str, Any] = playbook.role_kit(role, workspace, server)
+        kit: Dict[str, Any] = playbook.role_kit(role, workspace, server, token)
     except KeyError:
         known = ", ".join(r["role"] for r in playbook.roles())
         raise SystemExit(f"unknown role '{role}'. Known roles: {known}")
@@ -157,6 +162,20 @@ def _kit_contents(role: str, workspace: str, server: str) -> List[Tuple[str, str
     ]
 
 
+def _restrict(path: str) -> None:
+    """0600 on a kit file — `.mcp.json` holds a bearer token (W33).
+
+    Applied to both files rather than only the one carrying the credential: a
+    rule with an exception is a rule someone has to remember, and `CLAUDE.md`
+    being readable buys nothing. Same reasoning, and the same mode, as the
+    secret `weave init` writes.
+    """
+    try:
+        os.chmod(path, 0o600)
+    except OSError:  # pragma: no cover - a filesystem that has no modes
+        pass
+
+
 def _kit(args: argparse.Namespace) -> int:
     server = (args.server
               or os.environ.get("WEAVE_PUBLIC_URL")
@@ -164,18 +183,26 @@ def _kit(args: argparse.Namespace) -> int:
     out = os.path.abspath(args.out)
     os.makedirs(out, exist_ok=True)
 
+    token = args.token or os.environ.get("WEAVE_TOKEN", "")
+
     written, unchanged = [], []
-    for name, text in _kit_contents(args.role, args.workspace, server):
+    for name, text in _kit_contents(args.role, args.workspace, server, token):
         path = os.path.join(out, name)
         existing = None
         if os.path.exists(path):
             with open(path, "r", encoding="utf-8") as fh:
                 existing = fh.read()
         if existing == text:
+            # Still assert the mode. A kit regenerated over one written before
+            # `/mcp` required a credential would otherwise keep whatever
+            # permissions it had, and "unchanged" would be true of the content
+            # while false of the thing that matters.
+            _restrict(path)
             unchanged.append(name)
             continue
         with open(path, "w", encoding="utf-8") as fh:
             fh.write(text)
+        _restrict(path)
         written.append(name)
 
     if args.json:
@@ -191,4 +218,11 @@ def _kit(args: argparse.Namespace) -> int:
     print(f"\nPoint a Claude Code session at {out} and start it. "
           "There is no Weave client to install:\nthe kit is the client "
           "configuration (A10).")
+    if token:
+        print("\n.mcp.json holds a bearer token and is mode 0600. "
+              "Do not commit it.")
+    else:
+        print("\nNo token was supplied, so .mcp.json has no Authorization "
+              "header and /mcp will\nrefuse it. Get one from POST /login and "
+              "re-run with --token, or paste it in.")
     return 0

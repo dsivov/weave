@@ -112,7 +112,7 @@ running dev agents in containers.</p>
 conda activate weave
 pip install -e .</pre>
 
-<p>That last line is what puts the <code>weave</code> command on your PATH. Every step below uses
+<p>That last line installs <code>weave</code> — the command every step below uses. Every step below uses
 it.</p>
 
 <div class="callout caveat">
@@ -200,6 +200,9 @@ environment-variable accounts and no default login.</p>
   have a reason not to.</p>
   <p>And a role change takes effect at the user's <b>next sign-in</b>, because the role travels in
   the session token. The Users screen says so when you change one.</p>
+  <p><b>If you picked the wrong role first</b>, recover with:</p>
+  <pre>weave user promote &lt;name&gt; --role manager</pre>
+  <p>Then sign in again — the new role travels in the next token, not the current one.</p>
 </div>
 
 <h2 id="governance">6 · Give the team a vocabulary</h2>
@@ -274,7 +277,7 @@ footer beside your name — and remember a role change needs a fresh sign-in.</p
 <pre>python3 -m weave.devhost \
   --server http://&lt;server&gt;:9800 \
   --workspace demo \
-  --token &lt;a token for a Weave account&gt;</pre>
+  --token &lt;token&gt;</pre>
 
 <p>The daemon authenticates as an ordinary Weave identity — <b><code>--token</code> is not
 optional</b>. Without it the daemon starts, confirms the machine's seat, and then loops on
@@ -310,9 +313,18 @@ container cannot silently fall back to metered auth.</p>
 
 <p>Scale from the board's <b>Dispatch</b> control, or from the CLI:</p>
 
-<pre>weave agents list          # the fleet: desired vs running per host
-weave agents up   &lt;host&gt;   # one more developer there
-weave agents down &lt;host&gt;   # retire that machine's developers</pre>
+<pre>weave agents list
+weave agents up   --host &lt;host-id&gt; --count 2
+weave agents down --host &lt;host-id&gt;</pre>
+
+<p><code>list</code> shows desired against running per machine; <code>up</code> sets how many
+developers a machine should run; <code>down</code> retires them, or takes
+<code>--control drain|pause|resume|stop</code> instead of scaling to zero.</p>
+
+<div class="callout info">
+  <p><b>Nothing starts immediately.</b> These write intent — the machine reconciles to it on its next
+  heartbeat, because the server never dials out. Expect a few seconds, not an instant.</p>
+</div>
 
 <h2 id="supervise">9 · Watch and steer</h2>
 
@@ -441,8 +453,9 @@ resolves to the real file at a real revision, which is why a citation cannot rot
   <code>status: success</code> with a <code>track_id</code> the moment the text is received; processing
   happens afterwards and can fail. <b>Check <code>GET /documents</code> for the outcome</b> rather than
   trusting the 200.</p>
-  <p>Both are addressed by <b>CR-002</b>, which adds <code>weave docs sync</code> and makes publishing a
-  plan <i>refuse</i> when a document it references is not there.</p>
+  <p>Both are addressed by <b>CR-002</b> (proposed): it adds a sync command and makes publishing a plan
+  <i>refuse</i> when a document it references is not there. <b>Until that ships, ingesting is a step you
+  have to remember</b> — and checking <code>GET /documents</code> afterwards is how you know it worked.</p>
 </div>
 
 <h3>Checking that the information is actually there</h3>

@@ -172,6 +172,11 @@ class RegisterWorkerRequest(BaseModel):
 
 class HeartbeatRequest(BaseModel):
     current_task: Optional[str] = None
+    step: Optional[str] = Field(
+        default=None,
+        description=("Which step of its loop the worker is in — diagnostic "
+                     "liveness only. The governed state of a task is its "
+                     "lifecycle; nothing branches on this."))
 
 
 class ControlRequest(BaseModel):
@@ -661,7 +666,7 @@ def create_weave_routes(
             try:
                 return registry.heartbeat(
                     _ws(), worker_id, current_task=body.current_task,
-                    owner=_principal_id(request))
+                    step=body.step, owner=_principal_id(request))
             except KeyError:
                 raise HTTPException(status_code=404, detail=f"no worker '{worker_id}'")
             except WorkerOwnershipError as e:

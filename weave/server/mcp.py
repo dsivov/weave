@@ -11,16 +11,12 @@ Created for CR-018.
 
 from __future__ import annotations
 
-import hmac
+import contextvars
 from typing import Optional
 
 from mcp.server.fastmcp import FastMCP
 from mcp.server.fastmcp.exceptions import ToolError
 
-#: What a governance change made over MCP is signed as. Not a person, and
-#: deliberately not settable by the caller: this surface cannot yet establish who
-#: is on the other end, so it records the one thing it does know (D-038).
-MCP_AGENT_APPROVER = "mcp-agent" 
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import JSONResponse
@@ -32,6 +28,36 @@ from weave.server.routers.query import (
     get_catalog_info,
     CATALOG_BYPASS_SYSTEM_PROMPT,
 )
+
+
+#: What a governance change made over MCP is signed as. Not a person, and
+#: deliberately not settable by the caller: this surface cannot yet establish who
+#: is on the other end, so it records the one thing it does know (D-038).
+MCP_AGENT_APPROVER = "mcp-agent"
+
+#: The authenticated principal for the request being served (W33).
+#:
+#: The MCP library gives a tool no access to the request, which is why
+#: `invoke_action` passed `principal_role=None` and `get_manifest` answered
+#: `"role": null` — recorded as W16 and read at the time as *"MCP carries no
+#: role"*, a missing feature. It was also the boundary: no role meant no
+#: principal, and no principal meant nothing to enforce the tenant against.
+#:
+#: A contextvar is how `_current_workspace` already reaches these same tools, so
+#: this needs no new mechanism — only the same one applied to identity. Set by
+#: the auth wrapper at the mount and read here.
+_current_principal: contextvars.ContextVar[Optional[dict]] = contextvars.ContextVar(
+    "weave_mcp_principal", default=None)
+
+
+def current_principal() -> dict:
+    """The authenticated principal, or `{}` on a server with auth switched off.
+
+    `{}` rather than `None` so a caller cannot accidentally treat *absent* as
+    *permitted*: `.get("role")` is `None` either way, and RBAC denies on a
+    workspace with a policy.
+    """
+    return _current_principal.get() or {}
 
 
 VALID_MODES = {"local", "global", "hybrid", "naive", "mix", "bypass", "cgr3"}
@@ -528,16 +554,21 @@ def create_mcp_server(
         from weave.server.workspace_pool import _current_workspace
 
         ws = _current_workspace.get() or "default"
-        # MCP carries no authenticated role, so RBAC only permits where no policy
-        # restricts the action (single-agent workspaces stay permissive).
+        # **The role of the authenticated principal** (W16, W33). This passed
+        # `None` for both checks, which fails closed on an RBAC-enabled
+        # workspace — so every MCP agent was denied there — while the surface
+        # itself was reachable with no credential at all. Both halves came from
+        # the same absence: nothing authenticated the request, so there was no
+        # role to enforce against.
+        role = current_principal().get("role")
         if rbac_service is not None:
-            d = rbac_service.check(ws, None, "invoke", action, object_ref=object_ref, rag=rag)
+            d = rbac_service.check(ws, role, "invoke", action, object_ref=object_ref, rag=rag)
             if not d.allowed:
                 raise ToolError(f"forbidden: {d.reason}")
         try:
             result = await action_service.invoke(
                 rag, ws, action, actor=actor, object_ref=object_ref,
-                args=args or {}, principal_role=None, lifecycle=lifecycle_service)
+                args=args or {}, principal_role=role, lifecycle=lifecycle_service)
         except ToolError:
             raise
         except Exception as e:
@@ -559,6 +590,11 @@ def create_mcp_server(
         from weave.server.workspace_pool import _current_workspace
 
         ws = _current_workspace.get() or "default"
+        # A caller may still *narrow* to a role, but the default is who they
+        # actually are — an agent asking "what may I do" was being answered
+        # "nothing is restricted for nobody" and returning `"role": null`.
+        if role is None:
+            role = current_principal().get("role")
         return await build_manifest(
             rag, ws, role,
             ontology_service=ontology_service, action_service=action_service,
@@ -677,8 +713,13 @@ def create_mcp_server(
             # says exactly what is actually known: an agent did this, over MCP,
             # and we cannot say which one. That is less than we want and more
             # than a name somebody typed.
+            # Now that the request carries an authenticated identity, sign as
+            # that identity. `MCP_AGENT_APPROVER` remains the answer when there
+            # is none — on a server with auth switched off — because "an agent
+            # did this over MCP" is still more than a name somebody typed.
+            approver = current_principal().get("username") or MCP_AGENT_APPROVER
             result = await studio_engine.apply(
-                ws, diff, approver=MCP_AGENT_APPROVER, reason=reason)
+                ws, diff, approver=approver, reason=reason)
         except ToolError:
             raise
         except Exception as e:
@@ -690,20 +731,26 @@ def create_mcp_server(
 
     mcp_app = mcp.streamable_http_app()
 
-    if api_key:
-        from starlette.middleware.base import BaseHTTPMiddleware
-
-        async def mcp_auth_middleware(request: Request, call_next):
-            """Validate X-API-Key header — same auth as REST endpoints."""
-            key = request.headers.get("X-API-Key", "")
-            if not hmac.compare_digest(key, api_key):
-                return JSONResponse(
-                    status_code=401,
-                    content={"detail": "Invalid API key"},
-                )
-            return await call_next(request)
-
-        # Starlette apps expose add_middleware, not a `.middleware` decorator.
-        mcp_app.add_middleware(BaseHTTPMiddleware, dispatch=mcp_auth_middleware)
-
+    # **Authentication is not applied here** (W33).
+    #
+    # This used to install an X-API-Key check, and *only when an API key was
+    # configured* — so on the ordinary JWT deployment there was none at all.
+    # `app.mount("", mcp_app)` attaches this app outside the dependency that
+    # guards every REST route, and the result was measured on a running server
+    # with auth working:
+    #
+    #     GET  /weave/status   no credentials → 401
+    #     POST /mcp            no credentials → 200, and it executed
+    #
+    # …with the tenant taken from the `WEAVE-WORKSPACE` header on that same
+    # unauthenticated request. That is A6 exactly — *the principal it is enforced
+    # against is derived from the authenticated identity … no endpoint bypasses
+    # either half* — and it is M2's Critical in a new place.
+    #
+    # The wrapper lives at the mount in `weave/server/app.py` and calls the
+    # **same** `combined_auth` dependency every REST route uses. Not an
+    # equivalent check: the same one. A second implementation of "may this
+    # request proceed" is the thing that produced this defect, and A9's promise
+    # that one handler serves both surfaces is a fiction if the two disagree
+    # about who is asking.
     return mcp, mcp_app

@@ -232,7 +232,19 @@ def test_postgres_settings_come_from_prefixed_variables():
 
 @pytest.mark.offline
 def test_all_three_graph_adapters_import():
-    """A4's three paths, resolved the way the engine resolves them at startup."""
+    """A4's three paths, resolved the way the engine resolves them at startup.
+
+    **What this does not cover, said out loud** (W30). It imports a module and
+    checks a name is bound. It does not connect, does not write, and would pass
+    against a database missing every extension the adapter needs — which is
+    exactly what happened: `PGGraphStorage` appeared only ever as a *name in a
+    list*, in this test and two registry tests, and the PostgreSQL **graph**
+    adapter had never been executed anywhere. Meanwhile A4 calls PostgreSQL the
+    multi-workspace production path.
+
+    *Builds is not runs*, in test form. The round-trip that does cover it is
+    `test_the_postgres_graph_path` below, beside the Neo4j one.
+    """
     import importlib
 
     from weave_core.graph.storage import STORAGES
@@ -251,6 +263,136 @@ def test_the_neo4j_adapter_is_configured_by_prefixed_variables():
     assert STORAGE_ENV_REQUIREMENTS["Neo4JStorage"] == [
         "WEAVE_NEO4J_URI", "WEAVE_NEO4J_USERNAME", "WEAVE_NEO4J_PASSWORD",
     ]
+
+
+# ── path 3a · the PostgreSQL **graph** store (W30) ───────────────────────────
+#
+# The record store above is exercised properly. Its graph half never was — not
+# here, not in the bundle. `PGGraphStorage` existed in this suite only as a name
+# inside three lists, and an importability check reads as coverage.
+#
+# The adapter needs **Apache AGE**: `CREATE EXTENSION AGE CASCADE`, a
+# `search_path` including `ag_catalog`, and `create_graph()`. The container this
+# project has tested PostgreSQL against all along is `pgvector/pgvector:pg16`,
+# which offers `vector` and `pg_trgm` and **does not carry `age` at all** —
+# measured against the running server, not inferred from the tag.
+
+
+async def _age_is_available() -> bool:
+    """Is the graph extension actually installable on the configured server?
+
+    Asked of `pg_available_extensions` rather than by catching the failure: the
+    error AGE's absence produces is `UndefinedFunctionError: function
+    create_graph(unknown) does not exist`, which reads like a bug in the adapter
+    rather than a missing extension, and that is how it went unread in the
+    bundle.
+    """
+    import asyncpg
+
+    # The same resolver the record store uses, so this asks about the server the
+    # rest of the suite is actually pointed at.
+    settings = connection_settings()
+    connection = await asyncpg.connect(**settings)
+    try:
+        return bool(await connection.fetchval(
+            "select 1 from pg_available_extensions where name = 'age'"))
+    finally:
+        await connection.close()
+
+
+@requires_postgres
+@pytest.mark.integration
+async def test_the_postgres_graph_path():
+    """A4's production path, its graph half — exercised rather than assumed.
+
+    The same round-trip as `test_the_neo4j_graph_path`, deliberately: two paths
+    the contract ranks against each other should be checked by the same
+    questions, or "PostgreSQL works" and "Neo4j works" mean different things.
+
+    **Skipped, not passed, when the server cannot carry the extension** — and the
+    reason names the defect rather than shrugging at it. A skip whose reason is
+    *"AGE is not installed"* is a finding a reader can act on; a skip counted
+    among others is what let this path go unrun through every milestone gate
+    D-007 was written to protect.
+    """
+    if not await _age_is_available():
+        pytest.skip(
+            "PostgreSQL is reachable but Apache AGE is NOT AVAILABLE on this "
+            "server, so the PG graph adapter cannot run here (W30). This is the "
+            "production path by A4 and it has never been executed. The image "
+            "must provide both `vector` and `age`; pgvector/pgvector:pg16 "
+            "provides only the first."
+        )
+
+    from weave_core.graph.storage.postgres import PGGraphStorage
+    from weave_core.store.locks import initialize_share_data
+
+    initialize_share_data(1)
+    store = PGGraphStorage(
+        namespace=f"t{uuid.uuid4().hex[:8]}",
+        workspace="alpha",
+        global_config={"embedding_batch_num": 8},
+        embedding_func=None,
+    )
+    await store.initialize()
+    try:
+        await _exercise_a_graph_round_trip(store)
+    finally:
+        await store.drop()
+        await store.finalize()
+
+
+async def _exercise_a_graph_round_trip(store) -> None:
+    """Write a graph, read it back, and take it apart again.
+
+    Shared so the assertions can be proven capable of failing — see
+    `test_the_round_trip_assertions_are_not_vacuous`, which runs this same body
+    against the file-based adapter. A round-trip written for a backend nobody can
+    currently run is a round-trip nobody has watched work.
+    """
+    await store.upsert_node("alice", {
+        "entity_id": "alice", "entity_type": "person", "description": "a person"})
+    await store.upsert_node("bob", {
+        "entity_id": "bob", "entity_type": "person", "description": "another"})
+    await store.upsert_edge("alice", "bob", {
+        "weight": 1.0, "description": "knows", "keywords": "social"})
+
+    assert await store.has_node("alice")
+    assert await store.has_edge("alice", "bob")
+    assert (await store.get_node("alice"))["description"] == "a person"
+    assert (await store.get_edge("alice", "bob"))["description"] == "knows"
+    assert await store.node_degree("alice") == 1
+
+    graph = await store.get_knowledge_graph("*", max_depth=2, max_nodes=10)
+    assert len(graph.nodes) == 2 and len(graph.edges) == 1
+
+    await store.delete_node("bob")
+    assert not await store.has_node("bob")
+
+
+@pytest.mark.offline
+async def test_the_round_trip_assertions_are_not_vacuous(tmp_path):
+    """The round-trip above, against the one graph backend that always runs.
+
+    **Because the PostgreSQL path cannot currently execute anywhere**, the body
+    it will one day be judged by would otherwise be code nobody had ever seen
+    pass or fail. Running it against `NetworkXStorage` does not verify the PG
+    adapter — nothing here can — but it does establish that the assertions are
+    real: that they describe a graph a working adapter produces, and that they
+    would notice if one did not.
+    """
+    from weave_core.graph.storage.files import NetworkXStorage
+    from weave_core.store.locks import initialize_share_data
+
+    initialize_share_data(1)
+    store = NetworkXStorage(
+        namespace="chunk_entity_relation",
+        workspace="",
+        global_config={"working_dir": str(tmp_path), "embedding_batch_num": 8},
+        embedding_func=None,
+    )
+    await store.initialize()
+    await _exercise_a_graph_round_trip(store)
 
 
 # ── path 3b · Neo4j, the optional dedicated graph engine (AS3) ───────────────

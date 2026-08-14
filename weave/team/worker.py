@@ -212,9 +212,9 @@ class WeaveClient:
         return self._call("POST", "/weave/workers/register",
                           {"worker": worker_id, "host": host, "goal": goal})
 
-    def heartbeat(self, worker_id, *, current_task=None):  # pragma: no cover
+    def heartbeat(self, worker_id, *, current_task=None, step=None):  # pragma: no cover
         return self._call("POST", f"/weave/workers/{worker_id}/heartbeat",
-                          {"current_task": current_task})
+                          {"current_task": current_task, "step": step})
 
     def wait_for_ready(self, timeout=25.0):  # pragma: no cover
         return self._call("GET", f"/weave/tasks/wait?timeout={timeout}").get("ready", [])
@@ -260,6 +260,43 @@ class WeaveClient:
             "workers": list(workers or []), "seat": seat, "seat_detail": seat_detail})
 
 
+#: The steps of `run_worker`, in the order it performs them (P10.5).
+#:
+#: **Read off the loop rather than invented**, so the vocabulary cannot describe
+#: a sequence the worker does not have. A supervisor watching a containerised
+#: agent has one field today — `current_task` — which answers *what* but never
+#: *where*, and `docker logs` shows the worker loop rather than the session. The
+#: fleet can now say `building · 4m`.
+#:
+#: **The duration is the point.** "building" on its own does not answer *is it
+#: stuck?*, which is the entire reason for the field, and `building` is the only
+#: step measured in minutes — it is the `claude -p` call.
+#:
+#: **Diagnostic, never governed** (A8). Nothing branches on this; the task
+#: lifecycle is the governed state and the ledger enforces it. See
+#: `tests/test_the_step_is_diagnostic.py`, which asserts that as a class.
+#: A commit subject is a subject (P10.5).
+#:
+#: `record_commit(subject=result.summary)` put up to 400 characters of model
+#: stdout into the subject line of a permanent artifact — and **the 400 was
+#: never a chosen number**, it was the truncation the runner happened to apply
+#: to its own output. The model's account of what it did belongs in the decision
+#: trace, which already receives it in full.
+#:
+#: 72 is the git convention for a subject line, chosen rather than inherited.
+COMMIT_SUBJECT_MAX = 72
+
+WORKER_STEPS = (
+    "waiting",      # polling the ready-set
+    "claiming",     # racing for a task
+    "orienting",    # fetching the brief
+    "building",     # the `claude -p` call — the long one
+    "testing",      # running the project's tests
+    "opening-pr",   # opening the pull request
+    "recording",    # writing the decision / learning
+)
+
+
 # ── the loop ─────────────────────────────────────────────────────────────────
 
 def run_worker(
@@ -285,8 +322,18 @@ def run_worker(
     def stopped() -> bool:
         return client.heartbeat(worker_id).get("control") == "stop"
 
+    def beat(step: str, **kw) -> Dict[str, Any]:
+        """One heartbeat, carrying where the loop is.
+
+        The step is known *here*, at the call site, before the work runs and
+        before any output exists — so reporting it needs nothing retained. That
+        matters: W29 is about the session transcript being destroyed, and it is a
+        separate decision that must not arrive as a side effect of this one.
+        """
+        return client.heartbeat(worker_id, step=step, **kw)
+
     for _ in range(max_iterations):
-        ctl = client.heartbeat(worker_id).get("control", "run")
+        ctl = beat("waiting").get("control", "run")
         if ctl == "stop":
             break
         if ctl == "pause":
@@ -303,21 +350,29 @@ def run_worker(
 
         task = ready[0]
         tid = task["id"]
+        beat("claiming")
         try:
             client.claim(tid, worker_id)
         except ClaimConflict:
             continue                                    # lost the race; next task
-        client.heartbeat(worker_id, current_task=tid)
 
+        beat("orienting", current_task=tid)
         brief = client.brief(tid)
         branch = f"weave/{tid}"
         git.new_branch(branch)
+        beat("building")
         result = code_runner(brief)                     # the `claude -p` step
         if stopped():                                   # supervisor halt mid-task
             break
 
         if result.commit_sha:
-            client.record_commit(tid, sha=result.commit_sha, subject=result.summary)
+            # The task's own title, not the model's account of writing it. The
+            # account is not lost — `record_decision` below carries it, which is
+            # where a reader looks for *why*; a subject answers *what*.
+            title = str((brief.get("task") or {}).get("title") or "").strip()
+            subject = f"{tid}: {title}" if title else tid
+            client.record_commit(tid, sha=result.commit_sha,
+                                 subject=subject[:COMMIT_SUBJECT_MAX])
 
         # "The tests failed" and "the test command could not run" are different
         # facts, and only the first says anything about the code (W9). The loop
@@ -330,6 +385,7 @@ def run_worker(
         # operational fault, the same task will fail for the same reason on the
         # next attempt, and grinding through the queue would fabricate one
         # insight per task.
+        beat("testing")
         try:
             tests_passed = git.run_tests()
         except UnrunnableTestCommand as e:
@@ -342,18 +398,21 @@ def run_worker(
             break
 
         if not (result.ok and tests_passed):
+            beat("recording")
             client.record_learning(
                 f"task {tid} did not pass: {result.summary or 'tests failed'}", task_id=tid)
             continue                                    # left for review / re-work
 
+        beat("opening-pr")
         client.open_pull_request(tid, branch=branch, url=result.pr_url)
+        beat("recording")
         client.record_decision(
             src=worker_id, tgt=tid, relation="implemented",
             decision_trace=result.summary or f"implemented {tid}")
         completed.append(tid)
         logger.info(f"Weave worker '{worker_id}' completed '{tid}' → PR opened")
 
-    client.heartbeat(worker_id)
+    beat("waiting", current_task="")
     out: Dict[str, Any] = {
         "worker": worker_id, "completed": completed, "count": len(completed),
     }

@@ -423,6 +423,77 @@ API_CLAIMS = [
 ]
 
 
+def _mcp_behind_auth(mcp_app, combined_auth):
+    """Put the MCP sub-app behind the dependency that guards the REST routes (W33).
+
+    **The same callable, not an equivalent check.** `combined_auth` is the object
+    every `@router.get(..., dependencies=[Depends(combined_auth)])` uses; the
+    adapter below pulls the bearer token and API key out of the request and hands
+    them to it. Writing a second "may this proceed" here is what produced the
+    defect in the first place — an X-API-Key check that existed *only* when an
+    API key was configured, so the ordinary JWT deployment had none.
+
+    Two things happen after it allows the request, and both are A6:
+
+    * the **principal** is published to the tools through a contextvar, so
+      `invoke_action` enforces RBAC against a real role instead of `None`;
+    * the **tenant** is checked against that principal. `WEAVE-WORKSPACE` may
+      *select* among the workspaces a principal holds; it may never *grant* one.
+      Choosing the tenant from an unauthenticated header is M2's Critical, and
+      this is the same shape on a different surface.
+    """
+    from fastapi import Response
+    from starlette.requests import Request
+    from starlette.responses import JSONResponse
+
+    from weave.server.mcp import _current_principal
+    from weave.server.utils import get_principal, principal_may_access
+    from weave.server.workspace_pool import _current_workspace
+
+    async def guarded(scope, receive, send):
+        if scope.get("type") != "http":
+            return await mcp_app(scope, receive, send)
+
+        request = Request(scope, receive)
+        authorization = request.headers.get("Authorization", "")
+        token = authorization[7:].strip() if authorization.lower().startswith("bearer ") else None
+
+        try:
+            await combined_auth(
+                request,
+                Response(),
+                token=token,
+                api_key_header_value=request.headers.get("X-API-Key"),
+            )
+        except HTTPException as refusal:
+            response = JSONResponse(
+                status_code=refusal.status_code,
+                content={"detail": refusal.detail},
+            )
+            return await response(scope, receive, send)
+
+        principal = get_principal(request)
+        workspace = _current_workspace.get()
+        if not principal_may_access(principal, workspace):
+            response = JSONResponse(
+                status_code=403,
+                content={"detail": (
+                    f"not a member of workspace '{workspace}'. The "
+                    "WEAVE-WORKSPACE header selects among the workspaces you "
+                    "hold; it does not grant one."
+                )},
+            )
+            return await response(scope, receive, send)
+
+        reset = _current_principal.set(principal)
+        try:
+            return await mcp_app(scope, receive, send)
+        finally:
+            _current_principal.reset(reset)
+
+    return guarded
+
+
 def create_app(args):
     # Re-asserted here because every path into a running server goes through
     # `create_app` — uvicorn's `main()`, gunicorn's `get_application()`, and the
@@ -2120,7 +2191,11 @@ def create_app(args):
             studio_engine=studio_engine,
         )
         app.state.mcp_server = mcp_server
-        app.mount("", mcp_app)  # MCP endpoint at POST /mcp
+        # MCP endpoint at POST /mcp — **behind the same auth as every REST
+        # route** (W33). `app.mount` attaches a sub-app outside
+        # `app.router.dependencies`, so the unwrapped mount was reachable with
+        # no credential on a server where REST answered 401.
+        app.mount("", _mcp_behind_auth(mcp_app, combined_auth))
         logger.info("MCP server mounted at /mcp (Streamable HTTP, stateless)")
     else:
         logger.info("MCP server disabled (WEAVE_ENABLE_MCP=false)")

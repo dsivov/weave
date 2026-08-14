@@ -101,7 +101,7 @@ class PausingClient:
     def register(self, worker_id, *, role="developer", host="", goal=""):
         pass
 
-    def heartbeat(self, worker_id, *, current_task=None):
+    def heartbeat(self, worker_id, *, current_task=None, step=None):
         self.heartbeats += 1
         ctl = self._control()
         self.observed.append((ctl, self.steps_completed))
@@ -265,7 +265,10 @@ def test_control_is_checked_before_the_ready_set_is_drawn(repo):
     import inspect
 
     source = inspect.getsource(run_worker)
-    control_at = source.index('ctl = client.heartbeat')
+    # `beat()` is the loop's heartbeat helper (P10.5) — the same call, now
+    # carrying which step it is in. The property asserted here is unchanged:
+    # control is read before any work is drawn.
+    control_at = source.index("ctl = beat(")
     ready_at = source.index("client.wait_for_ready")
     claim_at = source.index("client.claim(")
 
