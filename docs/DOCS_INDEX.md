@@ -73,6 +73,12 @@ multi-role support.
   the half-rebrand in the one place the name-guard cannot reach. Assigned as **P10 → M10**; two decisions open.
 
 ## Plan & progress
+- [WEAVE_CODE_REVIEW_M10.md](WEAVE_CODE_REVIEW_M10.md) — **M10**, 2026-08-14. 0 Critical · 0 High · 2 Medium.
+  **Seventeen defects fixed — thirteen dsivov found in twenty minutes, four nobody had reported.** The four extra
+  came from starting a server on an empty machine and reading the screen. **15/15 driven in a browser** across three
+  server states and two roles. Its biggest find, W23, was invisible to two prior milestone reviews because every
+  measurement had been taken against a tenant that already knew the answer: `/ask/learnings` returned **0 on every
+  new install**. One finding of the reviewer's own (W17) is **withdrawn**, corrected where it was published. Merged.
 - [WEAVE_CODE_REVIEW_M7.md](WEAVE_CODE_REVIEW_M7.md) — **M7**, 2026-08-13. 0 Critical · 0 High · 2 Medium.
   The UI becomes Weave's (CR-001). **`bun test` ran for the first time in the project — 17 pass, 0 fail** — and a real
   browser pass closed the phase's stated top risk: Weave-first navigation, landing view `Work`, 16/16 views still

@@ -728,10 +728,10 @@ The startup refusal is gone from the source, not merely unreachable. Suite green
 - [x] **U9 — the API tab renders.** `/static/swagger-ui/*` 404s; ship or mount the assets, and a test that fetches both.
 - [x] **U5 — the features anchor stops pretending to be a question box**, and its empty state distinguishes *nothing matched* from *nothing exists*.
 - [x] **U3 — no raw node id is ever shown to a reader** (`AnswerView.tsx:31`). Re-seed first and confirm the shape; the fallback may be masking a data defect rather than causing one.
-- [ ] **U15 — `ENABLE_WEAVE` does not exist; the variable is `WEAVE_ENABLE_TEAM`.** One UI string (`WeaveBoard.tsx:55`) and two comments (`routers/team.py:3`, `app.py:1569`). Proven by experiment, not grep. **Blocks P8**, which documents turning Weave on.
-- [ ] **U16 — the bootstrap 503 says "requires Weave mode" when Weave mode is on** and quadruple mode is what is missing. Fix the sentence; the recommended flag is already right.
-- [ ] **U17 — show what governance is in force.** dsivov signed Solo → Reviewed with two roles; it landed (`rbac name=reviewed v2`, roles manager+developer) and **no screen says so**. An *In force now* section on Team vocabulary, the installed shape marked in the chooser, and the board's chip naming the mode. **Derived from `/rbac` + `/lifecycle`, never a stored label** — a stored mode is a second source of truth and A8 forbids exactly that.
-- [ ] **[manager]** drive all thirteen in a real browser, signed in as each of two roles. Not `curl`.
+- [x] **U15 — `ENABLE_WEAVE` does not exist; the variable is `WEAVE_ENABLE_TEAM`.** One UI string (`WeaveBoard.tsx:55`) and two comments (`routers/team.py:3`, `app.py:1569`). Proven by experiment, not grep. **Blocks P8**, which documents turning Weave on.
+- [x] **U16 — the bootstrap 503 says "requires Weave mode" when Weave mode is on** and quadruple mode is what is missing. Fix the sentence; the recommended flag is already right.
+- [x] **U17 — show what governance is in force.** dsivov signed Solo → Reviewed with two roles; it landed (`rbac name=reviewed v2`, roles manager+developer) and **no screen says so**. An *In force now* section on Team vocabulary, the installed shape marked in the chooser, and the board's chip naming the mode. **Derived from `/rbac` + `/lifecycle`, never a stored label** — a stored mode is a second source of truth and A8 forbids exactly that.
+- [x] **[manager]** drive all thirteen in a real browser, signed in as each of two roles. Not `curl`.
 
 **Gate (M10):** every U-number in `WEAVE_UI_DEFECTS.md` reproduced before the fix and driven after it, **in
 a browser**, by the manager. Sign out, sign in as a second user, and see the identity change on screen.
@@ -762,7 +762,7 @@ prompt is rewritten as a measured change, and that is **P11**, not P10.
 - [x] **`emit_decision_trace` may not change the `entity_type` of an existing governed node** — **it already could not, since the P0 fork.** Pinned by a negative-controlled test rather than newly built; see the correction to W17 below, which the artefact did not support.
 - [x] `tests/` — `test_recording_writes_what_the_answer_reads.py`, against a **real `NetworkXStorage` and the real `emit_decision_trace`**: a workspace built inside the test answers *what did we learn* with 2 of 2, no migration run.
 - [x] `tests/` — a governed node's type and content survive later generic writes. **Seven negative controls run; three initially did not fire and found two real defects in this work** (a second, swallowing writer of the same node; a must-succeed test passing off an error raised by the audit path).
-- [ ] **[manager]** re-run the seed on a genuinely empty tenant and confirm `/ask/learnings` answers **before** `weave migrate reviews` is run — the exact measurement that produced W23.
+- [x] **[manager]** re-run the seed on a genuinely empty tenant and confirm `/ask/learnings` answers **before** `weave migrate reviews` is run — the exact measurement that produced W23.
 
 **Gate (M10.1):** a workspace created from nothing, seeded, answers *what did we learn* **without a migration**;
 the migration remains correct and becomes a one-off for older instances; a retyping upsert cannot silently
