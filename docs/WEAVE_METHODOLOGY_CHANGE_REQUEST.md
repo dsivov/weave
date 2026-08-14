@@ -2,8 +2,8 @@
 
 # CR-002 — Authoring an artifact updates Weave, or the plan does not publish
 
-- **Raised by:** dsivov, 2026-08-14 · **Status:** **proposed** · **Supersedes** the first draft of this
-  file, which proposed a `docs sync` command as the whole answer.
+- **Raised by:** dsivov, 2026-08-14 · **Status:** **accepted** 2026-08-14 (D-049) · **Supersedes** the
+  first draft of this file, which proposed a `docs sync` command as the whole answer.
 - **Against:** [WEAVE_ARCHITECTURE.html](WEAVE_ARCHITECTURE.html) §data-model and §key-flows ·
   `CONSTRAINTS.md` **v7** (A2, A5, A6, A9, A10)
 - **Companion:** chapter 10 of [guides/WEAVE_USER_GUIDE.html](guides/WEAVE_USER_GUIDE.html). **The CR and
@@ -122,7 +122,7 @@ deserves its own CR rather than being smuggled in here.
 | **A10** | **Held** — an MCP tool and a CLI verb, no new client surface. |
 | **A11** | **Held** — no new library. |
 
-**No amendment required.** Log a `D-NN` on approval.
+**No amendment required.** Approved as **D-049**.
 
 ## Acceptance criteria — the gate
 

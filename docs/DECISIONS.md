@@ -1090,3 +1090,30 @@ Status: `accepted` · `superseded by D-NN` · `reversed`.
   workspaces you hold; it does not grant one."*
 - **Not covered, and recorded rather than implied:** workspace **admission** still happens before
   authentication (**W35**), and one endpoint is public by accident of never having been declared (**W36**).
+
+## D-049 · Authoring an artifact updates Weave, and a plan will not publish without its artifacts
+- **Date:** 2026-08-14  ·  **Status:** accepted  ·  **Raised by:** dsivov  ·  **Approved by:** dsivov
+- **Context:** dsivov asked how the house methodology's artifacts reach Weave, whether they are available
+  to a developer, and how anyone knows the information for a stage is there. **Measured: no methodology
+  skill mentions Weave** — all seven end at *"add to `DOCS_INDEX.md`, suggest the next skill"* — so the
+  only link is an instruction in a role kit that nothing enforces, and a plan can publish over a graph
+  missing the document it was derived from.
+- **Options:** (a) a `docs sync` command · (b) make the methodology skills write to Weave · (c) make the
+  authoring role publish, and make the governed action refuse without it
+- **Decision: (c).** A command is one more thing to remember, and **this decision exists because
+  remembering failed**. (b) was dsivov's proposal and is the better instinct — *authoring should update
+  state* — but putting Weave inside the ONBOARDING kit couples a portable methodology to one product.
+  **So the instruction goes in the role's `CLAUDE.md`, which Weave already generates**, and
+  `PublishPlan` refuses when a referenced artifact does not resolve. **ONBOARDING is not modified.**
+- **Three things dsivov's questions corrected**, each verified rather than assumed:
+  - **Scope is not `docs/*.md`** — ingestion already accepts `.html`, `.pdf`, `.docx` and ~20 more, so the
+    RFC and a root `README.md` were always ingestible. That line was an error in the CR, not a product limit.
+  - **Commit bodies are dropped.** A `Commit` node carries sha, subject and `touches`; in this project the
+    body is where the reasoning is.
+  - **Acceptance is not completion** — `POST /documents/text` answers `success` when the text is
+    *received*; a `200` followed by a document in `failed` is reachable.
+- **Explicitly out of scope, and stated rather than implied:** work done outside Weave still does not
+  update the board. A human committing in an IDE changes nothing. Closing that needs a git-side hook or a
+  decision that **the board reflects governed work and not all work** — its own CR, not smuggled in here.
+- **Contract:** A2 decided the design (Weave does not reach into the neighbouring kit); A5's locator *is*
+  the check; A6 gains a precondition; A9 puts it beneath both adapters. **No amendment.**

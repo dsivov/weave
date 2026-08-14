@@ -888,6 +888,32 @@ chapter the guide is waiting on.
 
 ---
 
+## P14 · Authoring updates Weave → **M14**  *(CR-002 · D-049)*
+
+> **Approved 2026-08-14.** The house methodology's artifacts reach Weave today only because a role kit
+> *tells* a session to ingest them. Nothing enforces it, and a plan can publish over a graph missing the
+> document it was derived from. Full text: [WEAVE_METHODOLOGY_CHANGE_REQUEST.md](WEAVE_METHODOLOGY_CHANGE_REQUEST.md).
+>
+> **The one that must not happen:** putting Weave inside the ONBOARDING kit. The methodology must stay
+> usable by a team with no Weave at all — the coupling belongs in the `CLAUDE.md` Weave already generates.
+
+- [ ] **Contract check (R11)** — **A2** (Weave does not reach into the neighbouring kit; this decided the design), **A5** (the locator *is* the check), **A6** (a governed action gains a precondition), **A9** (beneath both adapters, so REST and MCP refuse identically), **A11** (no new library).
+- [ ] **`publish_artifact`** — one implementation in `weave/model/artifacts.py`: ingest the file, create or update the artifact node, set its locator from `repo · path · rev`. **It waits for the outcome** — a `track_id` for a document that never landed is not success.
+- [ ] Two callers, no second implementation: the **MCP tool** (a role session calls it directly) and **`weave docs publish`** (hooks and CI).
+- [ ] **`PublishPlan` refuses** when a referenced artifact does not resolve, naming each one and how to publish it. This is the backstop that stops the whole thing resting on an instruction.
+- [ ] **`record_commit` takes the message body** — a `Commit` node carries sha, subject and `touches`, and in this project the body is where the reasoning is.
+- [ ] **The role kit's `CLAUDE.md` gains the step** per role, generated from the same source as the tool so the two cannot drift.
+- [ ] `tests/` — the eight acceptance criteria, each negative-controlled. **Including an `.html` RFC and a root `README.md`**, because the first draft of the CR wrongly said `docs/*.md` and the extension was never the boundary.
+- [ ] **[manager]** guide chapter 10 updated by **executing it**.
+
+**Gate (M14):** a plan referencing an unpublished artifact is refused — **identically through REST and MCP**,
+asserted on both — and publishes once the artifact is published. An `.html` and a root `README.md` both land.
+A commit's body is retrievable from its node. `check_locators.py` reports zero dangling afterwards.
+
+**Out of scope, deliberately:** work done outside Weave still does not update the board. Its own CR.
+
+---
+
 ## P11 · The extractor learns from software artifacts → **M11**
 
 > **Opened 2026-08-13 from D-041.** `weave_core/graph/prompt.py` teaches entity extraction with two few-shot
