@@ -421,6 +421,103 @@ that path — the coordination is deterministic graph logic.</p>
 ARCHITECTURE / CR → WORK PLAN → milestone reviews</b>. Weave is where the team's answers live. This
 chapter is how the two meet.</p>
 
+<h3>How the two projects fit together</h3>
+
+<p>Weave does not replace the methodology and the methodology does not know about Weave. They are two
+projects with one join: <b>an artifact is a file in your repository <i>and</i> a node in the graph,
+connected by a locator.</b></p>
+
+<p>The methodology — <a href="https://github.com/dsivov/ONBOARDING">the <b>ONBOARDING</b> kit</a>,
+installed separately — provides the skills that author each artifact in house style:
+<code>/write-blog</code>, <code>/write-rfc</code>, <code>/write-drp</code>,
+<code>/write-architecture</code>, <code>/make-workplan</code>, <code>/milestone-review</code>. They write
+files. <b>Nothing in that kit mentions Weave</b>, deliberately: a team with no Weave at all uses the same
+process unchanged.</p>
+
+<div class="svgwrap">
+<svg viewBox="0 0 980 430" role="img" aria-label="ONBOARDING authors artifacts; Weave publishes, governs and serves them back">
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#5b8def"/>
+    </marker>
+    <marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#19b89a"/>
+    </marker>
+  </defs>
+
+  <rect x="8" y="8" width="300" height="414" rx="14" fill="#161922" stroke="#2c3346"/>
+  <text x="24" y="34" fill="#7b8499" font-size="11.5" font-family="system-ui" letter-spacing="2">ONBOARDING · SEPARATE PROJECT</text>
+
+  <rect x="24" y="52" width="268" height="120" rx="10" fill="#1b1f2a" stroke="#333d4f"/>
+  <text x="40" y="76" fill="#e7ebf3" font-size="14" font-family="system-ui" font-weight="600">Methodology skills</text>
+  <text x="40" y="98" fill="#aab3c5" font-size="12.5" font-family="ui-monospace,monospace">/write-blog  /write-rfc</text>
+  <text x="40" y="117" fill="#aab3c5" font-size="12.5" font-family="ui-monospace,monospace">/write-drp   /write-architecture</text>
+  <text x="40" y="136" fill="#aab3c5" font-size="12.5" font-family="ui-monospace,monospace">/make-workplan</text>
+  <text x="40" y="158" fill="#7b8499" font-size="11.5" font-family="system-ui">knows nothing about Weave</text>
+
+  <rect x="24" y="196" width="268" height="104" rx="10" fill="#1b1f2a" stroke="#333d4f"/>
+  <text x="40" y="220" fill="#e7ebf3" font-size="14" font-family="system-ui" font-weight="600">Your repository</text>
+  <text x="40" y="243" fill="#aab3c5" font-size="12.5" font-family="ui-monospace,monospace">docs/*.html  docs/*.md</text>
+  <text x="40" y="262" fill="#aab3c5" font-size="12.5" font-family="ui-monospace,monospace">README.md  CONSTRAINTS.md</text>
+  <text x="40" y="285" fill="#7b8499" font-size="11.5" font-family="system-ui">the source of truth, always</text>
+
+  <rect x="24" y="322" width="268" height="82" rx="10" fill="#1b1f2a" stroke="#333d4f"/>
+  <text x="40" y="346" fill="#e7ebf3" font-size="14" font-family="system-ui" font-weight="600">git</text>
+  <text x="40" y="369" fill="#aab3c5" font-size="12.5" font-family="ui-monospace,monospace">commit · branch · PR</text>
+  <text x="40" y="391" fill="#7b8499" font-size="11.5" font-family="system-ui">rev is half the locator</text>
+
+  <rect x="356" y="8" width="616" height="414" rx="14" fill="#161922" stroke="#2c3346"/>
+  <text x="374" y="34" fill="#7b8499" font-size="11.5" font-family="system-ui" letter-spacing="2">WEAVE</text>
+
+  <rect x="374" y="52" width="252" height="86" rx="10" fill="#1b2740" stroke="#5b8def"/>
+  <text x="390" y="76" fill="#e7ebf3" font-size="14" font-family="system-ui" font-weight="600">Your role session</text>
+  <text x="390" y="98" fill="#aab3c5" font-size="12.5" font-family="system-ui">Claude Code + the role kit</text>
+  <text x="390" y="119" fill="#5b8def" font-size="12" font-family="ui-monospace,monospace">publish_artifact</text>
+
+  <rect x="374" y="164" width="252" height="104" rx="10" fill="#1b1f2a" stroke="#333d4f"/>
+  <text x="390" y="188" fill="#e7ebf3" font-size="14" font-family="system-ui" font-weight="600">The graph</text>
+  <text x="390" y="211" fill="#aab3c5" font-size="12.5" font-family="system-ui">artifact node + locator</text>
+  <text x="390" y="231" fill="#19b89a" font-size="12" font-family="ui-monospace,monospace">repo · path · rev</text>
+  <text x="390" y="254" fill="#7b8499" font-size="11.5" font-family="system-ui">a reference, never a copy</text>
+
+  <rect x="374" y="294" width="252" height="110" rx="10" fill="#1b1f2a" stroke="#333d4f"/>
+  <text x="390" y="318" fill="#e7ebf3" font-size="14" font-family="system-ui" font-weight="600">Governance</text>
+  <text x="390" y="341" fill="#aab3c5" font-size="12.5" font-family="system-ui">PublishPlan checks every</text>
+  <text x="390" y="360" fill="#aab3c5" font-size="12.5" font-family="system-ui">referenced artifact resolves</text>
+  <text x="390" y="383" fill="#f0a73c" font-size="11.5" font-family="system-ui">refused if one does not</text>
+
+  <rect x="676" y="120" width="278" height="192" rx="10" fill="#1b1f2a" stroke="#333d4f"/>
+  <text x="694" y="146" fill="#e7ebf3" font-size="14" font-family="system-ui" font-weight="600">Served back</text>
+  <text x="694" y="172" fill="#aab3c5" font-size="12.5" font-family="system-ui">the four questions</text>
+  <text x="694" y="193" fill="#aab3c5" font-size="12.5" font-family="system-ui">retrieval over the documents</text>
+  <text x="694" y="214" fill="#aab3c5" font-size="12.5" font-family="system-ui">precedent in a task brief</text>
+  <text x="694" y="243" fill="#e7ebf3" font-size="12.5" font-family="system-ui" font-weight="600">to every role</text>
+  <text x="694" y="264" fill="#7b8499" font-size="11.5" font-family="system-ui">manager · architect · developer</text>
+  <text x="694" y="288" fill="#7b8499" font-size="11.5" font-family="system-ui">human and agent alike</text>
+
+  <path d="M158 172 L158 196" stroke="#5b8def" stroke-width="2" marker-end="url(#ar)"/>
+  <path d="M158 300 L158 322" stroke="#5b8def" stroke-width="2" marker-end="url(#ar)"/>
+  <path d="M292 232 C 330 232, 336 95, 372 95" stroke="#5b8def" stroke-width="2" fill="none" marker-end="url(#ar)"/>
+  <text x="300" y="150" fill="#5b8def" font-size="11.5" font-family="system-ui">the file</text>
+  <path d="M500 138 L500 164" stroke="#5b8def" stroke-width="2" marker-end="url(#ar)"/>
+  <path d="M500 268 L500 294" stroke="#5b8def" stroke-width="2" marker-end="url(#ar)"/>
+  <path d="M626 210 L674 210" stroke="#19b89a" stroke-width="2" marker-end="url(#ar2)"/>
+  <path d="M812 312 C 812 400, 340 412, 176 404" stroke="#19b89a" stroke-width="2" fill="none" stroke-dasharray="5 4" marker-end="url(#ar2)"/>
+  <text x="470" y="418" fill="#19b89a" font-size="11.5" font-family="system-ui">what the team learned, back into the repository</text>
+</svg>
+</div>
+
+<p><b>Read it left to right, then back.</b> The kit authors a file; your role session publishes it; Weave
+holds a reference to it and refuses to release work that cites something it cannot resolve; and every
+role — human or agent — reads it back through the four questions, retrieval, and the precedent in a task
+brief. What the team learns returns to the repository as the next artifact.</p>
+
+<div class="callout key">
+  <p><b>The repository stays the source of truth.</b> Weave never stores a copy of a document — it stores
+  <code>repo · path · rev</code>, so a citation resolves to a real file at a real revision and cannot
+  quietly drift from it. Delete the graph and rebuild it; the documents are untouched.</p>
+</div>
+
 <h3>Connecting a manager or architect session</h3>
 
 <p>There is no Weave client to install. A role's <b>kit</b> <i>is</i> the client configuration:</p>
