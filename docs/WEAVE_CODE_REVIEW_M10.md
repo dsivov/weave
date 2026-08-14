@@ -1,9 +1,12 @@
 <!-- Stage 6 · Code review, M10. Every finding verified before reporting; every fix driven in a browser. -->
 
-# Weave — Code Review (M10, 2026-08-14)
+# Weave — Code Review (M10, 2026-08-14 · refreshed)
 
-- **Scope:** `main` — `9b7f4ab..7f2a2a3` (P10 + P10.1: the shell people actually use). Reviewed against
-  [WEAVE_UI_DEFECTS.md](WEAVE_UI_DEFECTS.md) and `CONSTRAINTS.md` **v5**.
+- **Scope:** `main` — `9b7f4ab..439467a`, **44 commits, 73 files, +4,647/−240** (P10 through P10.5, plus P12).
+  Reviewed against [WEAVE_UI_DEFECTS.md](WEAVE_UI_DEFECTS.md) and `CONSTRAINTS.md` as it moved **v5 → v6 → v7**.
+- **Refreshed 2026-08-14** — the first version was written after P10.1 and everything from P10.2 onward landed
+  after it. A review that describes a phase it predates is the failure this project keeps finding, so it is
+  rewritten rather than appended to.
 - **Reviewer:** weave-manager · **Result:** **approved — 0 Critical, 0 High. Merged.**
 
 ## Summary
@@ -19,17 +22,20 @@ pie showData
 
 | | |
 |---|---|
-| Python suite | **1207 passed / 14 skipped** (skips are live PostgreSQL·Neo4j; developer ran **1221 / 0** with both up) |
+| Python suite | **1262 passed / 3 skipped** on the final commit, against the **new database image** — every skip Neo4j-not-configured |
 | `bun test` · `tsc --noEmit` · `eslint` | pass · exit 0 · exit 0 |
 | `bunx --bun vite build` | ✓ 12.3s |
 | **A9** | `weave/server/routers/` — **10 files, 0 route/model/handler changes.** Every diff line a message string, checked not asserted |
 | **A2** | `weave_core/` — 0 files |
 | name-guard | clean |
-| **Browser sweep** | **15/15**, three server states, two roles — `m10_sweep.py` |
+| **Browser sweep** | **15/15**, three server states, two roles — `m10_sweep.py`, re-run on final code |
+| **The production path** | **ran for the first time**: graph round-trip green on live PostgreSQL, bundle healthy by its published steps |
+| `bun test` | **51 pass / 0 fail** — run here; the developer's container has no bun |
 
-**This phase began with thirteen defects a user found in twenty minutes and ended with seventeen fixed,
-four of which nobody had reported.** The four extra were found by doing what a new operator does:
-starting a server, on an empty machine, and reading what the screen said.
+**This phase began with thirteen defects a user found in twenty minutes. It ended with nineteen fixed —
+fourteen reported and five nobody had ever seen — plus a production path that had never run.** The five
+were found by doing what a new operator does: starting a server, on an empty machine, and reading the
+screen; and by writing a guide whose rule is that every claimed step is executed before it is written.
 
 ## The gate, driven by hand
 
@@ -115,14 +121,53 @@ change, so every repeat 409'd quietly into a tolerated-error counter.
 and the migration, proven by running the migration over live-recorded data: `nodes_created: 0,
 nodes_already_present: 13`. Zero is the only number that means they cannot differ.
 
-## Contract check — `CONSTRAINTS.md` v5 (R11)
+## What landed after the first draft — and the phase changed shape
+
+The review below originally covered thirteen UI defects. By the end it covered **seventeen defects, five
+sub-phases, two contract amendments in opposite directions, and a production path that had never run.**
+
+| | |
+|---|---|
+| **U15 · U16** | The only message shown when Weave is missing named `ENABLE_WEAVE` — **a variable nothing reads**. Ten routers told a reader whose Weave surface was on that it was off. |
+| **U17** | Governance was signed, in force, and displayed nowhere. Now derived from `/rbac` + `/lifecycle`, never stored — a stored label would be A8's failure from the other direction. |
+| **U18 · U19** | The diagram editor rejected `flowchart TB` and `graph TD` — **valid mermaid it renders happily** — and crashed on an edge to a subgraph, showing the reader a raw `TypeError`. |
+| **P10.1 / W23** | **`/ask/learnings` answered `0` on every new workspace.** Recording wrote a decision trace; the answer read types that were never created. One of four canonical questions, empty on every install. |
+| **P10.5 / D-045** | A worker now reports its step and how long it has been there. `building · 4m` answers *"is it stuck?"*; `current_task` alone never did. |
+| **W25–W28** | The first screen a reader meets: a blocking `yes/no` prompt, another product's tagline, a workers default A7 refuses, a storage default that **split the CLI from the server**, and an API advertising Ollama emulation that was excluded at P0. |
+| **W30 / P12** | **A4's production path had never run anywhere**, and no published image could run it. |
+
+**Nine of those were found by executing the guide's own install steps**, not by reading code. The rule
+*"every claimed step is executed before it is written"* was written to make the guide honest; it turned out
+to be the most productive defect-finder in the project.
+
+## The two amendments, and why there are two
+
+**`CONSTRAINTS.md` moved v5 → v6 → v7 in one day, in opposite directions, and that is the file working.**
+
+- **v6 (D-046)** lowered A4: PostgreSQL is the multi-workspace path *for records*, its graph half **not yet
+  deployable**. Multi-workspace production requires `PGGraphStorage`; that needs `age` **and** `vector` in one
+  database; pgvector-only dies at `create_graph`, AGE-only dies **earlier**, on connect; no published image
+  has both. **The contract had been asserting something no deployment could do.**
+- **v7 (D-047)** put it back, once the evidence existed: `deploy/postgres.Dockerfile`, a graph round-trip
+  green on a live database, and a healthy server raised by the **published steps** with all four storages on
+  PostgreSQL and `ag_catalog.ag_graph` holding a graph the server created.
+
+**Lowering it first was the point.** Building the image without amending would have left the contract
+carrying an unearned claim for as long as the fix took — which is exactly what **v4 corrected for Neo4j**.
+The contract is allowed to say *"not yet"*.
+
+**How it survived seven milestone gates:** the only test touching the adapter was
+`test_all_three_graph_adapters_import`, which asserts a module imports. **Builds-is-not-runs, wearing a
+test's clothes** — and the test container this project had used since M1 was the same image that cannot run it.
+
+## Contract check — `CONSTRAINTS.md` v7 (R11)
 
 | ID | Verdict | Evidence |
 |----|---------|----------|
 | A1 | **held** | No deployable added. `weave/server/static/` is inside the server, not a fourth thing. |
 | A2 | **held** | `weave_core/` — 0 files changed across the phase. The new writer imports stdlib only. |
 | A3 | **held** | Guard clean. **U13 is the interesting one**: `CG` is the parent's *initials*, which the guard cannot see — recorded as a reach limit, not a violation. |
-| A4 | **held** | No storage adapter touched; 0 files in `weave_core/graph/storage/`. |
+| A4 | **lowered, then earned back** | **v6** said the graph half was not deployable — measured: pgvector-only dies at `create_graph`, AGE-only dies on connect, no published image has both. **v7** restored it against `deploy/postgres.Dockerfile`, with a round-trip green on a live database and the bundle healthy by its published steps. The adapter itself is unchanged. |
 | A5 | **held — made true** | `Insight` and `Review` are named artifact types in A5 and were **aspirational on any new instance**. D-043 makes the sentence true rather than changing it. |
 | A6 | **held — strengthened** | The session block displays the token's claims; the server still derives the principal from the token. U1's fix made the token/record distinction *visible*, which is the opposite of self-stamping. |
 | A7 | **held, and exercised** | The first test to construct the app tripped A7's refusal on the worker count — the constraint firing in a test rather than in production. |
@@ -161,9 +206,9 @@ reasoning about the mechanism** — and, after W23, *look at it on a machine wit
 ## Verdict
 
 - [x] **Critical** — none. **High** — none.
-- [x] Seventeen defects fixed; **15/15 driven in a browser** across three server states and two roles.
+- [x] **Nineteen defects fixed**; **15/15 driven in a browser** across three server states and two roles, re-run on the final commit.
 - [x] P10.1's gate met on a workspace created from nothing: `13 nodes — 7 Insight, 6 Review`, no migration.
-- [x] Every constraint in **v5** holds; **A5 is true for the first time**; A6, A8 and A9 are stronger.
+- [x] Every constraint in **v7** holds. **A5 is true for the first time** (D-043); **A4 was lowered and earned back** (v6 → v7); A6, A8 and A9 are stronger.
 - [x] One finding withdrawn, three corrections written where the wrong claims were published.
 
 **Merged. P8 — the user guide — is next, and is now writable:** the flows it documents work, `/docs` works
