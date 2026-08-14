@@ -69,11 +69,13 @@ multi-role support.
   **No new dependency, no new endpoint, no contract amendment** — it surfaces what P4–P6 already built.
 
 - [WEAVE_METHODOLOGY_CHANGE_REQUEST.md](WEAVE_METHODOLOGY_CHANGE_REQUEST.md) — **CR-002, proposed** 2026-08-14.
-  The house methodology's artifacts reach Weave today only because a role kit *tells* a session to ingest them —
-  **nothing enforces it and nothing notices when it does not happen**, so a plan can publish over a graph that
-  does not contain the document it was derived from. Adds a precondition to `PublishPlan` and one CLI verb,
-  `weave docs sync`. **No new storage, node type or dependency.** Ships with the guide's methodology chapter,
-  because a documented workflow nothing enforces is how the gap was created.
+  **Authoring an artifact updates Weave, or the plan does not publish.** Measured: *no methodology skill
+  mentions Weave* — all seven end at "add to DOCS_INDEX" — so the only link is an instruction in a role kit
+  that nothing enforces, and a plan can publish over a graph missing the document it came from. Adds
+  `publish_artifact` (MCP tool + CLI verb), the step in each role's generated `CLAUDE.md`, a precondition on
+  `PublishPlan`, and commit **bodies** in the graph. **ONBOARDING is not modified** — the coupling lives in
+  the artifact Weave generates, so the methodology kit stays usable without Weave. Says plainly what it does
+  *not* fix: work done outside Weave still does not update the board.
 
 - [WEAVE_UI_DEFECTS.md](WEAVE_UI_DEFECTS.md) — **U1–U13**, 2026-08-13. Thirteen defects dsivov found in the running
   demo, every mechanism verified: **13 reports → 13 confirmed, 7 root causes**. The headline is that a user could not
