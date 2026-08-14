@@ -941,3 +941,28 @@ Status: `accepted` · `superseded by D-NN` · `reversed`.
   must not be able to change the `entity_type` of an existing governed node**, and a test must assert it.
 - **Consequences:** the migration becomes a genuine one-off for instances that predate this. **P8 unblocked** —
   the guide can say *"record a learning, then ask what did we learn"* and both halves work. Opened as **P10.1**.
+
+## D-044 · Ollama model emulation is not a Weave feature — the surface goes, the binding stays
+- **Date:** 2026-08-14  ·  **Status:** accepted  ·  **Raised by:** manager (W28)  ·  **Approved by:** dsivov
+- **Context:** `/openapi.json` advertises *"Providing API for WeaveEngine core, Web UI and **Ollama Model
+  Emulation**"* — the API tab a reader opens, and a page the guide will screenshot.
+- **What is actually there, measured on a running server rather than read:** **154 endpoints, not one of
+  them Ollama-shaped**; no `operationId` mentions it; the only survivors are two CLI flags
+  (`--simulated-model-name`, `--simulated-model-tag`), the `OllamaServerInfos` holder they write into
+  (`config.py:52,588`), and its construction in `app.py:1360`. **Nothing reads `WEAVE_NAME` or `WEAVE_TAG`
+  back.** The configuration is write-only.
+- **So this is not a feature being removed. It is a claim being withdrawn.** The description advertises a
+  capability the server does not serve — which is worse than a stale name, because a reader can act on it.
+- **Two things share the word, and only one goes.**
+  - **Emulation** — Weave *pretending to be* an Ollama server so a chat client can talk to it. **Removed.**
+  - **Binding** — Weave *using* Ollama as a server-side model backend (`--llm-binding ollama`,
+    `weave_core/llm/ollama.py`). **Kept**, and A13 explicitly blesses it: server-side LLM use runs through
+    the configurable backend connectors. Conflating the two would break a supported deployment.
+- **Decision:** delete the two flags, the holder, its construction, and the description clause. Leave the
+  binding untouched. `weave_core/graph/base.py`'s `WEAVE_NAME`/`WEAVE_TAG` properties are left alone for
+  now — `weave_core` is separable by A2 and removing there is its own change with its own blast radius.
+- **Contract:** a public contract *narrows* — two CLI flags disappear. No sentence in `CONSTRAINTS.md`
+  becomes false; nothing in A1, A9 or A11 depends on the emulation, and the non-goals list does not name
+  it. **No amendment; this decision is the record.**
+- **Consequences:** the API description describes what the server does. The guide's API chapter can show
+  `/docs` without a footnote. Anyone who set `WEAVE_SIMULATED_MODEL_*` was configuring nothing.
