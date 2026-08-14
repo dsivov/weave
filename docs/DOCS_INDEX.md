@@ -45,12 +45,15 @@ multi-role support.
   measurement harnesses for every numeric claim.
 
 ## The contract
-- [CONSTRAINTS.md](CONSTRAINTS.md) — **v4, in force**. 15 falsifiable sentences (A1–A15) plus non-goals,
+- [CONSTRAINTS.md](CONSTRAINTS.md) — **v5, in force**. 15 falsifiable sentences (A1–A15) plus non-goals,
   tripwires and an amendment log. **v2** extended A2/A4 and added **A7** (the event-bus adapter must match the
   deployment); **v3** scoped A3 to product documents and widened it to generated contracts (D-027); **v4** ranked
   A4's three storage paths and made Neo4j's single-workspace limit a refusal in code rather than a caveat
   (D-029). Every amendment has a row and a `D-NN`. Loaded every session; drift from it stops the build (R11).
-  All 15 held at M6, with A1, A10, A13 and A15 verified against the **built** images.
+  **v5** qualified A4 — PostgreSQL cannot yet run quadruple mode, refused at startup rather than discovered at
+  first use (D-039). Every amendment has a row and a `D-NN`. Loaded every session; drift from it stops the build (R11).
+  All 15 held at M6 against the **built** images, and again at **M10** — where **A5 became true for the first time**:
+  `Insight` and `Review` were named artifact types that no new instance ever created (D-043).
 
 ## Design
 - [WEAVE_ARCHITECTURE.html](WEAVE_ARCHITECTURE.html) — 2026-08-08. Guiding principle (*every surface is
