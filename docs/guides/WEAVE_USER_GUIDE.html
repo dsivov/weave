@@ -89,12 +89,20 @@ role is a Claude Code session — a <b>Claude subscription seat</b> logged in on
 Docker is needed only for the containerised deployment in <a href="#docker">§13</a> and for
 running dev agents in containers.</p>
 
-<div class="callout info">
-  <p><b>The seat is not optional and not an API key.</b> Weave never puts a model credential near a
-  Claude Code process — human or agent. The server has its own model backend for graph building and
-  retrieval, and that is the only place a model credential exists. If you have
-  <code>ANTHROPIC_API_KEY</code> exported for other work, leave it: Weave does not use it and scrubs
-  it from what reaches an agent.</p>
+<div class="callout key">
+  <p><b>Weave has no API key and cannot be given one.</b> Every role — human and agent — authenticates
+  by <b>subscription seat</b>. The Anthropic SDK is not a dependency, there is no setting that accepts a
+  model key for a Claude Code session, and none is ever passed to one.</p>
+  <p><b>So why does the guide mention <code>ANTHROPIC_API_KEY</code> at all?</b> Only because many
+  machines already have one exported for other work, and Claude Code would otherwise pick it up and
+  quietly bill the work as metered API usage instead of using the seat. Weave therefore <b>removes</b>
+  it — along with <code>ANTHROPIC_AUTH_TOKEN</code>, <code>ANTHROPIC_BASE_URL</code> and the Bedrock
+  and Vertex variables — from the environment every agent runs in, and refuses to start if a metered
+  backend is forced outright. <b>You do not need to unset anything.</b> It is named here as something
+  Weave takes away, never as something it needs.</p>
+  <p>The one place a model credential does exist is the <b>server's own backend</b>, used for building
+  the graph and answering retrieval. That is a different credential, on a different machine boundary,
+  and no Claude Code session ever sees it.</p>
 </div>
 
 <h2 id="install">3 · Install</h2>
