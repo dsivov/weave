@@ -873,6 +873,22 @@ Status: `accepted` · `superseded by D-NN` · `reversed`.
   examples were not. Same family as D-004, one layer deeper.
 - **Options:** (a) rewrite the examples for the software-development domain, measured · (b) keep them and add an
   instruction not to copy them · (c) defer
+- **Measured 2026-08-15, and the result is parity rather than a win — reported as such (R2).** Same corpus
+  (`CONSTRAINTS.md` + `DECISIONS.md`, 2,500 chars each), same model, prompt swapped between runs:
+
+  | | before | after |
+  |---|---|---|
+  | entities | 36 | 40 |
+  | leaked example names | 0 | 0 |
+  | distinctive leaks | 0 | 0 |
+
+  **The before run did not reproduce the leak**, so this measurement **cannot claim the change removed
+  it**. The leak evidence remains what it always was: **5 of 924 entities in the demo graph** — AudioRival,
+  TechGadgets, Premium Wireless Speaker, SoundMax Pro, Customer — from a far larger ingest. Leakage is
+  occasional, and a two-document corpus is too small to trigger it reliably. What the run *does* establish
+  is **no regression in extraction volume** and **no leakage after**. **An honest parity beats an unverified
+  win**, and the case for D-041 never rested on the leak: an extractor for a software team was calibrated
+  on a science-fiction story and a price objection, and that is true whether or not the examples escape.
 - **Decision: (a), as a measured change under R2** — same corpus, before/after entity counts, and the five leaked
   entities gone. It changes how every ingested document is read, so it gets a harness in `scripts/` and its own
   gate rather than a quiet edit. Opened as **P11 → M11**.

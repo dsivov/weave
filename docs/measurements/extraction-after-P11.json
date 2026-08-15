@@ -1,0 +1,45 @@
+{
+  "documents": [
+    "/tmp/claude-1000/-storage-Work-Weave/cc3c15d2-2cf8-4ceb-8bc0-cac9b47bd34b/scratchpad/corpus/CONSTRAINTS.md",
+    "/tmp/claude-1000/-storage-Work-Weave/cc3c15d2-2cf8-4ceb-8bc0-cac9b47bd34b/scratchpad/corpus/DECISIONS.md"
+  ],
+  "entities": 40,
+  "relations": 31,
+  "by_type": {
+    "concept": 12,
+    "artifact": 11,
+    "content": 9,
+    "UNKNOWN": 3,
+    "constraint": 3,
+    "method": 1,
+    "person": 1
+  },
+  "example_entities_in_prompt": [
+    "4f2ab19c",
+    "9c1d0e77",
+    "A guard asserted in one adapter protects only that adapter's callers",
+    "A mounted sub-app does not inherit the router's dependencies",
+    "ADR-007",
+    "Architect review of PR #88",
+    "CR-009",
+    "CR-012",
+    "File-based store",
+    "M6 review of CR-012",
+    "Outbound-only",
+    "PR #88",
+    "PostgreSQL",
+    "RFC-014",
+    "TASK-221",
+    "TASK-318",
+    "TASK-402",
+    "auth",
+    "dev-3",
+    "e2e-4471",
+    "weave-ui/diagram-editor",
+    "weave/devhost"
+  ],
+  "leaked_example_entities": [],
+  "leaked_count": 0,
+  "leaked_distinctive": [],
+  "leaked_distinctive_count": 0
+}
