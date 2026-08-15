@@ -639,7 +639,7 @@ Python **1091+ passed**; name-guard clean.
 > **Requested by dsivov 2026-08-13, to be written after P7 lands.** One illustrated HTML manual in house
 > style (`docs/assets/house.css`, inline SVG, mermaid), written for someone who has never seen Weave.
 >
-> **It absorbs [`guides/first-fleet.md`](guides/first-fleet.md), it does not sit beside it.** That guide
+> **It absorbs `guides/first-fleet.md`, it does not sit beside it.** *(That file is now deleted — the link is gone with it.)* That guide
 > already covers install → server → first admin → vocabulary → project → dev host → workers → upgrade →
 > troubleshooting, in 259 lines, and P6 corrected it twice (W7, W9). Two onboarding documents is the
 > duplication R10 exists to prevent, so `first-fleet.md` is **deleted** in the same commit and its content

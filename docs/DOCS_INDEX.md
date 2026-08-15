@@ -94,6 +94,12 @@ multi-role support.
   authenticated (W32). Absorbs and replaces the former `guides/first-fleet.md`.
 
 ## Plan & progress
+- [PROJECT_REVIEW_2026-08-15.md](PROJECT_REVIEW_2026-08-15.md) — **checkpoint · no drift.** Asked for by dsivov:
+  is the architecture still the one agreed? Every constraint in **v7** walked against the running system.
+  **The design did not move; the documentation of it was ahead of the evidence, and that gap closed.** Records
+  the contract going **v5 → v6 → v7** — lowered when A4 claimed what no deployment could do, restored when the
+  round-trip ran — and the pattern behind four defects in a fortnight: **each was guarded by a test that
+  passed, proving something true and adjacent to the claim.**
 - [WEAVE_CODE_REVIEW_M10.md](WEAVE_CODE_REVIEW_M10.md) — **M10**, 2026-08-14. 0 Critical · 0 High · 2 Medium.
   **Seventeen defects fixed — thirteen dsivov found in twenty minutes, four nobody had reported.** The four extra
   came from starting a server on an empty machine and reading the screen. **15/15 driven in a browser** across three
