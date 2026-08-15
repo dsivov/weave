@@ -1133,3 +1133,40 @@ Status: `accepted` · `superseded by D-NN` · `reversed`.
   decision that **the board reflects governed work and not all work** — its own CR, not smuggled in here.
 - **Contract:** A2 decided the design (Weave does not reach into the neighbouring kit); A5's locator *is*
   the check; A6 gains a precondition; A9 puts it beneath both adapters. **No amendment.**
+
+## D-050 — Extraction, answers and checks read the workspace's signed ontology (CR-003)
+
+- **Date:** 2026-08-15 · **Approved by:** dsivov · **Origin:** W40, found by measuring the thin Learnings and
+  Features tabs — *"is it a problem of our test onboarding or an issue with design?"*
+- **Decision:** it was design. Three hand-written lists — `DEFAULT_ENTITY_TYPES` (14, carried from the
+  parent), `CONTENT_FIELDS` (12), `ARTIFACT_TYPES` (10) — each duplicate an authority the workspace already
+  installs as **signed governance**. All three now take their contents from the ontology.
+- **Measured, not assumed:** the overlap between `DEFAULT_ENTITY_TYPES` and the installed ontology is
+  **none**. A real publish produced 92 nodes, not one of a Weave type. Of the demo workspace's 975 nodes,
+  the only ones the answer surface can reach were typed **by hand**; all 947 the pipeline extracted are
+  invisible to it.
+- **Read per extraction run, not at construction.** The ontology is signed, versioned and changes without a
+  restart (A8). Types captured once would go stale the moment a new version is signed — *the wizard writing
+  what the runtime does not read*, which is the failure A8 exists to prevent, arriving from a third
+  direction. It would pass every test.
+- **The fallback chain:** explicit `WEAVE_ENTITY_TYPES` → the workspace's installed ontology → the shipped
+  preset's ontology. The parent's constant leaves the chain entirely.
+- **Why P11 did not catch it:** D-041 replaced the extraction prompt's **examples** — the science-fiction
+  story and the B2B sales call. `Objection` and `Competitor` are the entity types that sales example taught.
+  **P11 removed the illustration and left the schema it illustrated.** The examples were the picture; this
+  is the vocabulary.
+- **And the seed never exercised the ontology either.** The ontology declares **18** types; a fresh
+  `seed_demo.py` produces **8**; the demo workspace holds **5**. `Task`, `PRD`, `RFC`, `Diagram`, `Module`,
+  `Question`, `Worker`, `DevHost`, `Environment` and `IntegrationRun` have **never been seeded**. A type
+  declared in the ontology and absent from every instance is one nobody has ever seen work — and every gate
+  that read the demo has been exercising fewer than half the vocabulary. A test now asserts the two lists
+  match, so the next type added fails until the seed covers it.
+- **Not migrated, and said so.** Existing graphs keep the types they were built with; the graph is derived
+  data (A5) and an instance that wants Weave types re-ingests. Stated in the guide rather than done
+  silently — the alternative, a migration that retypes nodes, is the exact mechanism W17 was mistakenly
+  blamed on.
+- **Contract:** A5 upheld and served for the first time by the pipeline; **A8 load-bearing** (per-run read);
+  A9 held (one list, one place); A11 held. **A3 relevant but not a hit** — `LossReason`, `Objection`,
+  `Competitor` are the parent's *domain* vocabulary, the same semantic carry-over as D-041, which the
+  name-guard cannot see. **No amendment required.**
+- **Rollback:** set `WEAVE_ENTITY_TYPES` to the old list. Nothing written is stranded.

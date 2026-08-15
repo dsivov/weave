@@ -3,7 +3,7 @@
 # CR-003 — Extraction uses the ontology the workspace signed, not a constant carried from the parent
 
 - **Raised by:** dsivov, 2026-08-15 (*"is it a problem of our test onboarding or an issue with design?"*)
-- **Status:** **proposed** · **Origin:** **W40**, found by measuring the thin Learnings and Features tabs
+- **Status:** **accepted** 2026-08-15 (**D-050**) · **Origin:** **W40**, found by measuring the thin Learnings and Features tabs
 - **Against:** [WEAVE_ARCHITECTURE.html](WEAVE_ARCHITECTURE.html) §data-model · `CONSTRAINTS.md` **v7**
   (A5, A8, A9, A11)
 
@@ -122,7 +122,7 @@ been *demonstrated* on fewer than half the vocabulary it claims to serve.
 | **A11** | **Held** — no new library. |
 | **A3** | **Relevant** — `LossReason`, `Objection`, `Competitor` are the parent's domain vocabulary. Not a name-guard hit (no banned string), the same **semantic** carry-over as D-041. |
 
-**No amendment required.** Log a `D-NN` on approval.
+**No amendment required.** Approved as **D-050**.
 
 ## Acceptance criteria — the gate
 
@@ -150,8 +150,13 @@ been *demonstrated* on fewer than half the vocabulary it claims to serve.
 4. `scripts/measure_extraction.py` — add the answerable-node count; it already has the harness.
 5. **`scripts/seed_demo.py` — cover all 18 types** (manager's script; the ten missing are `Task`, `PRD`,
    `RFC`, `Diagram`, `Module`, `Question`, `Worker`, `DevHost`, `Environment`, `IntegrationRun`).
-6. `tests/` — the criteria, each negative-controlled, **including the ontology-versus-seed comparison**.
-6. `guides/WEAVE_USER_GUIDE.html` — the ontology decides what extraction produces, and an existing graph
+6. **`scripts/check_locators.py` (W42)** — `ARTIFACT_TYPES` from the ontology instead of a hand-written ten,
+   and `resolve_working_dir()` instead of a second default. **Folded in on approval:** it is the same
+   defect, and it is why the check reported *"0 dangling"* from a directory it had never looked in.
+7. **`weave/model/answers.py` (W39)** — `description` enters `CONTENT_FIELDS`/`LABEL_FIELDS`. Same theme,
+   and it is the one field 97% of nodes carry.
+8. `tests/` — the criteria, each negative-controlled, **including the ontology-versus-seed comparison**.
+9. `guides/WEAVE_USER_GUIDE.html` — the ontology decides what extraction produces, and an existing graph
    keeps the types it was built with.
 
 ## Layout delta
@@ -161,7 +166,11 @@ weave_core/graph/quadruple.py            [edit] — read the ontology at extract
 weave/server/app.py · config.py          [edit] — the fallback chain
 weave_core/knowledge/quality/filter.py   [check]
 scripts/measure_extraction.py            [edit] — answerable-node count
+scripts/check_locators.py                [edit] — W42: ontology types, resolve_working_dir()
+weave/model/answers.py                   [edit] — W39: `description`
+scripts/seed_demo.py                     [edit] — 18 of 18 types
 tests/test_extraction_uses_the_ontology.py [new]
+tests/test_seed_covers_the_ontology.py   [new]
 ```
 
 **No new dependency.**
