@@ -257,6 +257,73 @@ themselves, so it cannot claim one thing while the runtime enforces another.</p>
   asks for a reason before it signs.</p>
 </div>
 
+<h3>The ontology decides what reading a document produces</h3>
+
+<p>Of the five layers, the <b>ontology</b> reaches furthest. It is not only a schema the board
+validates against — it is the vocabulary the extractor looks for when Weave reads a document.
+Ingest an RFC into a workspace whose ontology declares <code>RFC</code>,
+<code>ArchitectureDecisionRecord</code> and <code>Module</code>, and those are the types the
+pipeline can produce. The four standing questions then have something to find, because they search
+by type.</p>
+
+<svg viewBox="0 0 940 200" role="img" aria-label="The signed ontology decides which types extraction produces, and the questions search by type">
+  <defs>
+    <marker id="oarrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#7b8499"/>
+    </marker>
+  </defs>
+  <rect x="14" y="60" width="180" height="76" rx="10" fill="#1e2a45" stroke="#4a7fd4" stroke-width="1.5"/>
+  <text x="104" y="88" text-anchor="middle" fill="#cfe0ff" font-size="13.5" font-family="system-ui" font-weight="600">signed ontology</text>
+  <text x="104" y="108" text-anchor="middle" fill="#8fa6c8" font-size="11.5" font-family="system-ui">the workspace's own</text>
+  <text x="104" y="124" text-anchor="middle" fill="#8fa6c8" font-size="11.5" font-family="system-ui">object types</text>
+
+  <path d="M198,98 L268,98" stroke="#7b8499" stroke-width="1.6" marker-end="url(#oarrow)"/>
+  <text x="233" y="88" text-anchor="middle" fill="#7b8499" font-size="10.5" font-family="system-ui" letter-spacing="1">READ PER RUN</text>
+
+  <rect x="272" y="60" width="180" height="76" rx="10" fill="#22243a" stroke="#6b6fb0" stroke-width="1.5"/>
+  <text x="362" y="88" text-anchor="middle" fill="#d6d3f2" font-size="13.5" font-family="system-ui" font-weight="600">extraction</text>
+  <text x="362" y="108" text-anchor="middle" fill="#9d9ac4" font-size="11.5" font-family="system-ui">reads your documents</text>
+  <text x="362" y="124" text-anchor="middle" fill="#9d9ac4" font-size="11.5" font-family="system-ui">into typed nodes</text>
+
+  <path d="M456,98 L526,98" stroke="#7b8499" stroke-width="1.6" marker-end="url(#oarrow)"/>
+
+  <rect x="530" y="60" width="180" height="76" rx="10" fill="#1d3328" stroke="#4f9d6b" stroke-width="1.5"/>
+  <text x="620" y="88" text-anchor="middle" fill="#c8ecd6" font-size="13.5" font-family="system-ui" font-weight="600">the graph</text>
+  <text x="620" y="108" text-anchor="middle" fill="#8fc0a3" font-size="11.5" font-family="system-ui">nodes carrying a type</text>
+  <text x="620" y="124" text-anchor="middle" fill="#8fc0a3" font-size="11.5" font-family="system-ui">and a locator</text>
+
+  <path d="M714,98 L784,98" stroke="#7b8499" stroke-width="1.6" marker-end="url(#oarrow)"/>
+
+  <rect x="788" y="60" width="140" height="76" rx="10" fill="#33291d" stroke="#c08a4a" stroke-width="1.5"/>
+  <text x="858" y="88" text-anchor="middle" fill="#f0d9bc" font-size="13.5" font-family="system-ui" font-weight="600">the questions</text>
+  <text x="858" y="108" text-anchor="middle" fill="#c9a87c" font-size="11.5" font-family="system-ui">search by type</text>
+  <text x="858" y="124" text-anchor="middle" fill="#c9a87c" font-size="11.5" font-family="system-ui">— so this must match</text>
+
+  <path d="M858,56 C858,26 104,26 104,56" stroke="#c08a4a" stroke-width="1.3" stroke-dasharray="4 3" fill="none" marker-end="url(#oarrow)"/>
+  <text x="481" y="22" text-anchor="middle" fill="#c08a4a" font-size="11" font-family="system-ui">one vocabulary, or the answers are empty</text>
+
+  <text x="14" y="176" fill="#7b8499" font-size="11.5" font-family="system-ui">Re-sign the ontology and the next document read uses the new types — no restart.</text>
+</svg>
+
+<p><b>Change it and the change is immediate.</b> Sign a new ontology version and the next document
+Weave reads uses the new types. Nothing is cached for the life of the process, because a signed
+change that needed a restart would not really be in force.</p>
+
+<div class="callout caveat">
+  <p><b>An existing graph keeps the types it was built with.</b> There is no migration, and this is
+  the one thing to know before you upgrade. Nodes already extracted stay as they are — which is
+  honest, because they <i>were</i> read under a different vocabulary — so a workspace that has been
+  running for a while will look unchanged after an upgrade, and its older nodes stay invisible to
+  the questions. That is not a fault. <b>To bring an existing workspace over, re-ingest its
+  documents.</b> The graph is derived data: the documents are the source, and rebuilding from them
+  is the supported path.</p>
+</div>
+
+<p>Setting <code>WEAVE_ENTITY_TYPES</code> (or <code>--entity-types</code>) overrides the ontology
+for every workspace on that server — useful when you are extending the vocabulary for a domain,
+and worth leaving unset otherwise, since it silently outranks anything anyone signs. Both
+<code>PRD,RFC</code> and <code>["PRD","RFC"]</code> are accepted.</p>
+
 <h2 id="project">7 · Say what you are building</h2>
 
 <p>On the board, fill in the <b>Project</b> panel: the clone URL your machines can reach, the base
