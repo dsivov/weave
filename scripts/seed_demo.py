@@ -295,31 +295,26 @@ class Api:
         return self._call("PUT", path, body, tolerate)
 
     def upsert_entity(self, name: str, data: dict):
-        """Create the node, then edit it — because `create` drops the locator.
+        """Create the node, or edit the one that is already there.
 
-        **`/graph/entity/create` keeps six fields and silently discards the rest**
-        (`weave_core/graph/query.py`: `entity_id`, `entity_type`, `description`,
-        `source_id`, `file_path`, `created_at`). The four `locator_*` fields —
-        the ones A5 is built on — go without a warning. `/graph/entity/edit`
-        preserves them, so anything written twice looks correct, which is how
-        this survived: **every `Feature`, `ChangeRequest` and
-        `ArchitectureDecisionRecord` node this demo has ever produced has had no
-        locator**, while the docstring at the top of this file claimed they all
-        resolved.
+        **The `edit` is no longer a workaround, and that is worth recording.**
+        Until W44 was fixed, `/graph/entity/create` kept six fields and silently
+        discarded the rest — the four `locator_*` fields among them — so this
+        method had to edit *unconditionally* to put back what a fresh create had
+        just thrown away. `create` now carries the caller's fields through, and
+        the unconditional second call is gone.
 
-        That is **W44**, and it is a defect in the product, not in this script.
-        The `edit` here is a workaround with an expiry date: when W44 is closed,
-        the second call becomes a no-op and this method collapses back to
-        `create`. It is written as a helper rather than inline so there is one
-        place to delete.
+        What remains is the case W43 describes: recording a decision upserts its
+        `src` and `tgt`, so a node named after a task **already exists**, typed
+        `ENTITY`. `create` answers 400 for those and only `edit` can give them
+        their real type. Keep this until `create_task` writes its own node.
         """
         r = self.post("/graph/entity/create",
                       {"entity_name": name, "entity_data": data},
                       tolerate=(400, 409))
-        # Unconditional: on a fresh create the locator was just dropped, and on
-        # a repeat the node is already there. Both need the edit.
-        self.post("/graph/entity/edit",
-                  {"entity_name": name, "updated_data": data}, tolerate=(404, 500))
+        if isinstance(r, dict) and r.get("_tolerated"):
+            self.post("/graph/entity/edit",
+                      {"entity_name": name, "updated_data": data}, tolerate=(404, 500))
         return r
 
 
