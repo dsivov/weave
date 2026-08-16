@@ -5,7 +5,22 @@
 that actually exists in this repository, at a revision that actually contains it.
 Invented demo data cannot do that: it either embeds its content (which A5 forbids)
 or it points at nothing, and a demo whose links are dead teaches the opposite of
-what this product claims. The scenario is therefore the project's own history —
+what this product claims.
+
+**That sentence was false for two years of this project's life, and not because
+the paths were wrong** (W44). `/graph/entity/create` keeps six fields and
+discards the rest without a warning, so every `Feature`, `ChangeRequest` and
+`ArchitectureDecisionRecord` node this script created carried **no locator at
+all** — there was nothing to resolve, which is also why `check_locators.py` had
+so little to report. `Api.upsert_entity` below works around it and says where the
+workaround ends. `tests/test_seed_covers_the_ontology.py` now asserts the paths
+rather than leaving the claim to a docstring.
+
+**All 18 ontology object types, not 8.** Ten were never seeded — `Task`, `PRD`,
+`RFC`, `Diagram`, `Module`, `Question`, `Worker`, `DevHost`, `Environment`,
+`IntegrationRun` — so most of the vocabulary the answer surface is built on had
+never existed in any instance, and every gate that read this demo exercised
+fewer than half of it (D-050). The scenario is therefore the project's own history —
 the phases that were built, the commits that built them, the reviews that gated
 them and the lessons those reviews produced.
 
@@ -137,6 +152,88 @@ ADR_FEATURES = {
     "D-032": ("P4",), "D-030": ("P2",),
 }
 
+# ── the rest of the ontology (P15, D-050) ───────────────────────────────────
+#
+# **The ontology declares 18 object types and this script used to produce 8.**
+# `Task`, `PRD`, `RFC`, `Diagram`, `Module`, `Question`, `Worker`, `DevHost`,
+# `Environment` and `IntegrationRun` had never been seeded — so ten of the types
+# the answer surface is built on had never existed in any instance, and every
+# gate that read this demo exercised fewer than half the vocabulary it claims to
+# serve. A type declared in the ontology and absent from every instance is a type
+# nobody has ever seen work.
+#
+# **Four of the ten have real product paths, and are created through them below**
+# rather than written here as data: `Environment` (`POST /weave/environment`),
+# `IntegrationRun` (`/weave/integration/run`), `Worker` (`/weave/workers/register`)
+# and `DevHost` (`/weave/hosts/register`). Seeding those by hand would demo a
+# state the product cannot reach, which is the same reason tasks below walk their
+# real lifecycle instead of being written straight into `review`.
+#
+# **The other six have no product path at all — that is W43**, and it is the
+# honest answer to why the Features tab reads thin. `FEATURE_TYPES` is
+# `Feature · Module · PRD · RFC · Diagram`, and the runtime creates **none** of
+# them; `Task` is worse, because `create_task` writes a record and never a node
+# while `/ask/changes` and `/ask/why` both seed on `Task`. Until that is closed
+# these six are seeded the way `Feature`, `ChangeRequest` and
+# `ArchitectureDecisionRecord` already were — as nodes whose locators resolve to
+# real files, which is the A5 claim made checkable. **Seeding them does not close
+# W43**, and this comment is here so the next reader does not mistake a populated
+# demo for a working mechanism.
+
+#: (entity_id, entity_type, path, anchor, description) — every path is a file in
+#: this repository, so `check_locators.py` resolves all of them.
+ARTIFACTS = [
+    ("PRD — Weave requirements", "PRD", "docs/WEAVE_DRP.md", "## 5",
+     "The requirements and the per-milestone gates. Section 5 is the gate list every phase is judged against — a milestone is done when its gate passes, not when its code exists."),
+    ("RFC — the team is the product", "RFC", "docs/WEAVE_RFC.html", "",
+     "The proposal: a standalone multi-user system for running an AI development team, humans and agents planning and reviewing on one governed graph."),
+    ("RFC — extraction reads the signed ontology", "RFC", "docs/WEAVE_EXTRACTION_TAXONOMY_CHANGE_REQUEST.md", "",
+     "CR-003: three hand-written type lists each duplicated an authority the workspace already installs as signed governance, and the overlap with it was none."),
+    ("Diagram — the fleet is outbound-only", "Diagram", "docs/WEAVE_ARCHITECTURE.html", "#flows",
+     "Dev hosts and workers reach the server by register and heartbeat and reconcile to state they read back. The server never dials out, which is what lets a host sit behind NAT."),
+    ("Diagram — ONBOARDING and Weave in step", "Diagram", "docs/guides/WEAVE_USER_GUIDE.html", "#methodology",
+     "How the methodology kit and Weave stay in step: the kit authors the artifact, Weave publishes it, and the plan refuses to release tasks over a graph missing it."),
+]
+
+#: (entity_id, path, description) — a Module points at the file that owns the
+#: boundary, not at a directory: the locator resolver returns file content.
+MODULES = [
+    ("weave_core", "weave_core/__init__.py",
+     "The engine. Imports nothing from `weave/` and no HTTP framework — the boundary that keeps it separable and testable without a server (A2)."),
+    ("weave/server", "weave/server/app.py",
+     "All HTTP. Composes the routers, binds governance to every route, and serves the built UI as static assets — which is why the UI is not a fourth deployable (A1)."),
+    ("weave/team", "weave/team/coordinator.py",
+     "The team's deterministic coordination: the claim, the artifact chain, the merge gate. No model sits in this path (A12)."),
+    ("weave/model", "weave/model/answers.py",
+     "One handler per question, shared by REST/UI and MCP, so the human and agent surfaces cannot answer differently (A9)."),
+]
+
+#: Which feature each Module, PRD, RFC and Diagram describes. **Without these the
+#: nodes exist and the Features view still cannot show them:** `/ask/features`
+#: with no argument seeds on `Feature` and walks its neighbours, so an unlinked
+#: `Module` is reachable only by asking for it by name. Measured — before these
+#: edges the view returned six `Feature` nodes and nothing else, which is most of
+#: why the tab reads thin.
+DESCRIBES = {
+    "weave_core": "P0", "weave/server": "P1", "weave/team": "P5", "weave/model": "P2",
+    "PRD — Weave requirements": "P0",
+    "RFC — the team is the product": "P0",
+    "RFC — extraction reads the signed ontology": "P2",
+    "Diagram — the fleet is outbound-only": "P5",
+    "Diagram — ONBOARDING and Weave in step": "P2",
+}
+
+#: (entity_id, path, anchor, description) — questions that were actually asked
+#: and produced a decision. Each resolves to the decision it produced.
+QUESTIONS = [
+    ("Are the three storage paths really interchangeable?", "docs/DECISIONS.md", "## D-029",
+     "Asked at M8. They are not: only PostgreSQL enforces the workspace boundary at the storage layer, and Community-Edition Neo4j cannot give a workspace its own database. The contract now ranks them and refuses a second workspace on the Neo4j path."),
+    ("Why does ANTHROPIC_API_KEY appear at all if agents are subscription-only?", "docs/PROJECT_REVIEW_2026-08-15.md", "",
+     "Asked when reading the agent runtime. It appears in a scrub list and two comments; nothing reads it. Sixteen variables are removed before an agent runs and a preflight refuses if the seat is not subscription-authenticated (A13)."),
+    ("Are the Learnings and Features tabs thin because of the demo data?", "docs/DECISIONS.md", "## D-050",
+     "Asked at P14. No — extraction never read the workspace's signed ontology, so every node the pipeline produced was typed in a vocabulary the answer surface does not look for. The overlap was none."),
+]
+
 class Api:
     def __init__(self, url: str, workspace: str):
         self.url = url.rstrip("/")
@@ -196,6 +293,34 @@ class Api:
 
     def put(self, path, body, tolerate=()):
         return self._call("PUT", path, body, tolerate)
+
+    def upsert_entity(self, name: str, data: dict):
+        """Create the node, then edit it — because `create` drops the locator.
+
+        **`/graph/entity/create` keeps six fields and silently discards the rest**
+        (`weave_core/graph/query.py`: `entity_id`, `entity_type`, `description`,
+        `source_id`, `file_path`, `created_at`). The four `locator_*` fields —
+        the ones A5 is built on — go without a warning. `/graph/entity/edit`
+        preserves them, so anything written twice looks correct, which is how
+        this survived: **every `Feature`, `ChangeRequest` and
+        `ArchitectureDecisionRecord` node this demo has ever produced has had no
+        locator**, while the docstring at the top of this file claimed they all
+        resolved.
+
+        That is **W44**, and it is a defect in the product, not in this script.
+        The `edit` here is a workaround with an expiry date: when W44 is closed,
+        the second call becomes a no-op and this method collapses back to
+        `create`. It is written as a helper rather than inline so there is one
+        place to delete.
+        """
+        r = self.post("/graph/entity/create",
+                      {"entity_name": name, "entity_data": data},
+                      tolerate=(400, 409))
+        # Unconditional: on a fresh create the locator was just dropped, and on
+        # a repeat the node is already there. Both need the edit.
+        self.post("/graph/entity/edit",
+                  {"entity_name": name, "updated_data": data}, tolerate=(404, 500))
+        return r
 
 
 def main() -> int:
@@ -367,26 +492,20 @@ def main() -> int:
     # change requests and decision records are created as nodes with locators
     # that resolve — which is the A5 claim made checkable rather than asserted.
     for key, title, summary in FEATURES:
-        api.post("/graph/entity/create", {
-            "entity_name": f"Feature {key} — {title}",
-            "entity_data": {
-                "entity_type": "Feature", "description": summary,
-                "locator_repo": REPO, "locator_path": "docs/WEAVE_WORK_PLAN.md",
-                "locator_rev": "main", "locator_anchor": f"## {key}",
-            },
-        }, tolerate=(400, 409))
+        api.upsert_entity(f"Feature {key} — {title}", {
+            "entity_type": "Feature", "description": summary,
+            "locator_repo": REPO, "locator_path": "docs/WEAVE_WORK_PLAN.md",
+            "locator_rev": "main", "locator_anchor": f"## {key}",
+        })
     print(f"  {len(FEATURES)} Feature nodes")
 
     for key, title, summary in FEATURES:
         cr = f"CR-{key}"
-        api.post("/graph/entity/create", {
-            "entity_name": cr,
-            "entity_data": {
-                "entity_type": "ChangeRequest",
-                "description": f"{key}: {title} — the phase as a change request, gated on milestone M{key[1:]}.",
-                "locator_repo": REPO, "locator_path": "docs/WEAVE_WORK_PLAN.md", "locator_rev": "main",
-            },
-        }, tolerate=(400, 409))
+        api.upsert_entity(cr, {
+            "entity_type": "ChangeRequest",
+            "description": f"{key}: {title} — the phase as a change request, gated on milestone M{key[1:]}.",
+            "locator_repo": REPO, "locator_path": "docs/WEAVE_WORK_PLAN.md", "locator_rev": "main",
+        })
         api.post("/graph/relation/create", {
             "source_entity": cr, "target_entity": f"Feature {key} — {title}",
             "relation_data": {"description": "the change request that delivered this feature",
@@ -395,14 +514,11 @@ def main() -> int:
     print(f"  {len(FEATURES)} ChangeRequest nodes, linked to their features")
 
     for trace, path, rationale in ADRS:
-        api.post("/graph/entity/create", {
-            "entity_name": trace,
-            "entity_data": {
-                "entity_type": "ArchitectureDecisionRecord", "description": rationale,
-                "locator_repo": REPO, "locator_path": path, "locator_rev": "main",
-                "locator_anchor": f"## {trace}",
-            },
-        }, tolerate=(400, 409))
+        api.upsert_entity(trace, {
+            "entity_type": "ArchitectureDecisionRecord", "description": rationale,
+            "locator_repo": REPO, "locator_path": path, "locator_rev": "main",
+            "locator_anchor": f"## {trace}",
+        })
     for trace, _p, _r in ADRS:
         for key, title, _s in FEATURES:
             if key in ADR_FEATURES.get(trace, ()):
@@ -412,6 +528,114 @@ def main() -> int:
                                       "keywords": "justified_by", "weight": 1.0},
                 }, tolerate=(400, 409))
     print(f"  {len(ADRS)} decision records, linked to the features they justify")
+
+    # ── 8 · the six types with no product path (W43) ────────────────────────
+    #
+    # Seeded as nodes because nothing else creates them. `create_task` writes a
+    # record and never a node, and `Module`, `PRD`, `RFC`, `Diagram` and
+    # `Question` are created by no code path at all — while `/ask/features`
+    # seeds on four of them. **Populating the demo does not close W43**; it makes
+    # the questions answerable and makes the gap visible in one place.
+    # **`create` is the wrong verb here, and finding that out is the point.**
+    # Recording the claim and the decisions already upserted a node per task —
+    # `emit_decision_trace` writes its `src` and `tgt` — so `entity/create`
+    # answered **400 for all seven** and the tolerated-code counter absorbed it.
+    # The nodes were in the graph the whole time, typed **`ENTITY`**, which is
+    # the vocabulary `/ask/changes` and `/ask/why` do not query. **Same shape as
+    # W40 one layer over: the data exists and the type hides it.** So this edits
+    # the node that is there rather than pretending to create one.
+    for tid, feat, title, sha, subject, touches in TASKS:
+        node = {
+            "entity_type": "Task", "description": title,
+            "locator_repo": REPO, "locator_path": "docs/WEAVE_WORK_PLAN.md",
+            "locator_rev": "main", "locator_anchor": f"## {feat}",
+        }
+        api.upsert_entity(tid, node)
+        api.post("/graph/relation/create", {
+            "source_entity": tid,
+            "target_entity": f"Feature {feat} — {dict((f[0], f[1]) for f in FEATURES)[feat]}",
+            "relation_data": {"description": "the task that delivered this feature",
+                              "keywords": "delivers", "weight": 1.0},
+        }, tolerate=(400, 409))
+    print(f"  {len(TASKS)} Task nodes — the record store had them; the graph did not (W43)")
+
+    for name, etype, path, anchor, description in ARTIFACTS:
+        api.upsert_entity(name, {
+            "entity_type": etype, "description": description,
+            "locator_repo": REPO, "locator_path": path,
+            "locator_rev": "main", "locator_anchor": anchor,
+        })
+    print(f"  {len(ARTIFACTS)} PRD/RFC/Diagram nodes — the types `weave docs publish` writes")
+
+    for name, path, description in MODULES:
+        api.upsert_entity(name, {
+            "entity_type": "Module", "description": description,
+            "locator_repo": REPO, "locator_path": path, "locator_rev": "main",
+        })
+    print(f"  {len(MODULES)} Module nodes")
+
+    for name, path, anchor, description in QUESTIONS:
+        api.upsert_entity(name, {
+            "entity_type": "Question", "description": description,
+            "locator_repo": REPO, "locator_path": path,
+            "locator_rev": "main", "locator_anchor": anchor,
+        })
+    print(f"  {len(QUESTIONS)} Question nodes — each resolves to the decision it produced")
+
+    ftitle = dict((f[0], f[1]) for f in FEATURES)
+    for name, key in DESCRIBES.items():
+        api.post("/graph/relation/create", {
+            "source_entity": name, "target_entity": f"Feature {key} — {ftitle[key]}",
+            "relation_data": {"description": "describes this capability",
+                              "keywords": "describes", "weight": 1.0},
+        }, tolerate=(400, 409))
+    for name, path, anchor, _d in QUESTIONS:
+        trace = anchor.replace("## ", "").strip()
+        if any(trace == a[0] for a in ADRS):
+            api.post("/graph/relation/create", {
+                "source_entity": name, "target_entity": trace,
+                "relation_data": {"description": "the decision this question produced",
+                                  "keywords": "answered_by", "weight": 1.0},
+            }, tolerate=(400, 409))
+    print(f"  {len(DESCRIBES)} describes-edges — without them the Features view shows only Features")
+
+    # ── 9 · the four fleet types, through the routes that create them ───────
+    #
+    # **Not written as data.** `Environment`, `IntegrationRun`, `Worker` and
+    # `DevHost` have real product paths, and a demo that hand-writes them shows a
+    # state the product cannot reach — the same reason the tasks above walk their
+    # real lifecycle. Registration is outbound-only (A15): the host and the
+    # worker announce themselves, and nothing here dials them.
+    api.post("/weave/environment", {
+        "id": "staging", "name": "Shared staging",
+        "url": "https://staging.example.invalid",
+    }, tolerate=(403, 409, 503))
+    api.post("/weave/hosts/register", {
+        "host": "demo-host", "machine": "demo-workstation",
+        "capabilities": ["python", "bun"], "repo": REPO, "base_branch": "main",
+        "image": "weave-dev-agent:demo", "version": "0.1.0",
+        "seat": "subscription",
+        "seat_detail": "claude reports subscription auth; no metered credential present (A13)",
+    }, tolerate=(403, 409, 503))
+    api.post("/weave/workers/register", {
+        "worker": "demo-dev", "host": "demo-host",
+        "capabilities": ["python"], "goal": "Deliver the phases in the published plan.",
+    }, tolerate=(403, 409, 503))
+    # **Declaring an environment does not create its node — deploying to it does.**
+    # `register_environment` writes a record; the only `entity_type: Environment`
+    # in the product is inside `deploy`. Measured on a clean tenant: the record
+    # existed, `run_integration` accepted against it, and the graph still held no
+    # `Environment` node. So the seed deploys, which is what a real integrator
+    # does before recording a run anyway.
+    api.post("/weave/integration/deploy", {
+        "environment": "staging", "tasks": [t[0] for t in TASKS[:3]], "ref": "main",
+    }, tolerate=(403, 404, 409, 503))
+    api.post("/weave/integration/run", {
+        "environment": "staging", "tasks": [t[0] for t in TASKS[:3]],
+        "kind": "e2e", "passed": True,
+        "summary": "The gate for M0–M2: suite green in the declared environment, tenancy asserted at the data layer.",
+    }, tolerate=(403, 404, 409, 503))
+    print("  Environment, DevHost, Worker, IntegrationRun — via their own routes, not written by hand")
 
     if api.tolerated:
         print(f"\n  {len(api.tolerated)} call(s) tolerated as already-present (idempotent re-run):")
