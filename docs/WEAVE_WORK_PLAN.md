@@ -967,13 +967,13 @@ to smuggle in a quality regression unmeasured.
 > the failure A8 exists to prevent, arriving from a third direction, and it would pass every test.
 
 - [ ] **Contract check (R11)** — **A5** (extraction produces the artifact types A5 names; today it produces none of them), **A8** (**load-bearing** — read per run, or a signed change is not in force), **A9** (one list read in one place, so REST/UI and MCP cannot diverge), **A11** (no new library), **A3** (`LossReason`, `Objection`, `Competitor` are the parent's *domain* vocabulary — not a name-guard hit, the same **semantic** carry-over as D-041).
-- [ ] **`weave_core/graph/quadruple.py`** — `entity_types` comes from the workspace's installed ontology **at extraction time**, not from `addon_params` captured at construction.
-- [ ] **`weave/server/app.py` · `weave/server/config.py`** — the fallback chain: **explicit `WEAVE_ENTITY_TYPES` override → the workspace's installed ontology → the shipped preset's ontology.** `DEFAULT_ENTITY_TYPES` leaves the chain. A new workspace ingesting before `bootstrap` must still produce Weave types.
-- [ ] **`weave_core/knowledge/quality/filter.py`** — it reads `DEFAULT_ENTITY_TYPES` as a fallback schema. **In scope to check, out of scope to redesign**: it must not silently keep the old vocabulary alive once the constant is no longer the default.
-- [ ] **`WEAVE_ENTITY_TYPES` stays an explicit override, and is documented.** Extending the vocabulary for a domain is legitimate; inheriting the parent's silently is not.
-- [ ] **W42 · `scripts/check_locators.py`** — adopt `resolve_working_dir()` (D-048), and take `ARTIFACT_TYPES` from the installed ontology instead of the hand-written ten. **The script was never swept for the split default**, and it reported *"0 dangling"* from a directory it had never looked in.
-- [ ] **W39 · `weave/model/answers.py`** — `description` enters `CONTENT_FIELDS`/`LABEL_FIELDS`. Same theme, and it is the single field 97% of nodes carry.
-- [ ] `scripts/measure_extraction.py` — add the **answerable-node count**: how many extracted nodes the four standing questions can reach. It already has the harness. **That number is the one to report; today it is zero.**
+- [x] **`weave_core/graph/quadruple.py`** — `addon_params` carries an `entity_types_resolver` the extraction path **calls per run**. Proven rather than argued: sign v1 → 18 types, sign v2 → 19 with `Postmortem` live, same process, no restart.
+- [x] **The chain** — explicit → installed ontology → shipped preset. The resolver is bound **late** over `ontology_service`, so it cannot be frozen at construction even by accident, and the preset floor means a workspace ingesting before `bootstrap` still produces Weave types.
+- [x] **Checked, and it held two defects.** The `NodeFilter` was **cached on the engine**, so a re-signed ontology reached extraction and not the filter — the same staleness one layer down. And its fallback was `DEFAULT_ENTITY_TYPES`, so **closed-world mode would have quarantined exactly the nodes the new taxonomy gets right.** Both fixed, neither redesigned; the fallback comes from the resolver so `weave_core` never imports the product layer (A2).
+- [x] **Documented as `--entity-types`, and it does something.** It was not even an argparse flag, so it appeared in no `--help`. Adding one exposed two more: a later line **overwrote whatever the flag parsed** (W20's family — a documented control with no effect), and the variable was read by **two different parsers**, JSON in one place and comma-separated in the other, which made D-050's own rollback instruction a trap. One parser now, accepting both spellings.
+- [x] **W42 · `resolve_working_dir()` adopted; types derived.** The directory was the defect — live: **resolved 29 · dangling 0**, where it used to say 0 · 0 from a directory it never opened. **The type-count half does not survive measurement:** the ontology declares `locator_*` on exactly **10** types and they are precisely the hand-written ten; the other eight hold no document. Derived anyway — cannot-drift beats happens-to-be-right — but recorded as not-a-defect.
+- [x] **W39 · `description` carried**, and last in `LABEL_FIELDS`, so an authored title still wins over the extractor's prose.
+- [x] `scripts/measure_extraction.py` — reports `answerable_nodes` and its percentage, derived from the preset ontology rather than a fourth hand-written list. **Not run: no model here**, so the line's shape is verified and the number is not.
 - [ ] **[manager]** `scripts/seed_demo.py` — **cover all 18 ontology types.** Never seeded: `Task`, `PRD`, `RFC`, `Diagram`, `Module`, `Question`, `Worker`, `DevHost`, `Environment`, `IntegrationRun`.
 - [ ] `tests/` — each criterion negative-controlled, **including the ontology-versus-seed comparison**, so a type added to the ontology fails until the seed covers it. Otherwise the next type goes unseeded exactly as these ten did.
 - [ ] **[manager]** `guides/WEAVE_USER_GUIDE.html` — the ontology decides what extraction produces, and an existing graph keeps the types it was built with.
@@ -993,6 +993,29 @@ corpus: node count, type histogram, and the answerable-node count.
 
 **If the software vocabulary extracts worse, that is the finding and it ships as one** (R2) — an honest
 parity beats an unverified win, and the same rule that governed P11 governs its sequel.
+
+### Gate run 2026-08-16 — **five of eight criteria pass; three cannot be measured here**
+
+**M15 is not done**, and the reason is environmental rather than a defect: **this container holds no
+model credential** (A13), so nothing that requires actually reading a document can be run by either of
+us. Recorded as unmeasured rather than assumed, because P11 shipped with the same gap and it is the
+second time this exact limitation has held a milestone open.
+
+| # | criterion | verdict |
+|---|---|---|
+| 1 | every extracted node's type is one the ontology declares, or `Other` | **unmeasured** — needs a model |
+| 2 | `ask_features` returns nodes **the pipeline extracted** | **unmeasured** — needs a model. *This is the criterion that matters; it is dsivov's original question, and it stays open.* |
+| 3 | a re-signed ontology is used **without a restart** | **half proven.** Signed a 19th type into `demo4` on a server up 5h55m and never restarted; a **separate process** then resolved `demo4 → 19 (Postmortem)`, `demo3 → 18`, an unknown workspace → the **18-type preset floor**. Discriminating, because the three answers differ. The *ingest* half needs a model. |
+| 4 | a workspace with no ontology falls back to the **preset**, not the parent | **pass** — 18 preset types, and none of the parent's fourteen |
+| 5 | `WEAVE_ENTITY_TYPES` still overrides, and is documented | **pass** — `--help` carries it; `PRD,RFC` and `["PRD","RFC"]` both parse; unset gives `[]`, meaning *no override* rather than *no types* |
+| 6 | R2 before/after on one corpus, reporting the answerable-node count | **unmeasured** — the harness reports the line, the numbers need a model |
+| 7 | `seed_demo.py` produces **18 of 18**, asserted by a test | **pass** — measured live on a fresh workspace; 15 tests, 3 controls |
+| 8 | `check_locators` resolves a published artifact **with no flag** | **pass** — `resolved: 29 · dangling: 0`, and the 29 decomposes exactly |
+
+**Suite:** 1351 passed, 15 skipped in the declared conda env. Every skip is an unconfigured backend
+(PostgreSQL, Neo4j) or the similarity model — **none is a P15 test**.
+
+**What this milestone is waiting on is one credential, not one more change.**
 
 **Migration, stated rather than done silently:** existing graphs keep the types they were built with. The
 graph is derived data (A5) — an instance that wants Weave types re-ingests. **Said in the guide.**
