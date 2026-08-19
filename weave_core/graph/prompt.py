@@ -101,82 +101,52 @@ Based on the last extraction task, identify and extract any **missed or incorrec
 
 PROMPTS["entity_extraction_examples"] = [
     """<Entity_types>
-["Person","Creature","Organization","Location","Event","Concept","Method","Content","Data","Artifact","NaturalObject"]
+["PRD","RFC","ArchitectureDecisionRecord","ChangeRequest","Task","Feature","Module","Commit","PullRequest","Review","Insight","Other"]
 
 <Input Text>
 ```
-while Alex clenched his jaw, the buzz of frustration dull against the backdrop of Taylor's authoritarian certainty. It was this competitive undercurrent that kept him alert, the sense that his and Jordan's shared commitment to discovery was an unspoken rebellion against Cruz's narrowing vision of control and order.
+RFC-014 "Outbound-only dev hosts" was approved by the architect on 2026-03-02. It specifies that a dev host registers with the server and then heartbeats; the server never opens a connection to a host, so a machine behind NAT can still carry developers. CR-009 requested the capability after the fleet could not reach two contributors' laptops.
 
-Then Taylor did something unexpected. They paused beside Jordan and, for a moment, observed the device with something akin to reverence. "If this tech can be understood..." Taylor said, their voice quieter, "It could change the game for us. For all of us."
-
-The underlying dismissal earlier seemed to falter, replaced by a glimpse of reluctant respect for the gravity of what lay in their hands. Jordan looked up, and for a fleeting heartbeat, their eyes locked with Taylor's, a wordless clash of wills softening into an uneasy truce.
-
-It was a small transformation, barely perceptible, but one that Alex noted with an inward nod. They had all been brought here by different paths
+TASK-221 implements the registry in the weave/devhost module and was claimed by dev-3. The design note records why polling was rejected: it would have made the server the initiator, which is the property the change exists to protect.
 ```
 
 <Output>
-entity{tuple_delimiter}Alex{tuple_delimiter}person{tuple_delimiter}Alex is a character who experiences frustration and is observant of the dynamics among other characters.
-entity{tuple_delimiter}Taylor{tuple_delimiter}person{tuple_delimiter}Taylor is portrayed with authoritarian certainty and shows a moment of reverence towards a device, indicating a change in perspective.
-entity{tuple_delimiter}Jordan{tuple_delimiter}person{tuple_delimiter}Jordan shares a commitment to discovery and has a significant interaction with Taylor regarding a device.
-entity{tuple_delimiter}Cruz{tuple_delimiter}person{tuple_delimiter}Cruz is associated with a vision of control and order, influencing the dynamics among other characters.
-entity{tuple_delimiter}The Device{tuple_delimiter}equipment{tuple_delimiter}The Device is central to the story, with potential game-changing implications, and is revered by Taylor.
-relation{tuple_delimiter}Alex{tuple_delimiter}Taylor{tuple_delimiter}power dynamics, observation{tuple_delimiter}Alex observes Taylor's authoritarian behavior and notes changes in Taylor's attitude toward the device.
-relation{tuple_delimiter}Alex{tuple_delimiter}Jordan{tuple_delimiter}shared goals, rebellion{tuple_delimiter}Alex and Jordan share a commitment to discovery, which contrasts with Cruz's vision.)
-relation{tuple_delimiter}Taylor{tuple_delimiter}Jordan{tuple_delimiter}conflict resolution, mutual respect{tuple_delimiter}Taylor and Jordan interact directly regarding the device, leading to a moment of mutual respect and an uneasy truce.
-relation{tuple_delimiter}Jordan{tuple_delimiter}Cruz{tuple_delimiter}ideological conflict, rebellion{tuple_delimiter}Jordan's commitment to discovery is in rebellion against Cruz's vision of control and order.
-relation{tuple_delimiter}Taylor{tuple_delimiter}The Device{tuple_delimiter}reverence, technological significance{tuple_delimiter}Taylor shows reverence towards the device, indicating its importance and potential impact.
+entity{tuple_delimiter}RFC-014{tuple_delimiter}rfc{tuple_delimiter}RFC-014 "Outbound-only dev hosts" is an approved design document specifying that dev hosts register and heartbeat outbound, and that the server never dials a host.
+entity{tuple_delimiter}CR-009{tuple_delimiter}changerequest{tuple_delimiter}CR-009 is the change request that asked for outbound-only dev hosts, opened after the fleet could not reach two contributors' machines.
+entity{tuple_delimiter}TASK-221{tuple_delimiter}task{tuple_delimiter}TASK-221 implements the dev-host registry described by RFC-014 and was claimed by dev-3.
+entity{tuple_delimiter}weave/devhost{tuple_delimiter}module{tuple_delimiter}weave/devhost is the source module holding the dev-host registry.
+entity{tuple_delimiter}dev-3{tuple_delimiter}person{tuple_delimiter}dev-3 is the developer who claimed TASK-221.
+entity{tuple_delimiter}Outbound-only{tuple_delimiter}concept{tuple_delimiter}Outbound-only is the property that hosts initiate every connection, which is what allows a host behind NAT to participate.
+relation{tuple_delimiter}CR-009{tuple_delimiter}RFC-014{tuple_delimiter}request, design response{tuple_delimiter}RFC-014 is the design written in response to CR-009.
+relation{tuple_delimiter}RFC-014{tuple_delimiter}TASK-221{tuple_delimiter}specification, implementation{tuple_delimiter}TASK-221 implements the registry that RFC-014 specifies.
+relation{tuple_delimiter}TASK-221{tuple_delimiter}weave/devhost{tuple_delimiter}implementation, module touched{tuple_delimiter}TASK-221 changes the weave/devhost module.
+relation{tuple_delimiter}TASK-221{tuple_delimiter}dev-3{tuple_delimiter}assignment, ownership{tuple_delimiter}dev-3 claimed TASK-221 and is responsible for delivering it.
+relation{tuple_delimiter}RFC-014{tuple_delimiter}Outbound-only{tuple_delimiter}design property, rationale{tuple_delimiter}RFC-014 exists to preserve the outbound-only property; polling was rejected because it would make the server the initiator.
 {completion_delimiter}
 
 """,
     """<Entity_types>
-["Person","Creature","Organization","Location","Event","Concept","Method","Content","Data","Artifact","NaturalObject"]
+["PRD","RFC","ArchitectureDecisionRecord","ChangeRequest","Task","Feature","Module","Commit","PullRequest","Review","Insight","Other"]
 
 <Input Text>
 ```
-Stock markets faced a sharp downturn today as tech giants saw significant declines, with the global tech index dropping by 3.4% in midday trading. Analysts attribute the selloff to investor concerns over rising interest rates and regulatory uncertainty.
+Pull request #88 for TASK-221 was reviewed by the architect and flagged rather than approved. The automated pass had already marked it because it touches the auth module, which is architecture-sensitive.
 
-Among the hardest hit, nexon technologies saw its stock plummet by 7.8% after reporting lower-than-expected quarterly earnings. In contrast, Omega Energy posted a modest 2.1% gain, driven by rising oil prices.
-
-Meanwhile, commodity markets reflected a mixed sentiment. Gold futures rose by 1.5%, reaching $2,080 per ounce, as investors sought safe-haven assets. Crude oil prices continued their rally, climbing to $87.60 per barrel, supported by supply constraints and strong demand.
-
-Financial experts are closely watching the Federal Reserve's next move, as speculation grows over potential rate hikes. The upcoming policy announcement is expected to influence investor confidence and overall market stability.
+The reviewer's note: the outbound-only property does hold, but the heartbeat has no test asserting that the server opens no connection — the guarantee was argued in prose and never exercised. The team recorded the learning that a guard asserted in one adapter protects only that adapter's callers, and commit 4f2ab19c added the missing assertion before the pull request was approved.
 ```
 
 <Output>
-entity{tuple_delimiter}Global Tech Index{tuple_delimiter}category{tuple_delimiter}The Global Tech Index tracks the performance of major technology stocks and experienced a 3.4% decline today.
-entity{tuple_delimiter}Nexon Technologies{tuple_delimiter}organization{tuple_delimiter}Nexon Technologies is a tech company that saw its stock decline by 7.8% after disappointing earnings.
-entity{tuple_delimiter}Omega Energy{tuple_delimiter}organization{tuple_delimiter}Omega Energy is an energy company that gained 2.1% in stock value due to rising oil prices.
-entity{tuple_delimiter}Gold Futures{tuple_delimiter}product{tuple_delimiter}Gold futures rose by 1.5%, indicating increased investor interest in safe-haven assets.
-entity{tuple_delimiter}Crude Oil{tuple_delimiter}product{tuple_delimiter}Crude oil prices rose to $87.60 per barrel due to supply constraints and strong demand.
-entity{tuple_delimiter}Market Selloff{tuple_delimiter}category{tuple_delimiter}Market selloff refers to the significant decline in stock values due to investor concerns over interest rates and regulations.
-entity{tuple_delimiter}Federal Reserve Policy Announcement{tuple_delimiter}category{tuple_delimiter}The Federal Reserve's upcoming policy announcement is expected to impact investor confidence and market stability.
-entity{tuple_delimiter}3.4% Decline{tuple_delimiter}category{tuple_delimiter}The Global Tech Index experienced a 3.4% decline in midday trading.
-relation{tuple_delimiter}Global Tech Index{tuple_delimiter}Market Selloff{tuple_delimiter}market performance, investor sentiment{tuple_delimiter}The decline in the Global Tech Index is part of the broader market selloff driven by investor concerns.
-relation{tuple_delimiter}Nexon Technologies{tuple_delimiter}Global Tech Index{tuple_delimiter}company impact, index movement{tuple_delimiter}Nexon Technologies' stock decline contributed to the overall drop in the Global Tech Index.
-relation{tuple_delimiter}Gold Futures{tuple_delimiter}Market Selloff{tuple_delimiter}market reaction, safe-haven investment{tuple_delimiter}Gold prices rose as investors sought safe-haven assets during the market selloff.
-relation{tuple_delimiter}Federal Reserve Policy Announcement{tuple_delimiter}Market Selloff{tuple_delimiter}interest rate impact, financial regulation{tuple_delimiter}Speculation over Federal Reserve policy changes contributed to market volatility and investor selloff.
-{completion_delimiter}
-
-""",
-    """<Entity_types>
-["Person","Creature","Organization","Location","Event","Concept","Method","Content","Data","Artifact","NaturalObject"]
-
-<Input Text>
-```
-At the World Athletics Championship in Tokyo, Noah Carter broke the 100m sprint record using cutting-edge carbon-fiber spikes.
-```
-
-<Output>
-entity{tuple_delimiter}World Athletics Championship{tuple_delimiter}event{tuple_delimiter}The World Athletics Championship is a global sports competition featuring top athletes in track and field.
-entity{tuple_delimiter}Tokyo{tuple_delimiter}location{tuple_delimiter}Tokyo is the host city of the World Athletics Championship.
-entity{tuple_delimiter}Noah Carter{tuple_delimiter}person{tuple_delimiter}Noah Carter is a sprinter who set a new record in the 100m sprint at the World Athletics Championship.
-entity{tuple_delimiter}100m Sprint Record{tuple_delimiter}category{tuple_delimiter}The 100m sprint record is a benchmark in athletics, recently broken by Noah Carter.
-entity{tuple_delimiter}Carbon-Fiber Spikes{tuple_delimiter}equipment{tuple_delimiter}Carbon-fiber spikes are advanced sprinting shoes that provide enhanced speed and traction.
-entity{tuple_delimiter}World Athletics Federation{tuple_delimiter}organization{tuple_delimiter}The World Athletics Federation is the governing body overseeing the World Athletics Championship and record validations.
-relation{tuple_delimiter}World Athletics Championship{tuple_delimiter}Tokyo{tuple_delimiter}event location, international competition{tuple_delimiter}The World Athletics Championship is being hosted in Tokyo.
-relation{tuple_delimiter}Noah Carter{tuple_delimiter}100m Sprint Record{tuple_delimiter}athlete achievement, record-breaking{tuple_delimiter}Noah Carter set a new 100m sprint record at the championship.
-relation{tuple_delimiter}Noah Carter{tuple_delimiter}Carbon-Fiber Spikes{tuple_delimiter}athletic equipment, performance boost{tuple_delimiter}Noah Carter used carbon-fiber spikes to enhance performance during the race.
-relation{tuple_delimiter}Noah Carter{tuple_delimiter}World Athletics Championship{tuple_delimiter}athlete participation, competition{tuple_delimiter}Noah Carter is competing at the World Athletics Championship.
+entity{tuple_delimiter}PR #88{tuple_delimiter}pullrequest{tuple_delimiter}Pull request #88 delivers TASK-221 and was flagged in review for touching an architecture-sensitive module.
+entity{tuple_delimiter}TASK-221{tuple_delimiter}task{tuple_delimiter}TASK-221 is the task delivered by pull request #88.
+entity{tuple_delimiter}Architect review of PR #88{tuple_delimiter}review{tuple_delimiter}The architect's review flagged PR #88 because the outbound-only guarantee was argued in prose and never exercised by a test.
+entity{tuple_delimiter}auth{tuple_delimiter}module{tuple_delimiter}auth is an architecture-sensitive module; a change touching it requires the architect's sign-off.
+entity{tuple_delimiter}4f2ab19c{tuple_delimiter}commit{tuple_delimiter}Commit 4f2ab19c adds the missing test asserting the server opens no connection to a host.
+entity{tuple_delimiter}A guard asserted in one adapter protects only that adapter's callers{tuple_delimiter}insight{tuple_delimiter}The learning recorded from this review: a guarantee enforced at one call site says nothing about the others.
+relation{tuple_delimiter}PR #88{tuple_delimiter}TASK-221{tuple_delimiter}delivery, pull request{tuple_delimiter}Pull request #88 is the code hand-back for TASK-221.
+relation{tuple_delimiter}Architect review of PR #88{tuple_delimiter}PR #88{tuple_delimiter}review, verdict{tuple_delimiter}The review flagged rather than approved PR #88.
+relation{tuple_delimiter}PR #88{tuple_delimiter}auth{tuple_delimiter}module touched, architecture sensitivity{tuple_delimiter}PR #88 touches the auth module, which is why the automated pass flagged it.
+relation{tuple_delimiter}Architect review of PR #88{tuple_delimiter}A guard asserted in one adapter protects only that adapter's callers{tuple_delimiter}review outcome, learning{tuple_delimiter}The review produced this insight, which was recorded against the task.
+relation{tuple_delimiter}4f2ab19c{tuple_delimiter}TASK-221{tuple_delimiter}implementation, missing test added{tuple_delimiter}Commit 4f2ab19c adds the assertion the review asked for.
 {completion_delimiter}
 
 """,
@@ -468,43 +438,38 @@ Output:"""
 PROMPTS["keywords_extraction_examples"] = [
     """Example 1:
 
-Query: "How does international trade influence global economic stability?"
+Query: "Why did we choose PostgreSQL over the file-based store for multi-workspace deployments?"
 
 Output:
 {
-  "high_level_keywords": ["International trade", "Global economic stability", "Economic impact"],
-  "low_level_keywords": ["Trade agreements", "Tariffs", "Currency exchange", "Imports", "Exports"]
+  "high_level_keywords": ["Storage decision", "Multi-workspace deployment", "Architecture rationale"],
+  "low_level_keywords": ["PostgreSQL", "File-based store", "Concurrent writers", "ADR", "Workspace isolation"]
 }
 
 """,
     """Example 2:
 
-Query: "What are the environmental consequences of deforestation on biodiversity?"
+Query: "What did we learn from the reviews of the authentication work?"
 
 Output:
 {
-  "high_level_keywords": ["Environmental consequences", "Deforestation", "Biodiversity loss"],
-  "low_level_keywords": ["Species extinction", "Habitat destruction", "Carbon emissions", "Rainforest", "Ecosystem"]
+  "high_level_keywords": ["Review outcomes", "Authentication", "Lessons learned"],
+  "low_level_keywords": ["Insight", "Verdict", "Auth dependency", "Mounted sub-app", "Test coverage"]
 }
 
 """,
     """Example 3:
 
-Query: "What is the role of education in reducing poverty?"
+Query: "Which tasks changed the diagram editor and what shipped with them?"
 
 Output:
 {
-  "high_level_keywords": ["Education", "Poverty reduction", "Socioeconomic development"],
-  "low_level_keywords": ["School access", "Literacy rates", "Job training", "Income inequality"]
+  "high_level_keywords": ["Delivery chain", "Diagram editor", "Change history"],
+  "low_level_keywords": ["Task", "Commit", "Pull request", "Module", "Integration run"]
 }
 
 """,
 ]
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Weave (Weave) prompts — extend WeaveEngine with contextual quadruples
-# (h, r, t, rc) where rc is the Relation Context capturing the "why".
-# ─────────────────────────────────────────────────────────────────────────────
 
 PROMPTS["cg_entity_extraction_system_prompt"] = """---Role---
 You are a Weave Specialist responsible for extracting entities and contextual relationships from the input text. Your goal is to capture not just *what* relationships exist, but *why* they exist — the decisions, evidence, temporal validity, and source provenance behind each link.
@@ -570,80 +535,55 @@ You are a Weave Specialist responsible for extracting entities and contextual re
 
 PROMPTS["cg_entity_extraction_examples"] = [
     """<Entity_types>
-["Person","Organization","Location","Event","Concept","Artifact"]
+["PRD","RFC","ArchitectureDecisionRecord","ChangeRequest","Task","Feature","Module","Commit","PullRequest","Review","Insight","Other"]
 
 <Input Text>
 ```
-During the Q3 2024 business review, Sarah Chen (VP of Sales) approved a 20% discount for MegaCorp's enterprise deal, citing their five-year relationship and a competing offer from Salesforce. The discount was valid until December 31, 2024. This was discussed in the Slack channel #deals-review on August 14, 2024.
+ADR-007 "PostgreSQL for multi-workspace deployments" was accepted on 2026-04-11, approved by the architect in the design review. It records that the file-based store is single-operator because its writes are whole-file read-modify-write, so a second writer loses the first one's work. Mongo and Redis were rejected: neither adds a capability the team needs, and each would be a third datastore to operate. The decision holds until the storage ports change.
 ```
 
 <Output>
-entity{tuple_delimiter}Sarah Chen{tuple_delimiter}person{tuple_delimiter}Sarah Chen is the VP of Sales who approved a 20% discount for MegaCorp's enterprise deal during the Q3 2024 business review.
-entity{tuple_delimiter}MegaCorp{tuple_delimiter}organization{tuple_delimiter}MegaCorp is an enterprise client that received a 20% discount on a deal, citing a long-standing relationship and competitive pressure from Salesforce.
-entity{tuple_delimiter}Salesforce{tuple_delimiter}organization{tuple_delimiter}Salesforce is a competitor that made a competing offer to MegaCorp, influencing the discount approval.
-entity{tuple_delimiter}Q3 2024 Business Review{tuple_delimiter}event{tuple_delimiter}The Q3 2024 Business Review is an internal meeting during which the discount for MegaCorp was approved by Sarah Chen.
-relation{tuple_delimiter}Sarah Chen{tuple_delimiter}MegaCorp{tuple_delimiter}discount approval, deal negotiation{tuple_delimiter}Sarah Chen approved a 20% discount for MegaCorp's enterprise deal during the Q3 2024 business review.{tuple_delimiter}{{"supporting_sentences": ["Sarah Chen (VP of Sales) approved a 20% discount for MegaCorp's enterprise deal"], "temporal_info": "Valid until December 31, 2024", "quantitative_data": "20% discount", "decision_trace": "Approved citing five-year relationship and competing offer from Salesforce", "approved_by": "Sarah Chen", "approved_via": "in_person", "valid_from": null, "valid_until": "2024-12-31", "policy_ref": null, "provenance": "Slack #deals-review, August 14, 2024", "confidence_score": 0.97}}
-relation{tuple_delimiter}MegaCorp{tuple_delimiter}Salesforce{tuple_delimiter}competitive pressure, market competition{tuple_delimiter}Salesforce made a competing offer to MegaCorp that influenced the discount negotiation.{tuple_delimiter}{{"supporting_sentences": ["a competing offer from Salesforce"], "temporal_info": "Q3 2024", "quantitative_data": null, "decision_trace": "Competing offer used as justification for discount approval", "approved_by": null, "approved_via": null, "valid_from": null, "valid_until": null, "policy_ref": null, "provenance": "Q3 2024 Business Review", "confidence_score": 0.88}}
+entity{tuple_delimiter}ADR-007{tuple_delimiter}architecturedecisionrecord{tuple_delimiter}ADR-007 records the decision to use PostgreSQL for multi-workspace deployments, with the file-based store limited to a single operator.
+entity{tuple_delimiter}File-based store{tuple_delimiter}concept{tuple_delimiter}The file-based store writes whole files read-modify-write, which makes it safe for one operator and unsafe for concurrent writers.
+entity{tuple_delimiter}PostgreSQL{tuple_delimiter}concept{tuple_delimiter}PostgreSQL is the storage path chosen for deployments with more than one workspace.
+relation{tuple_delimiter}ADR-007{tuple_delimiter}PostgreSQL{tuple_delimiter}decision, chosen option{tuple_delimiter}ADR-007 selects PostgreSQL as the multi-workspace storage path.{tuple_delimiter}{{"supporting_sentences": ["ADR-007 was accepted on 2026-04-11, approved by the architect in the design review"], "temporal_info": "Accepted 2026-04-11; holds until the storage ports change", "quantitative_data": null, "decision_trace": "Chosen because the file-based store is single-operator (whole-file read-modify-write); Mongo and Redis rejected as a third datastore adding no needed capability.", "approved_by": "architect", "approved_via": "design_review", "valid_from": "2026-04-11", "valid_until": null, "policy_ref": "storage ports", "provenance": "ADR-007", "confidence_score": 0.97}}
+relation{tuple_delimiter}ADR-007{tuple_delimiter}File-based store{tuple_delimiter}constraint, rejected for this use{tuple_delimiter}ADR-007 limits the file-based store to single-operator use because concurrent writers lose each other's work.{tuple_delimiter}{{"supporting_sentences": ["the file-based store is single-operator because its writes are whole-file read-modify-write"], "temporal_info": null, "quantitative_data": null, "decision_trace": "Concurrency limitation is the reason it is not the multi-workspace path.", "approved_by": "architect", "approved_via": "design_review", "valid_from": null, "valid_until": null, "policy_ref": null, "provenance": "ADR-007", "confidence_score": 0.93}}
 {completion_delimiter}
 
 """,
     """<Entity_types>
-["Person","Organization","Location","Event","Concept","Artifact"]
+["PRD","RFC","ArchitectureDecisionRecord","ChangeRequest","Task","Feature","Module","Commit","PullRequest","Review","Insight","Other"]
 
 <Input Text>
 ```
-Barack Obama served as the 44th President of the United States from January 20, 2009 to January 20, 2017. His administration passed the Affordable Care Act in 2010, expanding health insurance coverage to millions of Americans.
+The M6 review of CR-012 returned 0 Critical and 1 High. The High was that the MCP surface answered without a credential while every REST route required one, so the tenant could be chosen by a header on an unauthenticated request. It was fixed in TASK-318 by mounting the sub-app behind the same auth dependency, and the reviewer verified it by measuring both surfaces against the same request. The team recorded that a mounted sub-app does not inherit the router's dependencies.
 ```
 
 <Output>
-entity{tuple_delimiter}Barack Obama{tuple_delimiter}person{tuple_delimiter}Barack Obama is the 44th President of the United States who served from 2009 to 2017 and oversaw the passage of the Affordable Care Act.
-entity{tuple_delimiter}United States{tuple_delimiter}location{tuple_delimiter}The United States is the country led by Barack Obama during his presidency from 2009 to 2017.
-entity{tuple_delimiter}Affordable Care Act{tuple_delimiter}concept{tuple_delimiter}The Affordable Care Act is landmark healthcare legislation passed in 2010 that expanded health insurance coverage to millions of Americans.
-relation{tuple_delimiter}Barack Obama{tuple_delimiter}United States{tuple_delimiter}political leadership, presidency{tuple_delimiter}Barack Obama served as the 44th President of the United States.{tuple_delimiter}{{"supporting_sentences": ["Barack Obama served as the 44th President of the United States from January 20, 2009 to January 20, 2017"], "temporal_info": "January 20, 2009 – January 20, 2017", "quantitative_data": "44th President", "decision_trace": null, "provenance": null, "confidence_score": 0.99}}
-relation{tuple_delimiter}Barack Obama{tuple_delimiter}Affordable Care Act{tuple_delimiter}legislation, policy achievement{tuple_delimiter}Barack Obama's administration passed the Affordable Care Act in 2010, expanding healthcare coverage.{tuple_delimiter}{{"supporting_sentences": ["His administration passed the Affordable Care Act in 2010, expanding health insurance coverage to millions of Americans"], "temporal_info": "2010", "quantitative_data": "millions of Americans covered", "decision_trace": "Policy goal to expand healthcare access", "provenance": null, "confidence_score": 0.98}}
+entity{tuple_delimiter}M6 review of CR-012{tuple_delimiter}review{tuple_delimiter}The M6 review of CR-012 returned 0 Critical and 1 High, the High being an unauthenticated MCP surface.
+entity{tuple_delimiter}CR-012{tuple_delimiter}changerequest{tuple_delimiter}CR-012 is the change request reviewed at M6.
+entity{tuple_delimiter}TASK-318{tuple_delimiter}task{tuple_delimiter}TASK-318 mounts the MCP sub-app behind the same authentication dependency the REST routes use.
+entity{tuple_delimiter}A mounted sub-app does not inherit the router's dependencies{tuple_delimiter}insight{tuple_delimiter}The learning recorded from the review: mounting attaches an app outside the dependencies that guard ordinary routes.
+relation{tuple_delimiter}M6 review of CR-012{tuple_delimiter}TASK-318{tuple_delimiter}finding, remediation{tuple_delimiter}The review's High finding was remediated by TASK-318.{tuple_delimiter}{{"supporting_sentences": ["The High was that the MCP surface answered without a credential", "It was fixed in TASK-318 by mounting the sub-app behind the same auth dependency"], "temporal_info": "M6", "quantitative_data": "0 Critical, 1 High", "decision_trace": "Fixed by reusing the existing auth dependency rather than adding a second check; verified by measuring both surfaces against the same request.", "approved_by": "reviewer", "approved_via": "milestone_review", "valid_from": null, "valid_until": null, "policy_ref": null, "provenance": "M6 review of CR-012", "confidence_score": 0.96}}
+relation{tuple_delimiter}M6 review of CR-012{tuple_delimiter}A mounted sub-app does not inherit the router's dependencies{tuple_delimiter}review outcome, learning{tuple_delimiter}The review produced this insight.{tuple_delimiter}{{"supporting_sentences": ["The team recorded that a mounted sub-app does not inherit the router's dependencies"], "temporal_info": null, "quantitative_data": null, "decision_trace": null, "approved_by": null, "approved_via": null, "valid_from": null, "valid_until": null, "policy_ref": null, "provenance": "M6 review of CR-012", "confidence_score": 0.9}}
 {completion_delimiter}
 
 """,
     """<Entity_types>
-["Person","Organization","LossReason","Objection","Competitor","Concept","Artifact"]
+["PRD","RFC","ArchitectureDecisionRecord","ChangeRequest","Task","Feature","Module","Commit","PullRequest","Review","Insight","Other"]
 
 <Input Text>
 ```
-Sales Conversation Pattern: Lost Deal
-Company: TechGadgets
-Conversation Type: Purchasing Assistance
-Outcome: Lost (ClosedLost)
-Period: January 2026
-Value Range: 1,000-2,000
-Products Discussed: Premium Wireless Speaker
-Conversation Length: 14 messages
-
-## Conversation Transcript
-
-**Customer:** Hi, I'm interested in the Premium Wireless Speaker. What's the best price you can offer?
-
-**Sales Agent:** The Premium Wireless Speaker is listed at $1,499. It's our top-rated product with excellent reviews.
-
-**Customer:** That's quite expensive. I saw the SoundMax Pro from AudioRival for $999 with similar features.
-
-**Sales Agent:** Our product has superior build quality and longer warranty coverage.
-
-**Customer:** I understand, but the price difference is significant. Can you match their price or offer a discount?
-
-**Sales Agent:** Unfortunately, we can't match competitor pricing. Our standard policy doesn't allow discounts beyond 5%.
-
-**Customer:** That's not enough. I'll go with AudioRival then. Thanks anyway.
+The integration run e2e-4471 against the shared environment passed on 2026-05-06, which promoted TASK-402 to done. TASK-402 delivered the diagram editor's mermaid parser in the weave-ui/diagram-editor module; commit 9c1d0e77 widened the accepted header forms after a diagram written as "graph TD" failed to open. The manager's acceptance note cited the PRD for the authoring feature.
 ```
 
 <Output>
-entity{tuple_delimiter}Premium Wireless Speaker{tuple_delimiter}artifact{tuple_delimiter}Premium Wireless Speaker is a top-rated product by TechGadgets listed at $1,499, discussed in a lost sales conversation.
-entity{tuple_delimiter}AudioRival{tuple_delimiter}competitor{tuple_delimiter}AudioRival is a competitor offering the SoundMax Pro at $999, cited by the customer as an alternative to the Premium Wireless Speaker.
-entity{tuple_delimiter}SoundMax Pro{tuple_delimiter}artifact{tuple_delimiter}SoundMax Pro is a competing product from AudioRival priced at $999 with features similar to the Premium Wireless Speaker.
-entity{tuple_delimiter}Price Too High{tuple_delimiter}lossreason{tuple_delimiter}The customer found the $1,499 price too high compared to the competitor's $999 offering, a $500 price gap that could not be bridged by the 5% maximum discount policy.
-entity{tuple_delimiter}Competitor Pricing Objection{tuple_delimiter}objection{tuple_delimiter}The customer objected to the price by citing a competitor (AudioRival SoundMax Pro at $999) offering similar features at a lower price. The objection was not resolved — the agent could not match or sufficiently close the price gap.
-relation{tuple_delimiter}Premium Wireless Speaker{tuple_delimiter}SoundMax Pro{tuple_delimiter}competitive pressure, price comparison{tuple_delimiter}The customer compared the Premium Wireless Speaker ($1,499) against the SoundMax Pro ($999), finding the competitor's price more attractive.{tuple_delimiter}{{"supporting_sentences": ["I saw the SoundMax Pro from AudioRival for $999 with similar features", "the price difference is significant"], "temporal_info": "January 2026", "quantitative_data": "$1,499 vs $999 — $500 price gap", "decision_trace": "Customer chose competitor due to unresolvable price difference. Agent limited to 5% discount by policy.", "approved_by": null, "approved_via": null, "valid_from": null, "valid_until": null, "policy_ref": "Standard 5% maximum discount policy", "provenance": "Lost deal conversation, January 2026", "confidence_score": 0.95}}
-relation{tuple_delimiter}Price Too High{tuple_delimiter}Premium Wireless Speaker{tuple_delimiter}deal loss, pricing failure{tuple_delimiter}The high price of the Premium Wireless Speaker ($1,499) was the primary reason for losing this deal, as the agent could not offer a competitive discount.{tuple_delimiter}{{"supporting_sentences": ["That's quite expensive", "Can you match their price or offer a discount?", "That's not enough. I'll go with AudioRival then."], "temporal_info": "January 2026", "quantitative_data": "$1,499 price, 5% max discount ($74.95 off), competitor at $999", "decision_trace": "Deal lost because discount policy capped at 5% could not bridge $500 price gap to competitor", "approved_by": null, "approved_via": null, "valid_from": null, "valid_until": null, "policy_ref": "Standard 5% maximum discount policy", "provenance": "Lost deal conversation", "confidence_score": 0.96}}
-relation{tuple_delimiter}Competitor Pricing Objection{tuple_delimiter}AudioRival{tuple_delimiter}objection trigger, competitor reference{tuple_delimiter}The customer's pricing objection was triggered by AudioRival's lower-priced SoundMax Pro offering. The objection was not resolved.{tuple_delimiter}{{"supporting_sentences": ["I saw the SoundMax Pro from AudioRival for $999 with similar features"], "temporal_info": "January 2026", "quantitative_data": "$999 competitor price", "decision_trace": "Unresolved objection — agent could not match competitor pricing, leading to deal loss", "approved_by": null, "approved_via": null, "valid_from": null, "valid_until": null, "policy_ref": null, "provenance": "Lost deal conversation", "confidence_score": 0.94}}
+entity{tuple_delimiter}e2e-4471{tuple_delimiter}integrationrun{tuple_delimiter}Integration run e2e-4471 passed against the shared environment on 2026-05-06 and promoted TASK-402 to done.
+entity{tuple_delimiter}TASK-402{tuple_delimiter}task{tuple_delimiter}TASK-402 delivered the mermaid parser for the diagram editor.
+entity{tuple_delimiter}weave-ui/diagram-editor{tuple_delimiter}module{tuple_delimiter}weave-ui/diagram-editor is the module holding the diagram editor and its parser.
+entity{tuple_delimiter}9c1d0e77{tuple_delimiter}commit{tuple_delimiter}Commit 9c1d0e77 widened the flowchart header forms the parser accepts.
+relation{tuple_delimiter}e2e-4471{tuple_delimiter}TASK-402{tuple_delimiter}merge gate, promotion{tuple_delimiter}The green integration run promoted TASK-402 to done.{tuple_delimiter}{{"supporting_sentences": ["The integration run e2e-4471 against the shared environment passed on 2026-05-06, which promoted TASK-402 to done"], "temporal_info": "2026-05-06", "quantitative_data": null, "decision_trace": "Promotion is gated on a green integration run against the shared environment.", "approved_by": "integrator", "approved_via": "system", "valid_from": "2026-05-06", "valid_until": null, "policy_ref": "merge gate", "provenance": "e2e-4471", "confidence_score": 0.98}}
+relation{tuple_delimiter}9c1d0e77{tuple_delimiter}weave-ui/diagram-editor{tuple_delimiter}implementation, module touched{tuple_delimiter}Commit 9c1d0e77 changes the parser in the diagram editor module.{tuple_delimiter}{{"supporting_sentences": ["commit 9c1d0e77 widened the accepted header forms after a diagram written as \"graph TD\" failed to open"], "temporal_info": null, "quantitative_data": null, "decision_trace": "A valid mermaid form the viewer rendered was rejected by the editor.", "approved_by": null, "approved_via": null, "valid_from": null, "valid_until": null, "policy_ref": null, "provenance": "commit 9c1d0e77", "confidence_score": 0.94}}
 {completion_delimiter}
 
 """,
@@ -727,19 +667,19 @@ __EXAMPLES__
 PROMPTS["cg_entity_extraction_json_examples"] = [
     """<Input Text>
 ```
-During the Q3 2024 business review, Sarah Chen (VP of Sales) approved a 20% discount for MegaCorp's enterprise deal, citing their five-year relationship and a competing offer from Salesforce. The discount was valid until December 31, 2024. This was discussed in the Slack channel #deals-review on August 14, 2024.
+ADR-007 "PostgreSQL for multi-workspace deployments" was accepted on 2026-04-11, approved by the architect in the design review. It records that the file-based store is single-operator because its writes are whole-file read-modify-write, so a second writer loses the first one's work. Mongo and Redis were rejected: neither adds a capability the team needs.
 ```
 
 <Output>
-{"entities": [{"entity_name": "Sarah Chen", "entity_type": "Person", "description": "Sarah Chen is the VP of Sales who approved a 20% discount for MegaCorp's enterprise deal during the Q3 2024 business review."}, {"entity_name": "MegaCorp", "entity_type": "Organization", "description": "MegaCorp is an enterprise client that received a 20% discount, citing a long-standing relationship and competitive pressure from Salesforce."}, {"entity_name": "Salesforce", "entity_type": "Organization", "description": "Salesforce is a competitor that made a competing offer to MegaCorp, influencing the discount approval."}], "relationships": [{"src_id": "Sarah Chen", "tgt_id": "MegaCorp", "keywords": "discount approval, deal negotiation", "description": "Sarah Chen approved a 20% discount for MegaCorp's enterprise deal during the Q3 2024 business review.", "relation_context": {"supporting_sentences": ["Sarah Chen (VP of Sales) approved a 20% discount for MegaCorp's enterprise deal"], "decision_trace": "Approved citing five-year relationship and competing offer from Salesforce", "approved_by": "Sarah Chen", "approved_via": "slack", "valid_until": "2024-12-31", "quantitative_data": "20% discount", "temporal_info": "Valid until December 31, 2024", "provenance": "Slack #deals-review, August 14, 2024", "confidence_score": 0.97}}, {"src_id": "MegaCorp", "tgt_id": "Salesforce", "keywords": "competitive pressure, market competition", "description": "Salesforce made a competing offer to MegaCorp that influenced the discount negotiation.", "relation_context": {"supporting_sentences": ["a competing offer from Salesforce"], "decision_trace": "Competing offer used as justification for discount approval", "temporal_info": "Q3 2024", "provenance": "Q3 2024 Business Review", "confidence_score": 0.88}}]}
+{"entities": [{"entity_name": "ADR-007", "entity_type": "ArchitectureDecisionRecord", "description": "ADR-007 records the decision to use PostgreSQL for multi-workspace deployments, with the file-based store limited to a single operator."}, {"entity_name": "PostgreSQL", "entity_type": "Other", "description": "PostgreSQL is the storage path chosen for deployments with more than one workspace."}, {"entity_name": "File-based store", "entity_type": "Other", "description": "The file-based store writes whole files read-modify-write, which makes it safe for one operator and unsafe for concurrent writers."}], "relationships": [{"src_id": "ADR-007", "tgt_id": "PostgreSQL", "keywords": "decision, chosen option", "description": "ADR-007 selects PostgreSQL as the multi-workspace storage path.", "relation_context": {"supporting_sentences": ["ADR-007 was accepted on 2026-04-11, approved by the architect in the design review"], "decision_trace": "Chosen because the file-based store is single-operator; Mongo and Redis rejected as a third datastore adding no needed capability.", "approved_by": "architect", "approved_via": "design_review", "valid_from": "2026-04-11", "temporal_info": "Accepted 2026-04-11", "provenance": "ADR-007", "confidence_score": 0.97}}]}
 """,
     """<Input Text>
 ```
-Barack Obama served as the 44th President of the United States from January 20, 2009 to January 20, 2017. His administration passed the Affordable Care Act in 2010, expanding health insurance coverage to millions of Americans.
+The M6 review of CR-012 returned 0 Critical and 1 High. The High was that the MCP surface answered without a credential while every REST route required one. It was fixed in TASK-318 by mounting the sub-app behind the same auth dependency. The team recorded that a mounted sub-app does not inherit the router's dependencies.
 ```
 
 <Output>
-{"entities": [{"entity_name": "Barack Obama", "entity_type": "Person", "description": "Barack Obama is the 44th President of the United States who served from 2009 to 2017 and oversaw the passage of the Affordable Care Act."}, {"entity_name": "United States", "entity_type": "Location", "description": "The United States is the country led by Barack Obama during his presidency from 2009 to 2017."}, {"entity_name": "Affordable Care Act", "entity_type": "Concept", "description": "The Affordable Care Act is landmark healthcare legislation passed in 2010 that expanded health insurance coverage to millions of Americans."}], "relationships": [{"src_id": "Barack Obama", "tgt_id": "United States", "keywords": "political leadership, presidency", "description": "Barack Obama served as the 44th President of the United States.", "relation_context": {"supporting_sentences": ["Barack Obama served as the 44th President of the United States from January 20, 2009 to January 20, 2017"], "temporal_info": "January 20, 2009 - January 20, 2017", "quantitative_data": "44th President", "confidence_score": 0.99}}, {"src_id": "Barack Obama", "tgt_id": "Affordable Care Act", "keywords": "legislation, policy achievement", "description": "Barack Obama's administration passed the Affordable Care Act in 2010, expanding healthcare coverage.", "relation_context": {"supporting_sentences": ["His administration passed the Affordable Care Act in 2010, expanding health insurance coverage to millions of Americans"], "decision_trace": "Policy goal to expand healthcare access", "temporal_info": "2010", "quantitative_data": "millions of Americans covered", "confidence_score": 0.98}}]}
+{"entities": [{"entity_name": "M6 review of CR-012", "entity_type": "Review", "description": "The M6 review of CR-012 returned 0 Critical and 1 High, the High being an MCP surface that answered without a credential."}, {"entity_name": "TASK-318", "entity_type": "Task", "description": "TASK-318 mounts the MCP sub-app behind the same authentication dependency the REST routes use."}, {"entity_name": "A mounted sub-app does not inherit the router's dependencies", "entity_type": "Insight", "description": "The learning recorded from the review: mounting attaches an app outside the dependencies that guard ordinary routes."}], "relationships": [{"src_id": "M6 review of CR-012", "tgt_id": "TASK-318", "keywords": "finding, remediation", "description": "The review's High finding was remediated by TASK-318.", "relation_context": {"supporting_sentences": ["The High was that the MCP surface answered without a credential", "It was fixed in TASK-318"], "decision_trace": "Fixed by reusing the existing auth dependency rather than adding a second check.", "approved_by": "reviewer", "approved_via": "milestone_review", "quantitative_data": "0 Critical, 1 High", "temporal_info": "M6", "provenance": "M6 review of CR-012", "confidence_score": 0.96}}]}
 """,
 ]
 
