@@ -150,3 +150,45 @@ def test_summary_counts_and_unknowns(onto):
     assert s["by_status"][INVALID] == 1
     assert s["unknown_types"] == ["Building"]
     assert s["ok"] is False        # the INVALID one fails even in open-world
+
+
+# ── the spelling extraction actually produces (W46, P15.1) ───────────────────
+
+
+@pytest.mark.offline
+def test_a_lower_case_entity_type_conforms(onto):
+    """**Closed-world mode was rejecting every node the extractor got right.**
+
+    Extraction produced `order` while the ontology declared `Order`. The answer
+    surface was fixed to compare normalised; this validator was not, so
+    governance and the answer surface disagreed about whether the same node had
+    a known type.
+    """
+    v = ExtractionValidator(onto)
+    rep = v.validate(entities=[ExtractedEntity("Big Deal", "order", {"value": "$25,000"})])
+    assert rep.items[0].status == CONFORMS, rep.items[0].errors
+
+
+@pytest.mark.offline
+def test_a_relation_with_lower_case_endpoints_conforms(onto):
+    """The endpoints, not just the link name.
+
+    This is the assertion that was missing: reverting `_side_ok` to an exact
+    comparison left every test green, because nothing fed this path a spelling
+    the extractor would actually produce. A control that cannot fail is not a
+    control, and this file had one.
+    """
+    v = ExtractionValidator(onto)
+    rep = v.validate(relations=[ExtractedRelation("approved", "Ada", "Big Deal",
+                                                  source_type="person", target_type="order")])
+    assert rep.items[0].status == CONFORMS, rep.items[0].errors
+
+
+@pytest.mark.offline
+def test_control_a_wrong_endpoint_is_still_refused_however_it_is_spelled(onto):
+    """Normalising must not turn domain/range checking into a rubber stamp:
+    `order → person` is backwards and must stay refused in either casing."""
+    v = ExtractionValidator(onto)
+    rep = v.validate(relations=[ExtractedRelation("approved", "Big Deal", "Ada",
+                                                  source_type="order", target_type="person")])
+    assert rep.items[0].status == INVALID

@@ -20,6 +20,8 @@ tolerant ``from_dict`` adapters over Weave/WeaveEngine extraction output.
 """
 
 from __future__ import annotations
+from weave_core.utils import normalize_type
+
 
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Mapping, Optional
@@ -39,8 +41,16 @@ _RESERVED_REL = (set(_REL_SOURCE_KEYS) | set(_REL_TARGET_KEYS) | set(_REL_TYPE_K
 
 
 def _side_ok(allowed: List[str], value: Optional[str]) -> bool:
-    """A link endpoint is fine if unconstrained, unknown (unverifiable), or allowed."""
-    return (not allowed) or (value is None) or (value in allowed)
+    """A link endpoint is fine if unconstrained, unknown (unverifiable), or allowed.
+
+    Compared normalised, for the reason in `LinkType.allows`: the graph holds
+    whatever spelling extraction produced, and governance must recognise the same
+    type the answer surface does (W46, P15.1).
+    """
+    if not allowed or value is None:
+        return True
+    key = normalize_type(value)
+    return any(normalize_type(a) == key for a in allowed)
 
 
 def _endpoints_ok(link: LinkType, src: Optional[str], tgt: Optional[str]) -> bool:

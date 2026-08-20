@@ -30,6 +30,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Mapping, Optional
 
+from weave_core.utils import normalize_type
+
 from weave_core.governance.rules.projection import parse_amount, parse_percent
 
 
@@ -272,16 +274,25 @@ class LinkType:
             self.cardinality = Cardinality(self.cardinality)
 
     def allows(self, src_type: Optional[str], tgt_type: Optional[str]) -> bool:
-        """Whether a head/tail object-type pair is permitted by this link."""
-        ok_src = (not self.source_types) or (src_type in self.source_types)
-        ok_tgt = (not self.target_types) or (tgt_type in self.target_types)
-        if ok_src and ok_tgt:
+        """Whether a head/tail object-type pair is permitted by this link.
+
+        **Endpoints are compared normalised** (W46, P15.1). Resolving the *link*
+        by name and then comparing its endpoint types exactly is the same defect
+        moved one call deeper: `DependsOn` would resolve for `dependson` and then
+        refuse `changerequest → ChangeRequest`. Found by a test written for the
+        shallower bug, which is the argument for asserting the whole path.
+        """
+        def _in(value: Optional[str], allowed: List[str]) -> bool:
+            if not allowed:
+                return True
+            key = normalize_type(value or "")
+            return any(normalize_type(a) == key for a in allowed)
+
+        if _in(src_type, self.source_types) and _in(tgt_type, self.target_types):
             return True
         # For an undirected link, accept the reversed pair too.
         if not self.directed:
-            r_src = (not self.source_types) or (tgt_type in self.source_types)
-            r_tgt = (not self.target_types) or (src_type in self.target_types)
-            return r_src and r_tgt
+            return _in(tgt_type, self.source_types) and _in(src_type, self.target_types)
         return False
 
     def validate(
@@ -351,16 +362,57 @@ class Ontology:
     def link_type_names(self) -> List[str]:
         return sorted(self.link_types)
 
+    def resolve_object(self, name: str) -> Optional[ObjectType]:
+        """The declared type this name refers to, compared as `normalize_type` compares.
+
+        **Exact matching here was the third place one defect reached** (W46,
+        P15.1). Extraction produced `changerequest` while the ontology declared
+        `ChangeRequest`; `weave/model/answers.py` was fixed to compare normalised
+        and this was not, so in **closed-world** mode the garbage filter went on
+        rejecting every node the extractor had correctly typed. The answer
+        surface saw the node and governance did not.
+
+        The prompt now teaches the ontology's own spelling, which fixes new
+        extraction — and that is exactly why this still has to be fixed too:
+        **a governance check that holds only while a prompt behaves is an
+        instruction, not a mechanism.** A graph built before P15.1, or a model
+        that deviates, must not silently fail validation.
+
+        Resolved by scan rather than a cached index, deliberately: `define_object`
+        can be called after construction, and a cache that misses a later
+        definition is the same staleness this phase has now removed twice. Eighteen
+        types make the scan free.
+        """
+        obj = self.object_types.get(name)
+        if obj is not None:
+            return obj
+        key = normalize_type(name)
+        for declared, candidate in self.object_types.items():
+            if normalize_type(declared) == key:
+                return candidate
+        return None
+
+    def resolve_link(self, name: str) -> Optional[LinkType]:
+        """The declared link this name refers to. Same rule as `resolve_object`."""
+        link = self.link_types.get(name)
+        if link is not None:
+            return link
+        key = normalize_type(name)
+        for declared, candidate in self.link_types.items():
+            if normalize_type(declared) == key:
+                return candidate
+        return None
+
     def has_object(self, name: str) -> bool:
-        return name in self.object_types
+        return self.resolve_object(name) is not None
 
     def has_link(self, name: str) -> bool:
-        return name in self.link_types
+        return self.resolve_link(name) is not None
 
     # -- validation --------------------------------------------------------
 
     def validate_entity(self, type_name: str, attrs: Mapping[str, Any]) -> ValidationReport:
-        obj = self.object_types.get(type_name)
+        obj = self.resolve_object(type_name)
         if obj is None:
             r = ValidationReport()
             r._fail(f"unknown object type '{type_name}'")
@@ -371,7 +423,7 @@ class Ontology:
         self, link_name: str, src_type: Optional[str], tgt_type: Optional[str],
         attrs: Optional[Mapping[str, Any]] = None,
     ) -> ValidationReport:
-        link = self.link_types.get(link_name)
+        link = self.resolve_link(link_name)
         if link is None:
             r = ValidationReport()
             r._fail(f"unknown link type '{link_name}'")

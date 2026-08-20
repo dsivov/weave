@@ -203,3 +203,82 @@ def test_ontology_roundtrip(ecommerce):
     assert link.cardinality is Cardinality.ONE_TO_MANY
     assert restored.object_types["Order"].properties["value"].kind is PropertyKind.MONEY
     assert restored.validate_entity("Order", {"value": "$99"}).coerced == {"value": 99.0}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Type lookup compares as the rest of the system compares (W46, P15.1)
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def _one_type_ontology():
+    from weave_core.governance.ontology.schema import Ontology
+    return Ontology.from_dict({
+        "name": "t", "version": 1,
+        "object_types": [{"name": "ChangeRequest", "properties": [
+            {"name": "title", "kind": "string"}]}],
+        "link_types": [{"name": "DependsOn", "source_types": ["ChangeRequest"],
+                        "target_types": ["ChangeRequest"], "cardinality": "N:M",
+                        "properties": []}],
+    })
+
+
+def test_an_ontology_type_resolves_however_it_is_spelled():
+    """**The third place one defect reached.**
+
+    Extraction produced `changerequest` while the ontology declared
+    `ChangeRequest`. `weave/model/answers.py` was fixed to compare normalised and
+    this was not — so in **closed-world** mode the garbage filter went on
+    rejecting every node the extractor had correctly typed. The answer surface
+    could see the node and governance could not.
+    """
+    onto = _one_type_ontology()
+    for spelling in ("ChangeRequest", "changerequest", "CHANGEREQUEST",
+                     "change request", "Change Request"):
+        assert onto.has_object(spelling), f"{spelling!r} did not resolve"
+
+
+def test_validation_accepts_the_spelling_extraction_produces():
+    """`has_object` and `validate_entity` must agree — a type that resolves and
+    then fails validation is the same gap moved one call deeper."""
+    onto = _one_type_ontology()
+    assert onto.validate_entity("changerequest", {"title": "x"}).ok
+
+
+def test_links_resolve_the_same_way():
+    """Links carry the same risk and had the same exact match."""
+    onto = _one_type_ontology()
+    assert onto.has_link("dependson")
+    assert onto.validate_relation("dependson", "changerequest", "ChangeRequest").ok
+
+
+def test_a_type_declared_later_still_resolves():
+    """**Resolution is not cached, and this is why.**
+
+    `define_object` may be called after construction. An index built once would
+    miss it — the exact staleness this phase has already removed twice (the
+    entity-type resolver, and the garbage filter's cached schema).
+    """
+    onto = _one_type_ontology()
+    from weave_core.governance.ontology.schema import ObjectType
+    onto.define_object(ObjectType(name="Postmortem", properties=[]))
+    assert onto.has_object("postmortem")
+
+
+# -- negative controls -------------------------------------------------------
+
+def test_control_an_undeclared_type_still_does_not_resolve():
+    """Normalising must not turn the check into a rubber stamp — which is the
+    obvious way to 'fix' this and would delete the guard instead."""
+    onto = _one_type_ontology()
+    for absent in ("Postmortem", "postmortem", "Feature", "", "Change_Request_2"):
+        assert not onto.has_object(absent), f"{absent!r} resolved and should not have"
+    assert not onto.validate_entity("postmortem", {}).ok
+
+
+def test_control_a_near_miss_does_not_resolve():
+    """`normalize_type` folds case and spaces. It must not fold anything else —
+    a resolver that matched substrings would accept `Change` for
+    `ChangeRequest`."""
+    onto = _one_type_ontology()
+    for near in ("Change", "Request", "ChangeRequests", "ChangeRequestX"):
+        assert not onto.has_object(near), f"{near!r} resolved and should not have"
