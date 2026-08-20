@@ -698,6 +698,25 @@ process (**A13**), implies no fourth deployable (**A1**), and describes no inbou
   - **A7 — watch it.** If P9 is verified under `docker compose`, that deployment must pair a multi-worker server with the PostgreSQL `LISTEN/NOTIFY` bus. Verifying quadruple mode on a single worker and then shipping the compose file with more is the pairing failing quietly.
   - **A1 — `deploy/postgres.Dockerfile` is a database the bundle runs *against*, not a fourth deployable** (D-047). P9 must not make it one by moving product code into it.
   - **Non-goals — untouched.** No fourth backend, no new datastore; this completes an existing one.
+> **Baseline captured 2026-08-20 on live PostgreSQL, before a line was written** — so the amendment
+> at the end is measured against something rather than asserted.
+>
+> **The verification database is up:** container `weave-p9-pg`, port **5443**, built from
+> `deploy/postgres.Dockerfile`; `pg_extension` reports `age`, `plpgsql`, `vector` — both extensions in
+> one database, which is the thing no published image gives (D-046, D-047).
+>
+> **The D-039 refusal fires, and it fires for the right reason.** Started with the full PostgreSQL
+> quadruple pairing and the server refused: *"Quadruple mode needs a vector store for each of:
+> decisions, communities. PGVectorStorage has no table for either, so the server would start and then
+> fail on the first governed write."* **Exercised against a database that was actually reachable**, so
+> the refusal is not masking a connection failure — which is the way a startup guard usually turns out
+> to be untested.
+>
+> **The non-quadruple path runs.** Same database, `WEAVE_ENABLE_QUADRUPLE=false`, server healthy on
+> :9805, **11 tables created** (`weave_doc_full`, `weave_vdb_chunks`, `weave_vdb_entity`,
+> `weave_vdb_relation`, …) and the AGE graph `chunk_entity_relation` present. **Tables matching
+> `%decision%` or `%communit%`: 0.** That zero is the whole of P9.
+
 - [ ] `weave_core/graph/storage/postgres.py` — `WEAVE_VDB_DECISIONS` and `WEAVE_VDB_COMMUNITIES`: DDL, `NAMESPACE_TABLE_MAP` entries, `upsert` branches, query SQL, index handling, and migration entries alongside the existing three.
 - [ ] `tests/` — the two namespaces round-trip on **live PostgreSQL**, not a fixture: upsert, query by vector, delete. A test that passes on the file path proves nothing here.
 - [ ] **Delete the D-039 startup refusal** — and a test that fails if it comes back.
