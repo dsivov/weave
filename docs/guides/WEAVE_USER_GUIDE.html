@@ -310,13 +310,16 @@ Weave reads uses the new types. Nothing is cached for the life of the process, b
 change that needed a restart would not really be in force.</p>
 
 <div class="callout caveat">
-  <p><b>An existing graph keeps the types it was built with.</b> There is no migration, and this is
-  the one thing to know before you upgrade. Nodes already extracted stay as they are — which is
-  honest, because they <i>were</i> read under a different vocabulary — so a workspace that has been
-  running for a while will look unchanged after an upgrade, and its older nodes stay invisible to
-  the questions. That is not a fault. <b>To bring an existing workspace over, re-ingest its
-  documents.</b> The graph is derived data: the documents are the source, and rebuilding from them
-  is the supported path.</p>
+  <p><b>An existing graph keeps the types it was built with — but it is not penalised for them.</b>
+  There is no migration: nodes already extracted stay as they are, which is honest, because they
+  <i>were</i> read under a different vocabulary. What changed is that Weave now compares types the
+  way it stores them, so a workspace built before this release <b>still answers</b> — its older
+  nodes are matched, not ignored.</p>
+  <p>The exception is a graph extracted under a genuinely <i>different</i> vocabulary — one from
+  before the ontology was consulted at all. Those nodes carry types your ontology never declared, and
+  no amount of matching will make them answerable. <b>To bring such a workspace over, re-ingest its
+  documents.</b> The graph is derived data: the documents are the source, and rebuilding from them is
+  the supported path.</p>
 </div>
 
 <p>Setting <code>WEAVE_ENTITY_TYPES</code> (or <code>--entity-types</code>) overrides the ontology
