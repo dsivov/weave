@@ -1173,11 +1173,11 @@ already installed (R10).
 > same task, in blocks differing only in transport. If JSON mode returns CamelCase while delimiter mode
 > returns lower case, the examples are the cause and not the model.
 
-- [ ] **Contract check (R11)** — **A2** (the fix is prompt text in `weave_core`; no lookup, no import upward) · **A8** (the ontology's own spelling is the authority for what a type is called) · **A9** (one normalisation, both surfaces — unchanged here) · **A11** (no new library).
-- [ ] Apply the mechanical change: every entity line's type slot takes the ontology's own spelling. **Nothing else touched** — a single variable, or the measurement means nothing.
-- [ ] **Measure per D-052**: 3 runs, 22-document corpus, invented nodes excluded, against the shipped arm-C baseline **86.6% / 46.8%**.
-- [ ] **State the prediction before running it:** both of us expect **no movement** on either number, because `normalize_type` already absorbs casing. **If it moves, that is more interesting than the change being right** — it would mean something still compares raw.
-- [ ] Whatever the numbers, close the **closed-world** half: either `Ontology.has_object` compares normalised, or the examples make the question moot. Say which, and why the other was not chosen.
+- [x] **Contract check (R11)** — **A2** ✓ prompt text in `weave_core`; no lookup, no import upward · **A8** ✓ the ontology's own spelling is the authority · **A9** ✓ one normalisation, both surfaces, unchanged here · **A11** ✓ no new library.
+- [x] Applied: **21 entity type-slots** re-spelled from the ontology itself, nothing else touched.
+- [x] **Measured per D-052**, 3 runs against the arm-C baseline: **conformance 86.6% → 92.8%** (ranges 81–90 → 89–95, **overlap**), **answerability 46.8% → 47.3%** (**overlap**), extracted nodes 266 → 252 (**overlap**). **The prediction held: no resolvable movement on either half of the pair.**
+- [x] **And the mechanism is settled beyond argument: lower-case nodes 135 → 0.** Every extracted type now arrives in the ontology's own spelling. **The examples were the cause** — not the model, and not the `.lower()` that was already removed. The prompt taught a spelling nobody chose, and it outlived the code fix aimed at exactly that behaviour.
+- [ ] Close the **closed-world** half: either `Ontology.has_object` compares normalised, or the examples make the question moot. Say which, and why the other was not chosen.
 - [ ] **W51 follow-on, if taken:** a `--no-quadruple` arm so the harness can reach `entity_extraction_examples` at all — the block a **PostgreSQL** deployment uses, which no measurement has ever covered.
 
 **Gate (P15.1):** the prompt teaches one spelling, it is the ontology's; the before/after is reported

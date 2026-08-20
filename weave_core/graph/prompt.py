@@ -111,11 +111,11 @@ TASK-221 implements the registry in the weave/devhost module and was claimed by 
 ```
 
 <Output>
-entity{tuple_delimiter}RFC-014{tuple_delimiter}rfc{tuple_delimiter}RFC-014 "Outbound-only dev hosts" is an approved design document specifying that dev hosts register and heartbeat outbound, and that the server never dials a host.
-entity{tuple_delimiter}CR-009{tuple_delimiter}changerequest{tuple_delimiter}CR-009 is the change request that asked for outbound-only dev hosts, opened after the fleet could not reach two contributors' machines.
-entity{tuple_delimiter}TASK-221{tuple_delimiter}task{tuple_delimiter}TASK-221 implements the dev-host registry described by RFC-014 and was claimed by dev-3.
-entity{tuple_delimiter}weave/devhost{tuple_delimiter}module{tuple_delimiter}weave/devhost is the source module holding the dev-host registry.
-entity{tuple_delimiter}dev-3{tuple_delimiter}role{tuple_delimiter}dev-3 is the developer who claimed TASK-221.
+entity{tuple_delimiter}RFC-014{tuple_delimiter}RFC{tuple_delimiter}RFC-014 "Outbound-only dev hosts" is an approved design document specifying that dev hosts register and heartbeat outbound, and that the server never dials a host.
+entity{tuple_delimiter}CR-009{tuple_delimiter}ChangeRequest{tuple_delimiter}CR-009 is the change request that asked for outbound-only dev hosts, opened after the fleet could not reach two contributors' machines.
+entity{tuple_delimiter}TASK-221{tuple_delimiter}Task{tuple_delimiter}TASK-221 implements the dev-host registry described by RFC-014 and was claimed by dev-3.
+entity{tuple_delimiter}weave/devhost{tuple_delimiter}Module{tuple_delimiter}weave/devhost is the source module holding the dev-host registry.
+entity{tuple_delimiter}dev-3{tuple_delimiter}Role{tuple_delimiter}dev-3 is the developer who claimed TASK-221.
 relation{tuple_delimiter}CR-009{tuple_delimiter}RFC-014{tuple_delimiter}request, design response{tuple_delimiter}RFC-014 is the design written in response to CR-009.
 relation{tuple_delimiter}RFC-014{tuple_delimiter}TASK-221{tuple_delimiter}specification, implementation{tuple_delimiter}TASK-221 implements the registry that RFC-014 specifies.
 relation{tuple_delimiter}TASK-221{tuple_delimiter}weave/devhost{tuple_delimiter}implementation, module touched{tuple_delimiter}TASK-221 changes the weave/devhost module.
@@ -134,12 +134,12 @@ The reviewer's note: the outbound-only property does hold, but the heartbeat has
 ```
 
 <Output>
-entity{tuple_delimiter}PR #88{tuple_delimiter}pullrequest{tuple_delimiter}Pull request #88 delivers TASK-221 and was flagged in review for touching an architecture-sensitive module.
-entity{tuple_delimiter}TASK-221{tuple_delimiter}task{tuple_delimiter}TASK-221 is the task delivered by pull request #88.
-entity{tuple_delimiter}Architect review of PR #88{tuple_delimiter}review{tuple_delimiter}The architect's review flagged PR #88 because the outbound-only guarantee was argued in prose and never exercised by a test.
-entity{tuple_delimiter}auth{tuple_delimiter}module{tuple_delimiter}auth is an architecture-sensitive module; a change touching it requires the architect's sign-off.
-entity{tuple_delimiter}4f2ab19c{tuple_delimiter}commit{tuple_delimiter}Commit 4f2ab19c adds the missing test asserting the server opens no connection to a host.
-entity{tuple_delimiter}A guard asserted in one adapter protects only that adapter's callers{tuple_delimiter}insight{tuple_delimiter}The learning recorded from this review: a guarantee enforced at one call site says nothing about the others.
+entity{tuple_delimiter}PR #88{tuple_delimiter}PullRequest{tuple_delimiter}Pull request #88 delivers TASK-221 and was flagged in review for touching an architecture-sensitive module.
+entity{tuple_delimiter}TASK-221{tuple_delimiter}Task{tuple_delimiter}TASK-221 is the task delivered by pull request #88.
+entity{tuple_delimiter}Architect review of PR #88{tuple_delimiter}Review{tuple_delimiter}The architect's review flagged PR #88 because the outbound-only guarantee was argued in prose and never exercised by a test.
+entity{tuple_delimiter}auth{tuple_delimiter}Module{tuple_delimiter}auth is an architecture-sensitive module; a change touching it requires the architect's sign-off.
+entity{tuple_delimiter}4f2ab19c{tuple_delimiter}Commit{tuple_delimiter}Commit 4f2ab19c adds the missing test asserting the server opens no connection to a host.
+entity{tuple_delimiter}A guard asserted in one adapter protects only that adapter's callers{tuple_delimiter}Insight{tuple_delimiter}The learning recorded from this review: a guarantee enforced at one call site says nothing about the others.
 relation{tuple_delimiter}PR #88{tuple_delimiter}TASK-221{tuple_delimiter}delivery, pull request{tuple_delimiter}Pull request #88 is the code hand-back for TASK-221.
 relation{tuple_delimiter}Architect review of PR #88{tuple_delimiter}PR #88{tuple_delimiter}review, verdict{tuple_delimiter}The review flagged rather than approved PR #88.
 relation{tuple_delimiter}PR #88{tuple_delimiter}auth{tuple_delimiter}module touched, architecture sensitivity{tuple_delimiter}PR #88 touches the auth module, which is why the automated pass flagged it.
@@ -541,8 +541,8 @@ CR-011 asked for deployments serving more than one workspace. ADR-007 "PostgreSQ
 ```
 
 <Output>
-entity{tuple_delimiter}ADR-007{tuple_delimiter}architecturedecisionrecord{tuple_delimiter}ADR-007 records the decision to use PostgreSQL for multi-workspace deployments, with the file-based store limited to a single operator.
-entity{tuple_delimiter}CR-011{tuple_delimiter}changerequest{tuple_delimiter}CR-011 is the change request asking for deployments that serve more than one workspace, which ADR-007 answers.
+entity{tuple_delimiter}ADR-007{tuple_delimiter}ArchitectureDecisionRecord{tuple_delimiter}ADR-007 records the decision to use PostgreSQL for multi-workspace deployments, with the file-based store limited to a single operator.
+entity{tuple_delimiter}CR-011{tuple_delimiter}ChangeRequest{tuple_delimiter}CR-011 is the change request asking for deployments that serve more than one workspace, which ADR-007 answers.
 relation{tuple_delimiter}CR-011{tuple_delimiter}ADR-007{tuple_delimiter}request, decision response{tuple_delimiter}ADR-007 is the decision recorded in response to CR-011, selecting PostgreSQL as the multi-workspace storage path.{tuple_delimiter}{{"supporting_sentences": ["ADR-007 was accepted on 2026-04-11, approved by the architect in the design review"], "temporal_info": "Accepted 2026-04-11; holds until the storage ports change", "quantitative_data": null, "decision_trace": "Chosen because the file-based store is single-operator (whole-file read-modify-write); Mongo and Redis rejected as a third datastore adding no needed capability.", "approved_by": "architect", "approved_via": "design_review", "valid_from": "2026-04-11", "valid_until": null, "policy_ref": "storage ports", "provenance": "ADR-007", "confidence_score": 0.97}}
 {completion_delimiter}
 
@@ -556,10 +556,10 @@ The M6 review of CR-012 returned 0 Critical and 1 High. The High was that the MC
 ```
 
 <Output>
-entity{tuple_delimiter}M6 review of CR-012{tuple_delimiter}review{tuple_delimiter}The M6 review of CR-012 returned 0 Critical and 1 High, the High being an unauthenticated MCP surface.
-entity{tuple_delimiter}CR-012{tuple_delimiter}changerequest{tuple_delimiter}CR-012 is the change request reviewed at M6.
-entity{tuple_delimiter}TASK-318{tuple_delimiter}task{tuple_delimiter}TASK-318 mounts the MCP sub-app behind the same authentication dependency the REST routes use.
-entity{tuple_delimiter}A mounted sub-app does not inherit the router's dependencies{tuple_delimiter}insight{tuple_delimiter}The learning recorded from the review: mounting attaches an app outside the dependencies that guard ordinary routes.
+entity{tuple_delimiter}M6 review of CR-012{tuple_delimiter}Review{tuple_delimiter}The M6 review of CR-012 returned 0 Critical and 1 High, the High being an unauthenticated MCP surface.
+entity{tuple_delimiter}CR-012{tuple_delimiter}ChangeRequest{tuple_delimiter}CR-012 is the change request reviewed at M6.
+entity{tuple_delimiter}TASK-318{tuple_delimiter}Task{tuple_delimiter}TASK-318 mounts the MCP sub-app behind the same authentication dependency the REST routes use.
+entity{tuple_delimiter}A mounted sub-app does not inherit the router's dependencies{tuple_delimiter}Insight{tuple_delimiter}The learning recorded from the review: mounting attaches an app outside the dependencies that guard ordinary routes.
 relation{tuple_delimiter}M6 review of CR-012{tuple_delimiter}TASK-318{tuple_delimiter}finding, remediation{tuple_delimiter}The review's High finding was remediated by TASK-318.{tuple_delimiter}{{"supporting_sentences": ["The High was that the MCP surface answered without a credential", "It was fixed in TASK-318 by mounting the sub-app behind the same auth dependency"], "temporal_info": "M6", "quantitative_data": "0 Critical, 1 High", "decision_trace": "Fixed by reusing the existing auth dependency rather than adding a second check; verified by measuring both surfaces against the same request.", "approved_by": "reviewer", "approved_via": "milestone_review", "valid_from": null, "valid_until": null, "policy_ref": null, "provenance": "M6 review of CR-012", "confidence_score": 0.96}}
 relation{tuple_delimiter}M6 review of CR-012{tuple_delimiter}A mounted sub-app does not inherit the router's dependencies{tuple_delimiter}review outcome, learning{tuple_delimiter}The review produced this insight.{tuple_delimiter}{{"supporting_sentences": ["The team recorded that a mounted sub-app does not inherit the router's dependencies"], "temporal_info": null, "quantitative_data": null, "decision_trace": null, "approved_by": null, "approved_via": null, "valid_from": null, "valid_until": null, "policy_ref": null, "provenance": "M6 review of CR-012", "confidence_score": 0.9}}
 {completion_delimiter}
@@ -574,10 +574,10 @@ The integration run e2e-4471 against the shared environment passed on 2026-05-06
 ```
 
 <Output>
-entity{tuple_delimiter}e2e-4471{tuple_delimiter}integrationrun{tuple_delimiter}Integration run e2e-4471 passed against the shared environment on 2026-05-06 and promoted TASK-402 to done.
-entity{tuple_delimiter}TASK-402{tuple_delimiter}task{tuple_delimiter}TASK-402 delivered the mermaid parser for the diagram editor.
-entity{tuple_delimiter}weave-ui/diagram-editor{tuple_delimiter}module{tuple_delimiter}weave-ui/diagram-editor is the module holding the diagram editor and its parser.
-entity{tuple_delimiter}9c1d0e77{tuple_delimiter}commit{tuple_delimiter}Commit 9c1d0e77 widened the flowchart header forms the parser accepts.
+entity{tuple_delimiter}e2e-4471{tuple_delimiter}IntegrationRun{tuple_delimiter}Integration run e2e-4471 passed against the shared environment on 2026-05-06 and promoted TASK-402 to done.
+entity{tuple_delimiter}TASK-402{tuple_delimiter}Task{tuple_delimiter}TASK-402 delivered the mermaid parser for the diagram editor.
+entity{tuple_delimiter}weave-ui/diagram-editor{tuple_delimiter}Module{tuple_delimiter}weave-ui/diagram-editor is the module holding the diagram editor and its parser.
+entity{tuple_delimiter}9c1d0e77{tuple_delimiter}Commit{tuple_delimiter}Commit 9c1d0e77 widened the flowchart header forms the parser accepts.
 relation{tuple_delimiter}e2e-4471{tuple_delimiter}TASK-402{tuple_delimiter}merge gate, promotion{tuple_delimiter}The green integration run promoted TASK-402 to done.{tuple_delimiter}{{"supporting_sentences": ["The integration run e2e-4471 against the shared environment passed on 2026-05-06, which promoted TASK-402 to done"], "temporal_info": "2026-05-06", "quantitative_data": null, "decision_trace": "Promotion is gated on a green integration run against the shared environment.", "approved_by": "integrator", "approved_via": "system", "valid_from": "2026-05-06", "valid_until": null, "policy_ref": "merge gate", "provenance": "e2e-4471", "confidence_score": 0.98}}
 relation{tuple_delimiter}9c1d0e77{tuple_delimiter}weave-ui/diagram-editor{tuple_delimiter}implementation, module touched{tuple_delimiter}Commit 9c1d0e77 changes the parser in the diagram editor module.{tuple_delimiter}{{"supporting_sentences": ["commit 9c1d0e77 widened the accepted header forms after a diagram written as \"graph TD\" failed to open"], "temporal_info": null, "quantitative_data": null, "decision_trace": "A valid mermaid form the viewer rendered was rejected by the editor.", "approved_by": null, "approved_via": null, "valid_from": null, "valid_until": null, "policy_ref": null, "provenance": "commit 9c1d0e77", "confidence_score": 0.94}}
 {completion_delimiter}
