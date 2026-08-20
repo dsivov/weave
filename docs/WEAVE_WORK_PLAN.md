@@ -1212,7 +1212,24 @@ already installed (R10).
 against D-052's pair whichever way it lands; and closed-world mode no longer rejects a correctly-typed
 node.
 
-### Gate run 2026-08-20 — **M15 PASSES, 8 of 8**, criterion 1 as the pair (D-052)
+### Gate run 2026-08-20 — **M15 passes 8 of 8 *on the quadruple path*** — corrected below (W54)
+
+> **Correction, added the same day the verdict was published.** Every number in the table below was
+> measured with `WEAVE_ENABLE_QUADRUPLE=true`. **Weave has two extraction engines**, and A4 v6 says a
+> **PostgreSQL** deployment runs the other one. On that path the same build measured **0% answerable**
+> — W54 — because P15 wired its resolver into one of the two callers.
+>
+> **So the verdict was true of the noun I measured and not of the noun the criterion names.** The
+> criterion says *"every extracted node's type"*; my evidence was *"every node extracted in quadruple
+> mode"*. That is the project's most reliable defect generator, and this time it was mine, in the gate
+> I signed off. The table stands **for the quadruple path**; the second path is verified separately
+> below and was failing when I wrote it.
+>
+> **Now verified on both.** Live PostgreSQL (`PGGraphStorage` + `PGVectorStorage`, one real document,
+> post-fix): **32 nodes, 0 off-vocabulary, 23 ontology-typed — conformance 100%, answerability 71.9%**,
+> clearing D-052's floors of 75% and 40%. A 3-run 32-document figure is in flight.
+
+### The table below measured the **quadruple** path only
 
 | # | criterion | verdict |
 |---|---|---|
@@ -1234,3 +1251,7 @@ two-document workspace and the milestone would have passed at the very moment an
 The pair is what makes 86.6% a better result than 99.0%.
 
 | W51 | **Correction to W50: the second example block is not dead code — it is the block the PostgreSQL path uses, and nothing has ever measured it.** I recorded `entity_extraction_examples` as inert after verifying it never reaches the model; that is true **in quadruple mode**, which is every measurement taken. The developer checked the dispatch rather than accepting it: `WeaveGraph` (quadruple) uses `cg_entity_extraction_examples`, `WeaveEngine` (non-quadruple) uses `entity_extraction_examples` — and **A4 says PostgreSQL cannot run quadruple mode** (D-039, refused at startup), so **a PostgreSQL deployment reaches exactly the block we have never measured.** Applying arm C's treatment there was therefore not consistency-for-its-own-sake; it is the only treatment that block has had. **The harness cannot reach it** — it sets `use_quadruple = True` — so this is *unmeasured because the instrument cannot see it*, which is a different and worse thing than unused. | Developer, checking my claim, 2026-08-20 | A `--no-quadruple` arm would measure the PostgreSQL path. Worth it before A4's last qualification is lifted in P9, because that phase is precisely about making PostgreSQL run the other mode. |
+
+| W54 | **P15 left the PostgreSQL path producing nothing answerable — the change whose entire purpose was answerable types.** `operate.py:extract_entities` (the `WeaveEngine` path) read `addon_params["entity_types"]` and **never consulted the resolver**: P15 wired the resolver into `quadruple.py` only. Worse, P15 also changed `args.entity_types` to default **empty** so the chain could govern — and an empty list is *present rather than missing*, so `.get("entity_types", DEFAULT_ENTITY_TYPES)` returned `[]` and the fallback never fired either. **The prompt offered the model no types at all**, and it did the only sensible thing: typed everything `Other`. Measured by the developer: **0 answerable of 13, `{Other: 11}`**. **A4 v6 says `WeaveEngine` is the path a PostgreSQL deployment runs**, so this was 0% answerable on the deployment the contract calls production for records. **Confirmed fixed, independently, on live PostgreSQL** — `weave-p9-pg`, `PGGraphStorage` + `PGVectorStorage`, one real document: **32 nodes, 0 off-vocabulary, 23 ontology-typed — conformance 100%, answerability 71.9%.** | Developer, running W51 before P9; verified by the manager on live PostgreSQL, 2026-08-20 | **Fixed.** And it is the P15 defect class arriving inside P15's own fix — *one implementation wired into one of two callers*, the same shape as `normalize_type` needing both a writer and a reader. **The lesson is now three-for-three: whenever this project has a pair of paths, the fix reaches one of them first.** |
+
+| W55 | **`EXTRACT_LLM_*` silently does not apply on the PostgreSQL path.** `WeaveGraph.extract` overrides `llm_model_func` with the EXTRACT role; `WeaveEngine` uses the **global** binding. So a PostgreSQL operator who sets `EXTRACT_LLM_BINDING=openai` — **exactly what our own note tells them to** — gets connection errors against `localhost:11434`, and `/health` reports `ollama` either way. **This is W45's trap on the other path, and it cost the developer a run before they recognised it.** I hit it too and worked around it by setting the *global* binding, which is the undocumented answer. | Developer, running W51; manager confirmed the workaround, 2026-08-20 | **Needs a decision, not a patch:** making the EXTRACT role apply to both engines is a change to per-role LLM routing. Until then the PostgreSQL chapter of the guide **must** say the global binding is what counts — a documented control that does nothing on half the deployments is W20's family, and we have now shipped it twice. |
