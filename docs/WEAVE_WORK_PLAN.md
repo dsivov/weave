@@ -691,7 +691,13 @@ process (**A13**), implies no fourth deployable (**A1**), and describes no inbou
 > `communities` optional so the error stops. The gate is that the pair **works**, and the refusal is
 > **deleted** rather than disabled.
 
-- [ ] **Contract check (R11)** — **A4** (this phase is the amendment being paid off), **A2** (no HTTP in the core), **A11** (no new library — `asyncpg` is already the driver).
+- [x] **Contract check (R11), done 2026-08-20 before the first task.**
+  - **A4 — this phase is the amendment being paid off, and it is the *only* constraint P9 may change.** A4 currently says PostgreSQL *"cannot yet run quadruple mode: the `decisions` and `communities` vector stores have no tables in that adapter, so the pair is refused at startup"* (D-039). Verified against the code rather than the sentence: `NAMESPACE_TABLE_MAP` (`weave_core/graph/storage/postgres.py:5397`) maps eleven namespaces and **neither vector store is among them**. The contract is accurate today. **Amend it only when the round-trip passes on live PostgreSQL** — the amendment row and `D-NN` go in *before* the refusal is deleted, never after.
+  - **A2 — held, and it is the trap in this phase.** The two new stores live in the adapter; nothing outside it may construct a database client, and no HTTP may enter `weave_core/`. The temptation is a shortcut in `weave/server/` that "just creates the tables" at startup — that would put schema knowledge outside the adapter and break the one rule that makes three storage paths one codebase (D-020).
+  - **A11 — no new library.** `asyncpg` and `pgvector` are already in the tree; anything else needs a `D-NN` first.
+  - **A7 — watch it.** If P9 is verified under `docker compose`, that deployment must pair a multi-worker server with the PostgreSQL `LISTEN/NOTIFY` bus. Verifying quadruple mode on a single worker and then shipping the compose file with more is the pairing failing quietly.
+  - **A1 — `deploy/postgres.Dockerfile` is a database the bundle runs *against*, not a fourth deployable** (D-047). P9 must not make it one by moving product code into it.
+  - **Non-goals — untouched.** No fourth backend, no new datastore; this completes an existing one.
 - [ ] `weave_core/graph/storage/postgres.py` — `WEAVE_VDB_DECISIONS` and `WEAVE_VDB_COMMUNITIES`: DDL, `NAMESPACE_TABLE_MAP` entries, `upsert` branches, query SQL, index handling, and migration entries alongside the existing three.
 - [ ] `tests/` — the two namespaces round-trip on **live PostgreSQL**, not a fixture: upsert, query by vector, delete. A test that passes on the file path proves nothing here.
 - [ ] **Delete the D-039 startup refusal** — and a test that fails if it comes back.
