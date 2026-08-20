@@ -1170,3 +1170,29 @@ Status: `accepted` · `superseded by D-NN` · `reversed`.
   `Competitor` are the parent's *domain* vocabulary, the same semantic carry-over as D-041, which the
   name-guard cannot see. **No amendment required.**
 - **Rollback:** set `WEAVE_ENTITY_TYPES` to the old list. Nothing written is stranded.
+
+## D-052 — Criterion 1 becomes a pair: conformance *and* answerability
+
+- **Date:** 2026-08-20 · **Approved by:** dsivov · **Origin:** W50, found by measuring W47(a)
+- **Decision:** the M15 gate's first criterion — *"every extracted node's type is one the ontology
+  declares, or `Other`"* — is replaced by **two numbers that must both hold**: **(1a) conformance ≥ 75%**
+  (ontology type *or* `Other`) and **(1b) answerability ≥ 40%** (ontology type only). **A change that
+  raises 1a while lowering 1b fails.**
+- **Why, measured rather than argued.** `Other` is a legal type and an **unanswerable** one: the four
+  standing questions search by ontology type and `Other` is not one. So the original wording rewarded
+  moving nodes into it. One measured arm did exactly that — re-typing the extraction examples'
+  off-ontology entities to `Other` scored **99.0%** on the old criterion while **answerability fell from
+  42.5% to 27.8%** and `Other` nodes rose from 68 to 199. **The criterion improved while the product got
+  worse.** That is not a hypothetical failure mode; it is a run.
+- **The thresholds are set below what the shipped code clears**, so the gate is a floor and not a
+  description of today: the shipped arm measures **86.6%** and **46.8%**, against floors of 75% and 40%.
+- **The method is part of the criterion**, because a gate without one is unmeasurable (W48): the
+  22-document corpus, **at least three runs a side**, invented nodes excluded from **both** numerator and
+  denominator (W47b), and a difference credited only when the ranges are **disjoint** — on two documents
+  the run-to-run spread was over twenty points and nothing resolved.
+- **Contract:** no amendment. Gates live in the DRP and work plan; `CONSTRAINTS.md` is untouched, and
+  A5, A8, A9 and A11 are unaffected by how a milestone is judged.
+- **The general lesson, recorded because it will recur:** *a conformance metric that admits a catch-all
+  value rewards moving work into the catch-all.* Any future "X% conforms to the ontology" measure needs a
+  companion that counts only what is **useful**, or the cheapest way to pass it is to make Weave answer
+  less.

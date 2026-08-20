@@ -126,8 +126,12 @@ been *demonstrated* on fewer than half the vocabulary it claims to serve.
 
 ## Acceptance criteria — the gate
 
-- [ ] Ingest a document into a workspace with the Weave ontology installed; **every extracted node's type
-      is one the ontology declares**, or `Other`.
+- [ ] **Criterion 1 is a pair, and neither half may be read alone (D-052).** Ingest into a workspace with
+      the Weave ontology installed and measure both: **(1a) conformance ≥ 75%** of extracted nodes carry a
+      type the ontology declares *or* `Other`; **(1b) answerability ≥ 40%** carry a type the ontology
+      declares, `Other` excluded. **Raising 1a while lowering 1b is a failure, not a pass** — `Other` is
+      legal and unanswerable, so the cheapest way to score 99% on the original wording was to empty the
+      answer surface into it, which is exactly what one measured attempt did.
 - [ ] **`ask_features` over a freshly ingested corpus returns nodes the pipeline extracted**, not only
       hand-created ones. *This is the criterion that matters: it is dsivov's original question.*
 - [ ] Sign a new ontology, ingest again, and the **new** types are used — **without a restart**.
