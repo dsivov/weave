@@ -1156,6 +1156,34 @@ already installed (R10).
 
 | W50 | **Criterion 1 is gameable, and completing the W47(a) fix games it — measured.** *"Every extracted node's type is one the ontology declares, or `Other`"* rewards a prompt that teaches the model to say `Other`, and `Other` is legal but **unanswerable**: the four questions search by ontology type, and `Other` is not one. Measured over **22 documents, three runs a side, gpt-4o-mini**, invented nodes excluded from both sides: **before** — ontology-or-`Other` **66.5%**, answerable **42.5%**, `concept` 37 · **the five hardcoded type lists + two JSON examples changed** — **73.3%** / **45.0%** / 13 · **+ the four delimiter examples re-typed to `Other`** — **99.0%** / **27.8%** / 0. **The last column is the trap:** criterion 1 goes almost perfect while answerability collapses by a third, because `Other` nodes rise from ~65 to ~200. Both differences are **disjoint across three runs** — every after-run beats every before-run — so this is a measured effect, not noise. The 22-document corpus is what made it visible: on two documents the spread was 20+ points and nothing was resolvable (W48); here it is 8. | Manager, measuring W47(a) (D-051), 2026-08-19 | **Resolved by arm C — shipped.** A fourth arm, proposed by the developer, changes *what the examples contain* rather than what type they carry: the off-ontology entities **leave the examples entirely**, so the block teaches **selectivity** (*an entity with no ontology home is not extracted*) instead of teaching the escape hatch. Measured the same way: **ontology-or-`Other` 86.6%** (disjoint from A across three runs) and **answerable 46.8% — the best of the four**, with `extracted_nodes` 266 vs 281, so the feared opposite failure, under-extraction, did not appear. **The hypothesis was right: the damage was demonstrating `Other`, not removing `person`/`concept`.** Carve-out now `{other}` alone, with all four arms recorded in the test. **A correction to this item's own premise:** only `cg_entity_extraction_examples` reaches the model in quadruple mode, verified out of the response cache — so arm B's collapse came from **two** `Other` demonstrations in the live block, not four, and my edits to the other block were inert. **Criterion 1 still must never be read without an answerability floor** — that part stands regardless of which arm ships. Original guidance, kept for the record: ship the partial change; do not complete it. And **criterion 1 must never be read alone** — it needs an answerability floor beside it, or the cheapest way to pass the gate is to make the product worse. The open question is whether there is a wording that removes `person`/`concept` *without* over-teaching the escape hatch; the three-`Other` demonstration in the **primary** (delimiter) examples is the suspected cause, since JSON mode is opt-in and its two demonstrations did no harm. |
 
+### P15.1 · The examples stop teaching a spelling nobody chose *(W52, opened 2026-08-20)*
+
+> **The `.lower()` is gone from the code and the output is still lower case** — because the *examples*
+> teach it. Both delimiter blocks write `rfc`, `changerequest`, `task`, `module`; the JSON block writes
+> `ArchitectureDecisionRecord`, `Insight`, `Other`. All three are ours, from P11: the parent's lower-case
+> convention was copied across without noticing it was a convention rather than a requirement. **The
+> teaching outlived the code fix aimed at exactly that behaviour** (W46).
+>
+> **Not cosmetic.** `Ontology.has_object` is `name in self.object_types` — **case-sensitive** — so in
+> closed-world mode the garbage filter rejects every lower-case node the extractor correctly produces.
+> `normalize_type` absorbs the casing for the answer surface and **not** for that. It is also the third
+> place this one defect reached, after extraction and the answer surface.
+>
+> **The file contains its own control.** The same prompt already demonstrates both conventions for the
+> same task, in blocks differing only in transport. If JSON mode returns CamelCase while delimiter mode
+> returns lower case, the examples are the cause and not the model.
+
+- [ ] **Contract check (R11)** — **A2** (the fix is prompt text in `weave_core`; no lookup, no import upward) · **A8** (the ontology's own spelling is the authority for what a type is called) · **A9** (one normalisation, both surfaces — unchanged here) · **A11** (no new library).
+- [ ] Apply the mechanical change: every entity line's type slot takes the ontology's own spelling. **Nothing else touched** — a single variable, or the measurement means nothing.
+- [ ] **Measure per D-052**: 3 runs, 22-document corpus, invented nodes excluded, against the shipped arm-C baseline **86.6% / 46.8%**.
+- [ ] **State the prediction before running it:** both of us expect **no movement** on either number, because `normalize_type` already absorbs casing. **If it moves, that is more interesting than the change being right** — it would mean something still compares raw.
+- [ ] Whatever the numbers, close the **closed-world** half: either `Ontology.has_object` compares normalised, or the examples make the question moot. Say which, and why the other was not chosen.
+- [ ] **W51 follow-on, if taken:** a `--no-quadruple` arm so the harness can reach `entity_extraction_examples` at all — the block a **PostgreSQL** deployment uses, which no measurement has ever covered.
+
+**Gate (P15.1):** the prompt teaches one spelling, it is the ontology's; the before/after is reported
+against D-052's pair whichever way it lands; and closed-world mode no longer rejects a correctly-typed
+node.
+
 ### Gate run 2026-08-20 — **M15 PASSES, 8 of 8**, criterion 1 as the pair (D-052)
 
 | # | criterion | verdict |
