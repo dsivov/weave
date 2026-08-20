@@ -134,30 +134,34 @@ def test_the_declared_types_are_the_ontology_s():
             declared.add(match.strip().lower())
 
     assert declared, "no entity types are declared by any example"
-    # The carve-out is `{person, concept, other}`, and **the shape of it was
-    # measured rather than argued** (W48, W50).
+    # **The carve-out is `{other}`, and its shape was measured, not argued** (W50).
     #
-    # `other` is here because the ontology names it as the escape hatch and an
-    # example must be free to demonstrate it. `person` and `concept` are here
-    # because **removing them from these blocks was tried, measured, and
-    # rejected** — not because they are defensible.
+    # `other` is exempt because the ontology names it as the escape hatch. Nothing
+    # else is, and three of the four ways to get there were tried on 22 documents,
+    # three runs a side, gpt-4o-mini — invented nodes excluded from both sides:
     #
-    # Over 22 documents, three runs a side, gpt-4o-mini:
+    #   A  unchanged                        ontology-or-Other 66.5%   answerable 42.5%
+    #   B1 the five hardcoded type lists    ontology-or-Other 73.3%   answerable 45.0%
+    #   B2 + `Other` demonstrated in the
+    #      examples                         ontology-or-Other 99.0%   answerable 27.8%
+    #   C  off-ontology entities removed
+    #      from the examples entirely       ontology-or-Other 86.6%   answerable 46.8%
     #
-    #   before                       ontology-or-Other 66.5%   answerable 42.5%
-    #   the five type lists only     ontology-or-Other 73.3%   answerable 45.0%
-    #   + these delimiter examples   ontology-or-Other 99.0%   answerable 27.8%
+    # **B2 is the trap and it is why this comment is long.** Re-typing the
+    # examples' off-ontology entities to `Other` scores almost perfectly on
+    # *"every type is one the ontology declares, or `Other`"* and **collapses the
+    # answer surface by a third** — `Other` nodes went 68 → 199. `Other` is legal
+    # and *unanswerable*: the four questions search by ontology type. The metric
+    # improved while the product got worse.
     #
-    # The last row is the trap. Re-typing these three to `Other` scores almost
-    # perfectly on *"every type is one the ontology declares, or Other"* and
-    # **collapses the answer surface**: `Other` nodes went from ~65 to ~200,
-    # because the primary examples had taught the model to reach for the escape
-    # hatch. `Other` is legal and unanswerable, so the criterion improved while
-    # the product got worse. Both differences were disjoint across three runs.
+    # C is what shipped. The examples no longer *demonstrate* the escape hatch,
+    # they demonstrate **selectivity** — an entity with no ontology home is not
+    # extracted. Conformance rises (disjoint across three runs), answerability is
+    # the best of the four, and `extracted_nodes` held at 266 vs 281, so the
+    # feared opposite failure — under-extraction — did not appear.
     #
-    # So this exemption is a **measured trade-off with an open question attached**
-    # (W50), not an endorsement. Anything else added here needs the same evidence.
-    unknown = declared - ontology - {"person", "concept", "other"}
+    # Anything added here needs the same evidence, on both columns.
+    unknown = declared - ontology - {"other"}
     assert not unknown, (
         f"the examples declare entity types Weave's ontology does not define: "
         f"{sorted(unknown)}. Adding to the carve-out needs a measurement, not an "

@@ -115,13 +115,11 @@ entity{tuple_delimiter}RFC-014{tuple_delimiter}rfc{tuple_delimiter}RFC-014 "Outb
 entity{tuple_delimiter}CR-009{tuple_delimiter}changerequest{tuple_delimiter}CR-009 is the change request that asked for outbound-only dev hosts, opened after the fleet could not reach two contributors' machines.
 entity{tuple_delimiter}TASK-221{tuple_delimiter}task{tuple_delimiter}TASK-221 implements the dev-host registry described by RFC-014 and was claimed by dev-3.
 entity{tuple_delimiter}weave/devhost{tuple_delimiter}module{tuple_delimiter}weave/devhost is the source module holding the dev-host registry.
-entity{tuple_delimiter}dev-3{tuple_delimiter}person{tuple_delimiter}dev-3 is the developer who claimed TASK-221.
-entity{tuple_delimiter}Outbound-only{tuple_delimiter}concept{tuple_delimiter}Outbound-only is the property that hosts initiate every connection, which is what allows a host behind NAT to participate.
+entity{tuple_delimiter}dev-3{tuple_delimiter}role{tuple_delimiter}dev-3 is the developer who claimed TASK-221.
 relation{tuple_delimiter}CR-009{tuple_delimiter}RFC-014{tuple_delimiter}request, design response{tuple_delimiter}RFC-014 is the design written in response to CR-009.
 relation{tuple_delimiter}RFC-014{tuple_delimiter}TASK-221{tuple_delimiter}specification, implementation{tuple_delimiter}TASK-221 implements the registry that RFC-014 specifies.
 relation{tuple_delimiter}TASK-221{tuple_delimiter}weave/devhost{tuple_delimiter}implementation, module touched{tuple_delimiter}TASK-221 changes the weave/devhost module.
 relation{tuple_delimiter}TASK-221{tuple_delimiter}dev-3{tuple_delimiter}assignment, ownership{tuple_delimiter}dev-3 claimed TASK-221 and is responsible for delivering it.
-relation{tuple_delimiter}RFC-014{tuple_delimiter}Outbound-only{tuple_delimiter}design property, rationale{tuple_delimiter}RFC-014 exists to preserve the outbound-only property; polling was rejected because it would make the server the initiator.
 {completion_delimiter}
 
 """,
@@ -539,15 +537,13 @@ PROMPTS["cg_entity_extraction_examples"] = [
 
 <Input Text>
 ```
-ADR-007 "PostgreSQL for multi-workspace deployments" was accepted on 2026-04-11, approved by the architect in the design review. It records that the file-based store is single-operator because its writes are whole-file read-modify-write, so a second writer loses the first one's work. Mongo and Redis were rejected: neither adds a capability the team needs, and each would be a third datastore to operate. The decision holds until the storage ports change.
+CR-011 asked for deployments serving more than one workspace. ADR-007 "PostgreSQL for multi-workspace deployments" was accepted on 2026-04-11 in response, approved by the architect in the design review. It records that the file-based store is single-operator because its writes are whole-file read-modify-write, so a second writer loses the first one's work. Mongo and Redis were rejected: neither adds a capability the team needs, and each would be a third datastore to operate. The decision holds until the storage ports change.
 ```
 
 <Output>
 entity{tuple_delimiter}ADR-007{tuple_delimiter}architecturedecisionrecord{tuple_delimiter}ADR-007 records the decision to use PostgreSQL for multi-workspace deployments, with the file-based store limited to a single operator.
-entity{tuple_delimiter}File-based store{tuple_delimiter}concept{tuple_delimiter}The file-based store writes whole files read-modify-write, which makes it safe for one operator and unsafe for concurrent writers.
-entity{tuple_delimiter}PostgreSQL{tuple_delimiter}concept{tuple_delimiter}PostgreSQL is the storage path chosen for deployments with more than one workspace.
-relation{tuple_delimiter}ADR-007{tuple_delimiter}PostgreSQL{tuple_delimiter}decision, chosen option{tuple_delimiter}ADR-007 selects PostgreSQL as the multi-workspace storage path.{tuple_delimiter}{{"supporting_sentences": ["ADR-007 was accepted on 2026-04-11, approved by the architect in the design review"], "temporal_info": "Accepted 2026-04-11; holds until the storage ports change", "quantitative_data": null, "decision_trace": "Chosen because the file-based store is single-operator (whole-file read-modify-write); Mongo and Redis rejected as a third datastore adding no needed capability.", "approved_by": "architect", "approved_via": "design_review", "valid_from": "2026-04-11", "valid_until": null, "policy_ref": "storage ports", "provenance": "ADR-007", "confidence_score": 0.97}}
-relation{tuple_delimiter}ADR-007{tuple_delimiter}File-based store{tuple_delimiter}constraint, rejected for this use{tuple_delimiter}ADR-007 limits the file-based store to single-operator use because concurrent writers lose each other's work.{tuple_delimiter}{{"supporting_sentences": ["the file-based store is single-operator because its writes are whole-file read-modify-write"], "temporal_info": null, "quantitative_data": null, "decision_trace": "Concurrency limitation is the reason it is not the multi-workspace path.", "approved_by": "architect", "approved_via": "design_review", "valid_from": null, "valid_until": null, "policy_ref": null, "provenance": "ADR-007", "confidence_score": 0.93}}
+entity{tuple_delimiter}CR-011{tuple_delimiter}changerequest{tuple_delimiter}CR-011 is the change request asking for deployments that serve more than one workspace, which ADR-007 answers.
+relation{tuple_delimiter}CR-011{tuple_delimiter}ADR-007{tuple_delimiter}request, decision response{tuple_delimiter}ADR-007 is the decision recorded in response to CR-011, selecting PostgreSQL as the multi-workspace storage path.{tuple_delimiter}{{"supporting_sentences": ["ADR-007 was accepted on 2026-04-11, approved by the architect in the design review"], "temporal_info": "Accepted 2026-04-11; holds until the storage ports change", "quantitative_data": null, "decision_trace": "Chosen because the file-based store is single-operator (whole-file read-modify-write); Mongo and Redis rejected as a third datastore adding no needed capability.", "approved_by": "architect", "approved_via": "design_review", "valid_from": "2026-04-11", "valid_until": null, "policy_ref": "storage ports", "provenance": "ADR-007", "confidence_score": 0.97}}
 {completion_delimiter}
 
 """,
