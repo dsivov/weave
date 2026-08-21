@@ -954,7 +954,27 @@ async def acreate_entity(
                     f"synthesized a fallback ({description!r}). Provide a real description "
                     f"— it is the payload embedded for retrieval."
                 )
+            # **Everything the caller sent, then the fields this function owns**
+            # (W44).
+            #
+            # This was a hand-written six-key dict, so every other key was
+            # dropped **without a warning** — including all four `locator_*`
+            # fields. A5 says an artifact references its source by
+            # `repo · path · rev`; created through this path it referenced
+            # nothing, so every `Feature`, `ChangeRequest` and
+            # `ArchitectureDecisionRecord` ever demoed had no locator, and
+            # `check_locators` had nothing to resolve even when pointed at the
+            # right directory.
+            #
+            # `aedit_entity` has always merged (`{**node_data, **updated_data}`),
+            # which is what hid it: anything written twice looked correct.
+            #
+            # Carried through rather than filtered against the ontology, because
+            # this layer cannot see the ontology (A2) — and of the three options,
+            # dropping silently is the only one that had to go.
             node_data = {
+                **{k: v for k, v in (entity_data or {}).items()
+                   if k not in ("entity_name",)},
                 "entity_id": entity_name,
                 "entity_type": entity_type,
                 "description": description,

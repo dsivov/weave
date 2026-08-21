@@ -64,6 +64,10 @@ from weave_core.constants import (
     DEFAULT_FILE_PATH_MORE_PLACEHOLDER,
     DEFAULT_MAX_FILE_PATHS,
     DEFAULT_ENTITY_NAME_MAX_LENGTH,
+    INVENTED_MARKER,
+    INVENTED_RELATIONSHIP_ENDPOINT,
+    OTHER_ENTITY_TYPE,
+    PLACEHOLDER_ENTITY_TYPES,
 )
 from weave_core.store.locks import get_storage_keyed_lock
 import time
@@ -415,8 +419,18 @@ async def _handle_single_entity_extraction(
             )
             return None
 
-        # Remove spaces and convert to lowercase
-        entity_type = entity_type.replace(" ", "").lower()
+        # **Spaces go; the casing stays** (W46).
+        #
+        # This lower-cased, which is why nothing the extractor produced was ever
+        # answerable: the prompt hands the model the ontology's spellings —
+        # `ChangeRequest`, `PRD` — and this destroyed them on the way in, while
+        # every reader matches those spellings on equality. Keeping what the
+        # model returned means a node is stored under the name the ontology
+        # actually declares.
+        #
+        # Comparisons go through `normalize_type` regardless, so a graph written
+        # before this still answers.
+        entity_type = entity_type.replace(" ", "")
 
         # Process entity description with same cleaning pipeline
         entity_description = sanitize_and_normalize_extracted_text(record_attributes[3])
@@ -1293,12 +1307,15 @@ async def _rebuild_single_entity(
     description_list = list(dict.fromkeys(descriptions))
     entity_types = list(dict.fromkeys(entity_types))
 
-    # Get most common entity type
-    entity_type = (
-        max(set(entity_types), key=entity_types.count)
-        if entity_types
-        else current_entity.get("entity_type", "UNKNOWN")
-    )
+    # **A placeholder is the weakest possible input** (W47).
+    #
+    # `WEAVE_ENTITY_TYPES` was extracted as `concept` in one chunk and conjured
+    # as a bare endpoint in another, and whichever write landed second decided
+    # the type — a real extracted type losing to a placeholder is the wrong way
+    # round, and it is the only part of W47 that is a correctness bug rather
+    # than a naming choice. Filtered rather than ordered, so the guarantee does
+    # not depend on which chunk merges first.
+    entity_type = _resolve_entity_type(entity_types, current_entity.get("entity_type"))
 
     # Generate final description from entities or fallback to current
     if description_list:
@@ -1513,7 +1530,15 @@ async def _rebuild_single_relationship(
                 "entity_id": node_id,
                 "source_id": node_source_id,
                 "description": node_description,
-                "entity_type": "UNKNOWN",
+                # **Invented, not extracted** (W47). A relationship named this
+                # entity and no entity record described it, so the node is
+                # conjured to keep the edge attached. `Other` is the ontology's
+                # declared answer to "none of these apply", so it is legal
+                # rather than off-schema — and the marker records that we made
+                # it up, because once it is typed `Other` nothing else can tell
+                # it from the model's own `Other`.
+                "entity_type": OTHER_ENTITY_TYPE,
+                INVENTED_MARKER: INVENTED_RELATIONSHIP_ENDPOINT,
                 "file_path": node_file_path,
                 "created_at": node_created_at,
                 "truncate": "",
@@ -1617,6 +1642,46 @@ async def _rebuild_single_relationship(
         async with pipeline_status_lock:
             pipeline_status["latest_message"] = status_message
             pipeline_status["history_messages"].append(status_message)
+
+
+def _resolve_entity_type(candidates, existing) -> str:
+    """Which type a merged node ends up with (W47).
+
+    **A placeholder is the weakest possible input.** `WEAVE_ENTITY_TYPES` was
+    extracted as `concept` in one chunk and conjured as a bare endpoint in
+    another, and whichever write landed second decided the type — a real
+    extracted type losing to a placeholder is the wrong way round, and it is the
+    only part of W47 that is a correctness bug rather than a naming choice.
+
+    Two rules, and the second is why this is a function rather than three lines
+    inline: filtering the vote is not enough on its own, because the vote can be
+    empty and fall through to whatever the node already carried. Both had to be
+    tested, and a control showed the second was not.
+
+    NOTE: callers de-duplicate `candidates`, so "most common" counts every
+    distinct type exactly once and the winner among several is arbitrary. That
+    predates this change and is deliberately left alone — restoring a real
+    majority vote changes merge behaviour for every multi-typed node.
+    """
+    asserted = [t for t in candidates if not _is_placeholder_type(t)]
+    pool = asserted or list(candidates)
+    chosen = (max(set(pool), key=pool.count) if pool
+              else (existing or OTHER_ENTITY_TYPE))
+    if _is_placeholder_type(chosen) and existing and not _is_placeholder_type(existing):
+        return existing
+    return chosen
+
+
+def _is_placeholder_type(entity_type: str) -> bool:
+    """Is this a type the pipeline invented rather than something asserting one?
+
+    Covers the two inherited spellings (`UNKNOWN`, `ENTITY`) so graphs written
+    before W47 are handled, and `Other` — which is ontology-legal but says only
+    that nothing applied, so it must not beat a type somebody actually chose.
+    """
+    value = str(entity_type or "").strip().casefold()
+    return value in {t.casefold() for t in PLACEHOLDER_ENTITY_TYPES} or \
+        value == OTHER_ENTITY_TYPE.casefold()
 
 
 async def _merge_nodes_then_upsert(
@@ -2284,7 +2349,15 @@ async def _merge_edges_then_upsert(
                 "entity_id": need_insert_id,
                 "source_id": source_id,
                 "description": description,
-                "entity_type": "UNKNOWN",
+                # **Invented, not extracted** (W47). A relationship named this
+                # entity and no entity record described it, so the node is
+                # conjured to keep the edge attached. `Other` is the ontology's
+                # declared answer to "none of these apply", so it is legal
+                # rather than off-schema — and the marker records that we made
+                # it up, because once it is typed `Other` nothing else can tell
+                # it from the model's own `Other`.
+                "entity_type": OTHER_ENTITY_TYPE,
+                INVENTED_MARKER: INVENTED_RELATIONSHIP_ENDPOINT,
                 "file_path": file_path,
                 "created_at": node_created_at,
                 "truncate": "",
@@ -2901,9 +2974,24 @@ async def extract_entities(
     ordered_chunks = list(chunks.items())
     # add language and example number params to prompt
     language = global_config["addon_params"].get("language", DEFAULT_SUMMARY_LANGUAGE)
-    entity_types = global_config["addon_params"].get(
-        "entity_types", DEFAULT_ENTITY_TYPES
-    )
+    # **The same resolver the quadruple path uses** (W51, P15, A8).
+    #
+    # P15 routed the vocabulary through a resolver read per run — and wired it
+    # into `quadruple.py` only. This path kept reading the static
+    # `addon_params["entity_types"]`, which P15 *also* changed to default empty
+    # so the chain could govern. An empty list is present rather than missing,
+    # so the `DEFAULT_ENTITY_TYPES` fallback never fired either: the prompt
+    # offered the model **no types at all** and it typed everything `Other`.
+    #
+    # `WeaveEngine` is the path A4 v6 says a PostgreSQL deployment runs, so this
+    # was 0% answerable on the deployment the contract calls production for
+    # records — a defect introduced by the change meant to fix exactly this.
+    resolver = global_config["addon_params"].get("entity_types_resolver")
+    entity_types = []
+    if callable(resolver):
+        entity_types = resolver(global_config.get("workspace") or "") or []
+    if not entity_types:
+        entity_types = global_config["addon_params"].get("entity_types") or DEFAULT_ENTITY_TYPES
 
     examples = "\n".join(PROMPTS["entity_extraction_examples"])
 

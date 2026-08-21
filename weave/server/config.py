@@ -37,7 +37,6 @@ from weave_core.constants import (
     DEFAULT_EMBEDDING_FUNC_MAX_ASYNC,
     DEFAULT_EMBEDDING_BATCH_NUM,
     DEFAULT_RERANK_BINDING,
-    DEFAULT_ENTITY_TYPES,
 )
 
 # use the .env that is inside the current folder
@@ -278,6 +277,17 @@ def parse_args() -> argparse.Namespace:
 
     # Server workers configuration
     parser.add_argument(
+        "--entity-types",
+        type=str,
+        default="",
+        help=("Comma-separated entity types the extractor looks for. Leave unset "
+              "to use the workspace's installed ontology, falling back to the "
+              "shipped preset — setting this OVERRIDES both, for every workspace. "
+              "Extending the vocabulary for a domain is legitimate; the types "
+              "must still be ones the answer surface queries, or the nodes "
+              "produced will not be reachable (P15, D-050)."),
+    )
+    parser.add_argument(
         "--workers",
         type=int,
         default=get_env_value("WEAVE_WORKERS", DEFAULT_WORKERS, int),
@@ -473,7 +483,33 @@ def parse_args() -> argparse.Namespace:
     # Add environment variables that were previously read directly
     args.cors_origins = get_env_value("WEAVE_CORS_ORIGINS", "*")
     args.summary_language = get_env_value("WEAVE_SUMMARY_LANGUAGE", DEFAULT_SUMMARY_LANGUAGE)
-    args.entity_types = get_env_value("WEAVE_ENTITY_TYPES", DEFAULT_ENTITY_TYPES, list)
+    # **Empty means "no explicit override"**, not "no types" (P15, D-050).
+    #
+    # This defaulted to `DEFAULT_ENTITY_TYPES` — the parent engine's fourteen,
+    # which share *nothing* with Weave's ontology, so everything the pipeline
+    # extracted was typed in a vocabulary the answer surface never looks for.
+    # The list now comes from the workspace's installed ontology at extraction
+    # time, with the shipped preset as the floor; `WEAVE_ENTITY_TYPES` still
+    # wins when an operator sets it, because an override the ontology could
+    # outvote is not an override.
+    # **The flag has to win, or it is documentation for something that does
+    # nothing.** This line unconditionally overwrote whatever `--entity-types`
+    # parsed, so the option appeared in `--help` and was discarded — the same
+    # shape as W20's refusal advice naming variables that were literals in the
+    # compose file. Caught by running the flag rather than by reading it.
+    # **One parser for one variable.** `get_env_value(..., list)` wants JSON, so
+    # `WEAVE_ENTITY_TYPES=PRD,RFC` failed with a warning and fell back to the
+    # default — while the resolver at the head of the chain read the same
+    # variable as a comma-separated list. Two readings of one setting, which is
+    # this phase's own theme in miniature; D-050's rollback instruction ("set
+    # WEAVE_ENTITY_TYPES to the old list") would have been a trap.
+    from weave.model.entity_types import explicit_entity_types
+
+    args.entity_types = (
+        [part.strip() for part in str(args.entity_types).split(",") if part.strip()]
+        if getattr(args, "entity_types", "")
+        else explicit_entity_types()
+    )
     args.whitelist_paths = get_env_value("WEAVE_WHITELIST_PATHS", "/health,/api/*")
 
     # For JWT Auth.

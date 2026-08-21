@@ -43,6 +43,30 @@ from weave_core.constants import (
     SOURCE_IDS_LIMIT_METHOD_FIFO,
 )
 
+def normalize_type(value: str) -> str:
+    """The comparison key for an entity type (W46).
+
+    **One place, and it compares rather than renames.** Extraction used to do
+    `entity_type.replace(" ", "").lower()` — inherited from an engine where
+    nothing ever matched on type — while `weave/model/answers.py` compares
+    capitalised ontology names on equality. So a graph could hold
+    `changerequest`, `prd`, `task` and `feature` and every one of the four
+    standing questions returned **zero**. The `Role` row showed it without
+    argument: four capitalised (written by bootstrap) and one lower-case
+    (extracted), in one graph, as two different types.
+
+    Every layer above passed. The resolver returned the ontology's list per run,
+    a re-signed ontology changed it without a restart, the prompt carried it and
+    the model obeyed it — and the product answered nothing. Only a real model run
+    could surface that.
+
+    A **key**, deliberately, not a canonical spelling: canonicalising would need
+    the ontology, which lives above `weave_core` (A2), and a key also lets a
+    graph written before this fix answer without being re-extracted.
+    """
+    return "".join(str(value or "").split()).casefold()
+
+
 # Precompile regex pattern for JSON sanitization (module-level, compiled once)
 _SURROGATE_PATTERN = re.compile(r"[\uD800-\uDFFF\uFFFE\uFFFF]")
 

@@ -26,6 +26,8 @@ from __future__ import annotations
 from collections import deque
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Set
 
+from weave_core.utils import normalize_type
+
 from weave.model.locator import Locator, LocatorError
 
 #: What `/ask/changes` may return: the delivery chain from a request to the run
@@ -52,6 +54,12 @@ MAX_NODES = 2000
 CONTENT_FIELDS = (
     "title", "status", "summary", "verdict", "statement", "sha",
     "reviewer", "confidence", "text", "asked_by", "url", "path",
+    # **`description` is what the pipeline writes** (W39, P15). Every extracted
+    # node carries one — 947 of 975 in the demo workspace — and it was the one
+    # content field the answer never passed through, so an extracted node
+    # arrived at the UI with nothing to show and rendered as a bare id. The
+    # hand-kept list again: this one against *what nodes actually carry*.
+    "description",
 )
 
 #: The fields that can serve as a node's human-readable name, most specific
@@ -61,7 +69,9 @@ CONTENT_FIELDS = (
 #: Kept beside `CONTENT_FIELDS` on purpose: they used to live in two files and
 #: overlapped on one word. `tests/test_answer_labels.py` asserts that every
 #: content field is either reachable from here or declared as not being a name.
-LABEL_FIELDS = ("title", "statement", "summary", "text")
+LABEL_FIELDS = ("title", "statement", "summary", "text", "description")
+#: `description` sits last on purpose: it is the extractor's prose, so it names
+#: a node only when nothing an author wrote does.
 
 
 def _node_view(node_id: str, node: Dict[str, Any]) -> Dict[str, Any]:
@@ -124,7 +134,7 @@ async def _walk(
     *about* a node includes that node in its answer even when the node is not
     one of the types the answer is otherwise made of.
     """
-    admitted: Set[str] = set(admitted_types)
+    admitted: Set[str] = {normalize_type(t) for t in admitted_types}
     seen: Set[str] = set()
     out: List[Dict[str, Any]] = []
     queue: deque[tuple[str, bool]] = deque((s, True) for s in seeds if s)
@@ -138,7 +148,7 @@ async def _walk(
         node = await graph.get_node(node_id)
         if node is None:
             continue
-        if not is_seed and (node.get("entity_type") or "") not in admitted:
+        if not is_seed and normalize_type(node.get("entity_type")) not in admitted:
             continue
 
         out.append(_node_view(node_id, node))
@@ -170,12 +180,17 @@ async def _seeds_of_type(graph, types: Iterable[str]) -> List[str]:
     Uses the storage's own label listing where it has one, which every carried
     adapter does, rather than a scan the port does not offer.
     """
-    wanted = set(types)
+    # **Compared normalised** (W46). Extraction stored `changerequest` where the
+    # ontology declares `ChangeRequest`, so equality against the declared
+    # spelling matched nothing and all four questions answered zero from a full
+    # graph. Normalising here rather than only fixing the writer means a
+    # workspace extracted before that fix answers too, without re-ingesting.
+    wanted = {normalize_type(t) for t in types}
     labels = await graph.get_all_labels()
     seeds: List[str] = []
     for label in labels or []:
         node = await graph.get_node(label)
-        if node and (node.get("entity_type") or "") in wanted:
+        if node and normalize_type(node.get("entity_type")) in wanted:
             seeds.append(label)
     return seeds
 
@@ -229,7 +244,8 @@ async def ask_learnings(graph, *, scope: Optional[str] = None) -> Dict[str, Any]
     if scope:
         # The anchor is admitted as a seed but is not itself a learning; the
         # answer to "what did we learn about X" should not contain X.
-        nodes = [n for n in nodes if n["type"] in LEARNING_TYPES]
+        wanted = {normalize_type(t) for t in LEARNING_TYPES}
+        nodes = [n for n in nodes if normalize_type(n["type"]) in wanted]
     return _answer("learnings", nodes, scope=scope or None)
 
 

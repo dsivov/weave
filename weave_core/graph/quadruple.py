@@ -422,10 +422,24 @@ async def extract_entities_with_context(
 
     ordered_chunks = list(chunks.items())
     language = global_config["addon_params"].get("language", DEFAULT_SUMMARY_LANGUAGE)
-    entity_types = global_config["addon_params"].get(
-        "entity_types",
-        ["Person", "Organization", "Location", "Event", "Concept", "Artifact"],
-    )
+    # **Resolved now, not when the engine was built** (P15, D-050, A8).
+    #
+    # The ontology is signed, versioned governance that changes without a
+    # restart. A list captured at construction is stale from the moment somebody
+    # signs a new version — and it passes every test, because a test builds an
+    # engine and extracts in the same breath. So the server installs a
+    # *resolver* and this calls it per run; the static list stays as the
+    # fallback for a library caller that installed none.
+    resolver = global_config["addon_params"].get("entity_types_resolver")
+    if callable(resolver):
+        entity_types = resolver(global_config.get("workspace") or "") or []
+    else:
+        entity_types = []
+    if not entity_types:
+        entity_types = global_config["addon_params"].get(
+            "entity_types",
+            ["Person", "Organization", "Location", "Event", "Concept", "Artifact"],
+        )
 
     # Build Weave example string
     cg_examples_list = PROMPTS.get("cg_entity_extraction_examples", [])
@@ -841,10 +855,22 @@ class WeaveGraph(WeaveEngine):
             "true", "1", "yes", "on")
 
     def _node_filter(self):
-        """Build (and cache) the workspace NodeFilter: its saved ontology if any,
-        else DEFAULT_ENTITY_TYPES (D11); open-world unless WEAVE_GARBAGE_CLOSED_WORLD=true (D10)."""
-        if self._node_filter_cache is not None:
-            return self._node_filter_cache
+        """The workspace NodeFilter: its saved ontology if any, else the types
+        the resolver supplies; open-world unless WEAVE_GARBAGE_CLOSED_WORLD=true (D10).
+
+        **Built per run, not cached** (P15, A8). It was cached on the instance,
+        so a re-signed ontology never reached the filter even once extraction
+        started honouring it — the same staleness this phase exists to remove,
+        surviving one layer down. It is constructed once per ingest, so the cost
+        is one ontology load per run.
+
+        **And the fallback is no longer `DEFAULT_ENTITY_TYPES`.** With extraction
+        producing Weave types and the filter still holding the parent's
+        fourteen, closed-world mode would have quarantined every node the
+        pipeline correctly produced. The types come from the resolver the
+        product installs — `weave_core` asks for them rather than importing the
+        product layer to find out (A2).
+        """
         import os
         from weave_core.knowledge.quality import NodeFilter
         try:
@@ -856,8 +882,11 @@ class WeaveGraph(WeaveEngine):
             onto = None
         closed = os.getenv("WEAVE_GARBAGE_CLOSED_WORLD", "false").strip().lower() in (
             "true", "1", "yes", "on")
-        self._node_filter_cache = NodeFilter(onto, closed_world=closed)
-        return self._node_filter_cache
+        fallback = None
+        resolver = (self.addon_params or {}).get("entity_types_resolver")
+        if onto is None and callable(resolver):
+            fallback = resolver(self.workspace or "") or None
+        return NodeFilter(onto, closed_world=closed, fallback_types=fallback)
 
     def _filter_extracted(self, chunk_results: list) -> list:
         """Quarantine low-quality / off-schema nodes across chunk results, dropping
@@ -1292,11 +1321,23 @@ class WeaveGraph(WeaveEngine):
             for name in (src, tgt):
                 if await self.chunk_entity_relation_graph.get_node(name) is not None:
                     continue
+                # **Invented, not extracted** (W47). These are governance
+                # ledger endpoints — `ontology:ontology`, `rbac:rbac`, a
+                # bootstrap principal — written by code that never went near the
+                # extractor. `ENTITY` was a word the ontology does not declare,
+                # so they were off-schema as well as untyped; `Other` is the
+                # ontology's own answer for "none of these apply", and the
+                # marker records that the pipeline conjured the node.
+                from weave_core.constants import (
+                    INVENTED_DECISION_ENDPOINT, INVENTED_MARKER, OTHER_ENTITY_TYPE,
+                )
+
                 await self.chunk_entity_relation_graph.upsert_node(
                     name,
                     {
                         "entity_id": name,
-                        "entity_type": "ENTITY",
+                        "entity_type": OTHER_ENTITY_TYPE,
+                        INVENTED_MARKER: INVENTED_DECISION_ENDPOINT,
                         "source_id": "emit_decision_trace",
                         "description": name,
                         "file_path": provenance,

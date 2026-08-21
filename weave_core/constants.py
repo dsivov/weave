@@ -10,6 +10,41 @@ consistency and makes maintenance easier.
 DEFAULT_WOKERS = 2
 DEFAULT_MAX_GRAPH_NODES = 1000
 
+#: The two type names the **pipeline** writes when nothing told it a type (W47).
+#:
+#: Neither is a model's judgement and neither is an ontology type; both mean *a
+#: node had to exist because something referred to it*:
+#:
+#: * ``UNKNOWN`` — `operate.py` creates an endpoint when a *relation* names an
+#:   entity the extractor never emitted an entity record for. Without it the
+#:   edge would dangle.
+#: * ``ENTITY`` — `emit_decision_trace` creates a missing endpoint of a
+#:   governance audit edge, for the same reason.
+#:
+#: They are declared together because they are one condition under two
+#: inherited spellings, and because a measurement that lumps them in with a
+#: model returning ``concept`` is answering two questions with one number: *what
+#: did the model get wrong* and *what did we invent*. The second is ours and is
+#: far cheaper to trace.
+PLACEHOLDER_ENTITY_TYPES = frozenset({"UNKNOWN", "ENTITY"})
+
+#: The ontology's own declared answer to *"none of these apply"*. It is in the
+#: extraction prompt, so a node typed this way is legal rather than off-schema —
+#: which is why an invented endpoint is typed `Other` rather than a word the
+#: workspace never declared (W47).
+OTHER_ENTITY_TYPE = "Other"
+
+#: Marks a node the pipeline **invented** rather than extracted, and why.
+#:
+#: Typing invented endpoints `Other` makes them ontology-legal and destroys the
+#: only thing that told them apart from the model's own `Other` — so the reason
+#: is recorded explicitly. Without it a measurement cannot separate *what
+#: extraction produced* from *what we had to conjure to keep an edge attached*,
+#: which is exactly the denominator error W47 was published with.
+INVENTED_MARKER = "created_as"
+INVENTED_RELATIONSHIP_ENDPOINT = "relationship_endpoint"
+INVENTED_DECISION_ENDPOINT = "decision_endpoint"
+
 # Default values for extraction settings
 DEFAULT_SUMMARY_LANGUAGE = "English"  # Default language for document processing
 DEFAULT_MAX_GLEANING = 1
@@ -25,7 +60,14 @@ DEFAULT_SUMMARY_LENGTH_RECOMMENDED = 600
 DEFAULT_SUMMARY_CONTEXT_SIZE = 12000
 # Maximum token size allowed for entity extraction input context
 DEFAULT_MAX_EXTRACT_INPUT_TOKENS = 20480
-# Default entities to extract if WEAVE_ENTITY_TYPES is not specified in .env
+# The entity types a **library** caller extracts with when nothing else says.
+#
+# **Not the product's default any more** (P15, D-050). The Weave server resolves
+# types per extraction run: explicit `WEAVE_ENTITY_TYPES` → the workspace's
+# installed ontology → the shipped preset. This list shares no type with that
+# ontology, so anything extracted under it is invisible to the four standing
+# questions; `LossReason`, `Objection` and `Competitor` are the parent engine's
+# sales vocabulary, the same carry-over as D-041 one layer down.
 DEFAULT_ENTITY_TYPES = [
     "Person",
     "Creature",

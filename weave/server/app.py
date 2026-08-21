@@ -355,20 +355,11 @@ def assert_startup_preconditions(args):
     """
     from weave.server.auth import InsecureSigningSecret, assert_signing_secret_is_safe
     from weave.server.config import assert_bus_matches_deployment
-    from weave_core.graph.storage import (
-        QuadrupleUnsupported,
-        assert_quadruple_supported,
-    )
 
     # Every token this server issues carries the role RBAC enforces against,
         # so a known secret is not a weak default — it is an open door with a
         # sign on it (S1, A6).
     assert_signing_secret_is_safe(args.token_secret)
-
-    # Quadruple mode cannot run on every vector store yet (A4 v5, D-039).
-    assert_quadruple_supported(
-        getattr(args, "vector_storage", ""), getattr(args, "use_quadruple", False)
-    )
 
     # The event-bus adapter has to match the deployment shape (A7, D-019), and
     # the mismatch it guards is silent: on the in-process bus behind more than
@@ -393,11 +384,25 @@ def refuse_readably(args) -> None:
     the problem is the first thing read rather than the eleventh line.
     """
     from weave.server.auth import InsecureSigningSecret
-    from weave_core.graph.storage import QuadrupleUnsupported
+    from weave.server.config import BusDeploymentMismatch
 
+    # **Every refusal type a precondition raises must be in this tuple**, and
+    # missing one is invisible: the check still fires, so the server still
+    # refuses — it just refuses with a traceback instead of a sentence, which is
+    # the whole of W19 arriving through a different door.
+    #
+    # It happened. `BusDeploymentMismatch` is a `RuntimeError`, not a
+    # `ValueError`, and it was never listed; the A7 refusal reached operators as
+    # eleven frames from the day it was written. It went unnoticed because
+    # `QuadrupleUnsupported` — also a `RuntimeError` — *was* listed by name, so
+    # the one test that drove this wrapper drove the refusal that worked.
+    #
+    # `tests/test_startup_refuses_before_it_announces.py` now drives **each**
+    # precondition through here and demands a `SystemExit`, so a type left out
+    # of this tuple fails rather than degrades.
     try:
         assert_startup_preconditions(args)
-    except (InsecureSigningSecret, QuadrupleUnsupported, ValueError) as refusal:
+    except (InsecureSigningSecret, BusDeploymentMismatch, ValueError) as refusal:
         raise SystemExit(f"\nWeave will not start.\n\n{refusal}\n") from None
 
 
@@ -447,8 +452,7 @@ def _mcp_behind_auth(mcp_app, combined_auth):
     from starlette.responses import JSONResponse
 
     from weave.server.mcp import _current_principal
-    from weave.server.utils import get_principal, principal_may_access
-    from weave.server.workspace_pool import _current_workspace
+    from weave.server.utils import get_principal
 
     async def guarded(scope, receive, send):
         if scope.get("type") != "http":
@@ -472,19 +476,12 @@ def _mcp_behind_auth(mcp_app, combined_auth):
             )
             return await response(scope, receive, send)
 
+        # **The tenant boundary is not checked here.** It was, for a day —
+        # and then W34 moved the same rule into `combined_auth`, where every
+        # authenticated route gets it. Keeping a copy would leave two answers to
+        # "may this principal address this workspace", which is the shape of
+        # defect this whole sequence has been about. The call above enforces it.
         principal = get_principal(request)
-        workspace = _current_workspace.get()
-        if not principal_may_access(principal, workspace):
-            response = JSONResponse(
-                status_code=403,
-                content={"detail": (
-                    f"not a member of workspace '{workspace}'. The "
-                    "WEAVE-WORKSPACE header selects among the workspaces you "
-                    "hold; it does not grant one."
-                )},
-            )
-            return await response(scope, receive, send)
-
         reset = _current_principal.set(principal)
         try:
             return await mcp_app(scope, receive, send)
@@ -575,6 +572,19 @@ def create_app(args):
 
     # Ontology service (per-workspace typed schema). Only meaningful in quadruple mode.
     ontology_service = None
+
+    def _entity_type_resolver(workspace: str = "") -> list:
+        """What the extractor looks for in *this* workspace, asked per run.
+
+        A closure rather than a value: `ontology_service` is bound a few lines
+        below, and — far more importantly — the installed ontology changes
+        without a restart. Late binding here is not a convenience, it is the
+        property A8 requires (P15, D-050).
+        """
+        from weave.model.entity_types import make_resolver
+
+        return make_resolver(ontology_service)(workspace)
+
     if getattr(args, "use_quadruple", False):
         try:
             from weave_core.governance.ontology import OntologyService, JsonOntologyStore
@@ -1501,7 +1511,11 @@ def create_app(args):
         max_graph_nodes=args.max_graph_nodes,
         addon_params={
             "language": args.summary_language,
+            # The static entry stays for library callers and as the last word
+            # if the resolver yields nothing; the resolver is what the extraction
+            # path actually asks, once per run (P15, A8).
             "entity_types": args.entity_types,
+            "entity_types_resolver": _entity_type_resolver,
         },
     )
 
@@ -1784,6 +1798,12 @@ def create_app(args):
     # Set here rather than where the bus is built: `app` does not exist that
     # early in create_app.
     app.state.event_bus = event_bus
+    # Published so a measuring script can borrow the **product's** engine rather
+    # than construct its own (W37). `scripts/measure_extraction.py` built a bare
+    # `WeaveGraph(working_dir=…)` with no embedding function and died before it
+    # read a document — and a harness that wires its own backend would produce
+    # numbers that are not comparable to anything the server produces.
+    app.state.workspace_pool = workspace_pool
     app.state.presence = presence_registry
 
     def _is_member(username: str, workspace: str) -> bool:

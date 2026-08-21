@@ -39,6 +39,7 @@ from typing import Any, Dict, List, Optional
 
 sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parent.parent))
 
+from weave.server import resolve_working_dir
 from weave.model.locator import Locator, LocatorError  # noqa: E402
 from weave.model.project_layout import (  # noqa: E402
     JsonProjectLayoutStore,
@@ -47,10 +48,36 @@ from weave.model.project_layout import (  # noqa: E402
 )
 
 #: The node types A5 calls artifacts — the ones expected to carry a locator.
-ARTIFACT_TYPES = {
-    "PRD", "RFC", "ArchitectureDecisionRecord", "Diagram", "ChangeRequest",
-    "Task", "Feature", "Review", "Insight", "Commit",
-}
+#:
+#: **Read from the ontology, not kept by hand** (W42, P15). This was a literal
+#: set of ten against an ontology of eighteen, so eight types were invisible to
+#: the rot check: a `Module`, an `Environment` or a `Question` with a broken
+#: locator was not merely passing, it was never looked at. Third hand-written
+#: list in this phase, after `DEFAULT_ENTITY_TYPES` and `CONTENT_FIELDS`.
+#:
+#: `PullRequest` and `Worker` genuinely hold no document, so the ontology is
+#: filtered to the types that declare a locator property — the ontology already
+#: says which those are, and saying it twice is how the two drift.
+def artifact_types() -> set:
+    """Every ontology object type that declares a locator."""
+    try:
+        from weave.team import preset
+
+        ontology = preset.load_part("ontology") or {}
+        named = {
+            o["name"] for o in ontology.get("object_types", [])
+            if any(str(p.get("name", "")).startswith("locator_")
+                   for p in o.get("properties", []))
+        }
+        if named:
+            return named
+    except Exception:
+        pass
+    return {"PRD", "RFC", "ArchitectureDecisionRecord", "Diagram", "ChangeRequest",
+            "Task", "Feature", "Review", "Insight", "Commit"}
+
+
+ARTIFACT_TYPES = artifact_types()
 
 
 async def check_workspace(
@@ -196,7 +223,14 @@ def main(argv: Optional[List[str]] = None) -> int:
         description="Report artifact nodes whose locator does not resolve (R24).",
     )
     parser.add_argument("--workspace", default="default")
-    parser.add_argument("--working-dir", default="./weave_storage")
+    # **The same default the server and the CLI resolve** (W42, D-048).
+    #
+    # This read `./weave_storage` and no environment variable, so with
+    # `WEAVE_WORKING_DIR` exported it reported "resolved: 0 · dangling: 0" from a
+    # directory it had never looked in — a clean bill from an empty inspection,
+    # on CR-002's own acceptance gate. W27's split default, surviving in a script
+    # the sweep missed.
+    parser.add_argument("--working-dir", default=resolve_working_dir())
     parser.add_argument("--json", action="store_true", help="machine-readable output")
     args = parser.parse_args(argv)
     return asyncio.run(_run(args))
