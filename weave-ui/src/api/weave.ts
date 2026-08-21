@@ -1461,6 +1461,31 @@ export type WeaveTask = {
 export type WeaveWorker = {
   id: string; role: string; host: string; status: string; control: string
   goal?: string; current_task?: string | null; stale?: boolean
+  /** Which step of its loop the worker is on, and for how long (P10.5).
+   *
+   * **Diagnostic only.** The governed state of a task is its lifecycle; this is
+   * liveness, so that a supervisor watching a container can tell working from
+   * stuck. Nothing may branch on it — see `tests/test_the_step_is_diagnostic.py`.
+   */
+  step?: string; step_seconds?: number | null
+}
+
+/** `building · 4m` — the step and how long it has been on it.
+ *
+ * **The duration is the point.** "building" on its own does not answer *is it
+ * stuck?*, which is the whole reason the field exists, and `building` is the
+ * only step measured in minutes — it is the `claude -p` call.
+ *
+ * One formatter, because the board and the project panel both show this and two
+ * spellings of one fact drift.
+ */
+export const workerStep = (w: WeaveWorker): string => {
+  if (!w.step) return ''
+  const s = w.step_seconds
+  if (s === null || s === undefined) return w.step
+  if (s < 60) return `${w.step} · ${Math.floor(s)}s`
+  if (s < 3600) return `${w.step} · ${Math.floor(s / 60)}m`
+  return `${w.step} · ${Math.floor(s / 3600)}h${Math.floor((s % 3600) / 60)}m`
 }
 export type WeaveEnvironment = { id: string; name: string; url: string; status: string }
 

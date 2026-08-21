@@ -19,7 +19,7 @@ import {
 } from 'lucide-react'
 import {
   weaveProject, weaveSetProject, weaveHosts, weaveControlHost, weaveScaleHost,
-  weaveWorkers, weaveDispatch, weaveControlWorkerAction,
+  weaveWorkers, weaveDispatch, weaveControlWorkerAction, workerStep,
   type WeaveProject, type WeaveHost, type WeaveWorker
 } from '@/api/weave'
 import { useLiveStream } from '@/hooks/useLiveStream'
@@ -308,6 +308,11 @@ export default function WeaveProjectPanel({ onError }: { onError?: (m: string) =
                             ? `on ${w.current_task}`
                             : (w.goal ? `goal: ${w.goal}` : 'idle')}
                         </span>
+                        {workerStep(w) && (
+                          <span className="chip" title="which step of its loop, and for how long">
+                            {workerStep(w)}
+                          </span>
+                        )}
                         <div style={{ flex: 1 }} />
                         <button className="btn sm ghost"
                           title={w.control === 'pause'

@@ -237,7 +237,7 @@ class WeaveCoordinator:
 
     async def record_commit(
         self, workspace: str, task_id: str, *, sha: str, subject: str = "",
-        touches: Optional[List[str]] = None, by: str = "developer",
+        body: str = "", touches: Optional[List[str]] = None, by: str = "developer",
     ) -> Dict[str, Any]:
         """Record a commit the loop produced against a task. Appends to the task's
         chain (source of truth) and reflects a ``Commit`` node + ``produced``
@@ -250,12 +250,17 @@ class WeaveCoordinator:
         and not a data migration.
         """
         t = self._require(workspace, task_id)
-        entry = {"sha": sha, "subject": subject,
+        # **The body, not only the subject** (CR-002). A commit message's subject
+        # says what changed; in this project the body is where the reasoning
+        # lives, and it was being discarded at the door — so "why was this done"
+        # had to be answered from a decision trace that may not exist.
+        entry = {"sha": sha, "subject": subject, "body": body,
                  "touches": list(touches if touches is not None else t.touches)}
         t.commits.append(entry)
         self._tasks.save(workspace, t)
         await self._reflect_node(
-            workspace, sha, {"entity_type": "Commit", "subject": subject},
+            workspace, sha, {"entity_type": "Commit", "subject": subject,
+                             **({"body": body} if body else {})},
             src=task_id, relation="implemented by a commit", tgt=sha, by=by,
             why=f"commit {sha[:8]}: {subject}".strip())
         return {"task": task_id, "sha": sha, "commits": len(t.commits)}
@@ -530,6 +535,33 @@ class WeaveCoordinator:
         return {"task": task_id, "status": "done", "environment": env_id,
                 "run": green[-1].id, "decision": decision}
 
+    async def _require_published_artifacts(self, workspace: str, plan_ref: str,
+                                           specs: List[Dict[str, Any]]) -> None:
+        """Refuse a plan whose artifacts are not in the graph (CR-002).
+
+        The check is `weave.model.artifacts.unresolved_artifacts`, which both
+        this and the CLI use — A9's shape applied to a precondition, so REST and
+        MCP refuse identically because there is only one thing to refuse with.
+
+        Skipped when no graph is reachable: a workspace with Weave switched off
+        has nothing to resolve against, and refusing every plan there would make
+        a governance improvement look like an outage.
+        """
+        from weave.model.artifacts import (
+            plan_artifact_refs, refusal_message, unresolved_artifacts,
+        )
+
+        if self._resolve_rag is None:
+            return
+        graph = getattr(self._resolve_rag(workspace), "chunk_entity_relation_graph", None)
+        if graph is None:
+            return
+
+        refs = plan_artifact_refs(specs, plan_ref)
+        problems = await unresolved_artifacts(graph, refs)
+        if problems:
+            raise WeaveConflict(refusal_message(problems, plan_ref))
+
     async def _write_artifact_node(self, workspace: str, node: Dict[str, Any]) -> None:
         """Write a typed artifact node — **must-succeed** (D-043).
 
@@ -560,6 +592,15 @@ class WeaveCoordinator:
         if graph is None:
             return
         await graph.upsert_node(node["entity_id"], dict(node))
+        # **And persisted** (W41). The file-based adapters hold their data in
+        # memory until `index_done_callback`, which only the ingest pipeline
+        # calls — so a `Review` or `Insight` written here survived in a
+        # long-running server and was lost by anything shorter. D-043 made these
+        # nodes the record that `/ask/learnings` reads; a record that does not
+        # reach the disk is the same defect one layer down.
+        callback = getattr(graph, "index_done_callback", None)
+        if callback is not None:
+            await callback()
 
     async def _reflect_node(
         self, workspace: str, node_id: str, node_data: Dict[str, Any], *,
@@ -619,6 +660,18 @@ class WeaveCoordinator:
         if role not in PLANNER_ROLES:
             raise WeaveForbidden(f"role '{role}' may not publish a plan")
         specs = list(tasks or [])
+
+        # **The backstop** (CR-002, D-049). Until now a plan could be signed over
+        # a graph that did not contain the document it was derived from, and the
+        # only thing preventing it was a line in a role kit telling the session
+        # to publish first. An instruction is not a mechanism: it is followed
+        # until the day it is not, and the failure is silent — the plan signs,
+        # the tasks release, and the answer surfaces resolve to nothing.
+        #
+        # Refused *before* the decision is recorded, so a refused plan leaves no
+        # trace of having been signed.
+        await self._require_published_artifacts(workspace, plan_ref, specs)
+
         note = summary or f"{role or by} published {plan_kind} {plan_ref} ({len(specs)} tasks)"
         decision = await self.record_decision(
             workspace, src=by, tgt=plan_ref, relation="signs a plan",

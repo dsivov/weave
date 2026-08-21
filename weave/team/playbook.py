@@ -276,6 +276,46 @@ def role_kit(role: str, ws: str, server_url: str, token: str = "") -> Dict[str, 
     }
 
 
+#: The MCP tool a session calls to publish what it authored, and the artifact
+#: types each skill produces (CR-002, D-049).
+#:
+#: **One source for the kit instruction and the tool.** The generated `CLAUDE.md`
+#: used to say *"ingest each into Weave (`POST /documents/text`)"* — an
+#: instruction, followed until the day it is not, and the reason a plan could be
+#: signed over a graph missing the document it was derived from. It now names
+#: `publish_artifact`, which waits for the document to land and writes the
+#: locator that `PublishPlan` checks.
+#:
+#: `tests/test_plan_requires_its_artifacts.py` asserts that every tool named in a
+#: generated kit exists on the MCP surface — sharing a constant proves the two
+#: strings match; asserting the tool exists proves the instruction is followable.
+PUBLISH_TOOL = "publish_artifact"
+
+#: What each authoring skill produces, as an ontology object type. A role that
+#: authors nothing publishes nothing, and its kit says so rather than carrying a
+#: step it cannot take.
+SKILL_ARTIFACTS = {
+    "/write-blog": "PRD",
+    "/write-drp": "PRD",
+    "/new-project": "PRD",
+    "/write-rfc": "RFC",
+    "/write-architecture": "RFC",
+    "/make-workplan": "ChangeRequest",
+    "/milestone-review": "Review",
+}
+
+
+def publishes(role: str) -> list:
+    """The artifact types this role authors, in a stable order."""
+    r = ROLES.get(role) or {}
+    seen = []
+    for skill in r.get("skills", []):
+        kind = SKILL_ARTIFACTS.get(skill)
+        if kind and kind not in seen:
+            seen.append(kind)
+    return seen
+
+
 def claude_md(role: str, ws: str, server_url: str) -> str:
     """Render the role's operating loop as a `CLAUDE.md` a session runs verbatim."""
     r = ROLES.get(role)
@@ -293,13 +333,26 @@ def claude_md(role: str, ws: str, server_url: str) -> str:
     skills = r.get("skills", [])
     skills_section = ""
     if skills:
+        kinds = publishes(role)
+        publish_line = ""
+        if kinds:
+            publish_line = (
+                f"\n**Publish every artifact you author, as soon as you author it** — call the "
+                f"`{PUBLISH_TOOL}` MCP tool with the file's path, the artifact id and its type "
+                f"({', '.join(kinds)}). It ingests the document and points the artifact node at it "
+                f"by `repo · path · rev`, and it waits for the document to land rather than "
+                f"reporting a tracking id. **A plan that references an artifact nobody published "
+                f"is refused**, naming it — so publishing is not bookkeeping you do afterwards, "
+                f"it is part of authoring.\n")
         skills_section = (
             "\n## Methodology skills (ONBOARDING)\n"
             "Author every artifact with these skills so the docs come out house-style and "
-            "consistent, then **ingest each into Weave** (`POST /documents/text`) — the `docs/` file "
-            "and the graph are one artifact, and ingestion is what makes the project retrievable:\n"
+            "consistent:\n"
             + ", ".join(f"`{s}`" for s in skills)
-            + "\n(Skills resolve if the ONBOARDING kit is installed at the user or project level.)\n")
+            + "\n(Skills resolve if the ONBOARDING kit is installed at the user or project level. "
+            "The skills know nothing about Weave — the coupling lives here, in the kit Weave "
+            "generates, so the methodology stays usable by a team with no Weave at all.)\n"
+            + publish_line)
     diagrams_section = ""
     if any(e.endswith("/diagrams") or "/diagrams/" in e for e in r["endpoints"]):
         writes = "POST /diagrams" in r["endpoints"]

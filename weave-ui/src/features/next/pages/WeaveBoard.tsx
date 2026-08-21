@@ -3,7 +3,7 @@ import { RefreshCwIcon, PauseIcon, PlayIcon, SquareIcon, GitPullRequestIcon, Cir
 import {
   weaveStatus,
   weaveBootstrap, weaveTasks, weaveWorkers, weaveEnvironments, weaveChain,
-  weaveControlWorker, weaveAdvanceTask, weavePromote, weaveReviewAuto,
+  weaveControlWorker, weaveAdvanceTask, weavePromote, weaveReviewAuto, workerStep,
   type WeaveTask, type WeaveWorker, type WeaveEnvironment
 } from '@/api/weave'
 import { useSettingsStore } from '@/stores/settings'
@@ -204,6 +204,11 @@ export default function WeaveBoard() {
                 </div>
                 <div style={{ color: 'var(--muted)', fontSize: 12, margin: '6px 0' }}>
                   {w.status}{w.current_task ? ` · on ${w.current_task}` : ''}{w.host ? ` · ${w.host}` : ''}
+                </div>
+                <div style={{ color: 'var(--muted)', fontSize: 12, marginBottom: 6 }}>
+                  {/* `building · 4m`. Absent rather than "unknown" when a worker
+                      has not reported one — a placeholder would read as a state. */}
+                  {workerStep(w)}
                 </div>
                 <div className="btns">
                   <button className="btn" title="pause" onClick={() => act(() => weaveControlWorker(w.id, 'pause'))}><PauseIcon className="" /></button>

@@ -18,8 +18,6 @@ from mcp.server.fastmcp import FastMCP
 from mcp.server.fastmcp.exceptions import ToolError
 
 from starlette.applications import Starlette
-from starlette.requests import Request
-from starlette.responses import JSONResponse
 
 from weave_core.graph.base import QueryParam
 from weave_core.utils import logger
@@ -600,6 +598,32 @@ def create_mcp_server(
             ontology_service=ontology_service, action_service=action_service,
             rules_service=rules_service, lifecycle_service=lifecycle_service,
             rbac_service=rbac_service)
+
+    # ── Tool 12a: publish an artifact (CR-002) ────────────────────────
+
+    @mcp.tool()
+    async def publish_artifact(
+        path: str,
+        artifact_id: str,
+        artifact_type: str,
+        title: Optional[str] = None,
+        anchor: Optional[str] = None,
+    ) -> dict:
+        """Publish a document you just authored into this workspace: ingest it and point an artifact node at it by `repo · path · rev`. Call this immediately after writing or updating a PRD, RFC, ADR, ChangeRequest, Diagram or Review — a plan that references an artifact nobody published is refused. `artifact_type` is an ontology object type (PRD, RFC, ArchitectureDecisionRecord, ChangeRequest, Task, Feature, Diagram, Review). Any format the server ingests works; the extension is not the boundary. Returns the locator written, and whether anything changed — re-publishing an unchanged file writes nothing. Raises if the document does not finish processing, because a document that failed to land is not published."""
+        from weave.model.artifacts import PublishError, publish_artifact as _publish
+        from weave.server.workspace_pool import _current_workspace
+
+        _require_quadruple(rag)
+        try:
+            return await _publish(
+                rag, path=path, entity_id=artifact_id, entity_type=artifact_type,
+                title=title or "", anchor=anchor or "",
+                workspace=_current_workspace.get() or "default")
+        except PublishError as e:
+            raise ToolError(str(e))
+        except Exception as e:
+            logger.error(f"MCP publish_artifact error: {e}", exc_info=True)
+            raise ToolError(str(e))
 
     # ── Tools 13-15: shared project diagrams ──────────────────────────
 

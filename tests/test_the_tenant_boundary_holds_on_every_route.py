@@ -59,6 +59,14 @@ NOT_WORKSPACE_SCOPED = {
     # self-referential.
     "/users": "global account administration",
     "/workspaces": "lists and creates the workspaces themselves",
+    "/": "the UI root; it serves assets, not a tenant's data",
+    # **Found by this test, and worth a second look rather than an exemption.**
+    # It carries no auth dependency at all — the guide tells an operator to
+    # `curl -s …/workspace/backfill-script | python -`, so being reachable is
+    # probably deliberate. It returns a fixed script and reads no workspace, so
+    # it is not a tenant boundary question; that it is unauthenticated is a
+    # separate one, reported rather than decided here.
+    "/workspace/backfill-script": "serves a fixed script, and is public by design",
 }
 
 
@@ -112,6 +120,8 @@ def _scoped_get_paths(server) -> list[str]:
         top = "/" + path.strip("/").split("/")[0]
         if path in NOT_WORKSPACE_SCOPED or top in NOT_WORKSPACE_SCOPED:
             continue
+        if path in CANNOT_BE_DRIVEN:
+            continue
         paths.append(path)
     return sorted(paths)
 
@@ -121,6 +131,30 @@ def _drive(path: str) -> str:
     runs before the handler, so whether the object exists is irrelevant to what
     is being asserted."""
     return re.sub(r"\{[^}]+\}", "x", path)
+
+
+#: Routes that cannot be *driven* from a test client — they stream (SSE) or hold
+#: a connection open. They are still workspace-scoped and still covered: the
+#: structural test below asserts every route carries the auth dependency, which
+#: is where the boundary lives.
+#:
+#: **They cannot be driven with a timeout, either.** `TestClient` invokes the
+#: ASGI app in-process rather than over a socket, so an httpx read timeout never
+#: fires — the first two versions of this file simply hung, once for ten minutes.
+#: A bound that does not bind is worse than no bound, because it reads as one.
+CANNOT_BE_DRIVEN = {
+    "/live/stream": "server-sent events; the connection stays open by design",
+    "/live/presence": "long-polls for presence changes",
+}
+
+
+def _ask(server, path: str, token: str, workspace: str) -> int:
+    """Drive one route and return its status code."""
+    return server.get(
+        _drive(path),
+        params={"timeout": 0},   # the long-poll routes take this and return at once
+        headers={"Authorization": f"Bearer {token}", "WEAVE-WORKSPACE": workspace},
+    ).status_code
 
 
 def test_there_are_routes_to_check(server):
@@ -138,13 +172,9 @@ def test_no_scoped_route_answers_for_a_workspace_the_caller_lacks(server, carol)
     """
     offenders = []
     for path in _scoped_get_paths(server):
-        response = server.get(
-            _drive(path),
-            headers={"Authorization": f"Bearer {carol}",
-                     "WEAVE-WORKSPACE": "not_carols_workspace"},
-        )
-        if response.status_code != 403:
-            offenders.append(f"{path} → {response.status_code}")
+        status = _ask(server, path, carol, "not_carols_workspace")
+        if status != 403:
+            offenders.append(f"{path} → {status}")
     assert not offenders, (
         "these routes answered for a workspace the caller is not a member of:\n  "
         + "\n  ".join(offenders)
@@ -162,11 +192,7 @@ def test_the_same_routes_answer_for_the_workspace_she_does_hold(server, carol):
     """
     refused = []
     for path in _scoped_get_paths(server):
-        response = server.get(
-            _drive(path),
-            headers={"Authorization": f"Bearer {carol}", "WEAVE-WORKSPACE": "demo"},
-        )
-        if response.status_code == 403:
+        if _ask(server, path, carol, "demo") == 403:
             refused.append(path)
     assert not refused, (
         "these routes refused the caller in her own workspace:\n  "
@@ -178,12 +204,7 @@ def test_a_workspace_that_does_not_exist_is_not_created_for_a_non_member(server,
     """The sharpest form of the original defect: naming an unknown workspace did
     not merely read one, it **brought one into being** — the pool initialises
     whatever the header says."""
-    response = server.get(
-        "/weave/status",
-        headers={"Authorization": f"Bearer {carol}",
-                 "WEAVE-WORKSPACE": "conjured_out_of_a_header"},
-    )
-    assert response.status_code == 403
+    assert _ask(server, "/weave/status", carol, "conjured_out_of_a_header") == 403
 
 
 def test_the_exemptions_are_few_and_each_says_why(server):

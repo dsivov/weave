@@ -33,6 +33,7 @@ from typing import List, Optional
 
 from weave.cli import agents as _agents
 from weave.cli import doctor as _doctor
+from weave.cli import docs as _docs
 from weave.cli import migrate as _migrate
 from weave.cli import project as _project
 from weave.cli import roles as _roles
@@ -44,7 +45,7 @@ from weave_core.version import __version__
 #: order of the published onboarding, not alphabetical. Someone reading `--help`
 #: for the first time is trying to work out what to do next, and the list is the
 #: cheapest place to answer that.
-_GROUPS = (_server, _doctor, _users, _roles, _project, _agents, _migrate)
+_GROUPS = (_server, _doctor, _users, _roles, _project, _agents, _docs, _migrate)
 
 
 def build_parser() -> argparse.ArgumentParser:

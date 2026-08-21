@@ -87,6 +87,52 @@ def governance_services(args: argparse.Namespace) -> Dict[str, Any]:
     }
 
 
+async def product_engine(args: argparse.Namespace):
+    """The workspace's engine, **wired the way the server wires it** (W37).
+
+    Publishing a document needs the extraction and embedding backends, and a
+    locally constructed `WeaveGraph(working_dir=…)` has neither — that was W37,
+    where a harness died on `embedding_func is required for vector storage`
+    before reading a document. So this borrows the product's own pool rather
+    than assembling one: the backends come from the same `WEAVE_EMBEDDING_*` and
+    `WEAVE_LLM_*` variables the server reads, and a document published from a
+    hook is embedded exactly as one published from a session.
+
+    The caller is responsible for `await pool.shutdown()`; the pool is returned
+    alongside the engine for that reason.
+    """
+    import sys
+
+    # The argv swap covers the imports, not just the call:
+    # `weave.server.config.global_args` is a lazy proxy that parses `sys.argv`
+    # on first access, and `weave.server.utils` touches it at import time — so
+    # importing the app under the CLI's own flags makes the *server's* parser
+    # reject them.
+    argv = sys.argv
+    sys.argv = ["weave-server"]
+    try:
+        from weave.server.app import create_app
+        from weave.server.config import parse_args
+
+        server_args = parse_args()
+        server_args.working_dir = working_dir(args)
+        server_args.workers = 1
+        server_args.use_quadruple = True
+        # This process serves no requests; it needs the engine, not a signer.
+        server_args.token_secret = "weave-cli-serves-no-requests"
+        app = create_app(server_args)
+    finally:
+        sys.argv = argv
+
+    pool = getattr(app.state, "workspace_pool", None)
+    if pool is None:
+        raise SystemExit(
+            "this build does not publish app.state.workspace_pool, so the CLI "
+            "cannot borrow the product's engine")
+    workspace = getattr(args, "workspace", "default") or "default"
+    return await pool.get_rag(workspace), pool
+
+
 def studio_engine(args: argparse.Namespace):
     """The governance ledger — the only writer of a ledger-owned artifact (A8).
 
