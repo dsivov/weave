@@ -666,6 +666,8 @@ class PostgreSQLDB:
         tables_to_migrate = {
             "WEAVE_VDB_ENTITY": ["create_time", "update_time"],
             "WEAVE_VDB_RELATION": ["create_time", "update_time"],
+            "WEAVE_VDB_DECISIONS": ["create_time", "update_time"],
+            "WEAVE_VDB_COMMUNITIES": ["create_time", "update_time"],
             "WEAVE_DOC_CHUNKS": ["create_time", "update_time"],
             "WEAVE_DOC_STATUS": ["created_at", "updated_at"],
         }
@@ -1251,12 +1253,20 @@ class PostgreSQLDB:
             logger.error(f"Failed to batch check field lengths: {e}")
 
     async def check_tables(self):
-        # Vector tables that should be skipped - they are created by PGVectorStorage.setup_table()
-        # with proper embedding model and dimension suffix for data isolation
+        # Vector tables must be skipped here: they are created by
+        # PGVectorStorage.setup_table(), which is the only caller that knows the
+        # embedding dimension and the per-model table suffix.
+        #
+        # **Derived, not listed.** This was a hardcoded set of the three vector
+        # tables that existed when it was written, and adding a fourth
+        # (WEAVE_VDB_DECISIONS, P9) did not add it here — so startup ran the
+        # template verbatim and PostgreSQL rejected `VECTOR(dimension)` with
+        # `invalid input syntax for type integer: "dimension"`. The placeholder
+        # itself is the reliable signal that a table cannot be created without a
+        # dimension, so ask the DDL rather than remembering the list.
         vector_tables_to_skip = {
-            "WEAVE_VDB_CHUNKS",
-            "WEAVE_VDB_ENTITY",
-            "WEAVE_VDB_RELATION",
+            name for name, spec in TABLES.items()
+            if "VECTOR(dimension)" in spec["ddl"]
         }
 
         # First create all tables (except vector tables)
@@ -2895,6 +2905,54 @@ class PGVectorStorage(BaseVectorStorage):
 
         return upsert_sql, values
 
+    def _upsert_decisions(
+        self, item: dict[str, Any], current_time: datetime.datetime
+    ) -> tuple[str, tuple[Any, ...]]:
+        """Prepare upsert data for the decision index (P9).
+
+        `decisions_vdb` declares `meta_fields={"src_id", "tgt_id"}` and
+        `_index_decision` upserts `{content, src_id, tgt_id}` — so those are the
+        columns. `.get` rather than `[...]` on the meta fields because a
+        reindex can project an edge whose endpoints were never named, and a
+        `KeyError` there would fail the whole batch rather than one row.
+        """
+        upsert_sql = SQL_TEMPLATES["upsert_decision"].format(table_name=self.table_name)
+        values: tuple[Any, ...] = (
+            self.workspace,
+            item["__id__"],
+            item.get("src_id"),
+            item.get("tgt_id"),
+            item["content"],
+            item["__vector__"],
+            current_time,
+            current_time,
+        )
+        return upsert_sql, values
+
+    def _upsert_communities(
+        self, item: dict[str, Any], current_time: datetime.datetime
+    ) -> tuple[str, tuple[Any, ...]]:
+        """Prepare upsert data for the community index (P9).
+
+        `meta_fields={"community_id", "title", "size"}`, and `size` is an
+        integer count of members — stored as one rather than as text, so an
+        operator can order by it without casting.
+        """
+        upsert_sql = SQL_TEMPLATES["upsert_community"].format(table_name=self.table_name)
+        size = item.get("size")
+        values: tuple[Any, ...] = (
+            self.workspace,
+            item["__id__"],
+            item.get("community_id"),
+            item.get("title"),
+            int(size) if size is not None else None,
+            item["content"],
+            item["__vector__"],
+            current_time,
+            current_time,
+        )
+        return upsert_sql, values
+
     def _upsert_entities(
         self, item: dict[str, Any], current_time: datetime.datetime
     ) -> tuple[str, tuple[Any, ...]]:
@@ -2994,6 +3052,14 @@ class PGVectorStorage(BaseVectorStorage):
                 upsert_sql, values = self._upsert_entities(item, current_time)
             elif is_namespace(self.namespace, NameSpace.VECTOR_STORE_RELATIONSHIPS):
                 upsert_sql, values = self._upsert_relationships(item, current_time)
+            # The two governance stores (P9). The table map alone was not
+            # enough: this dispatch raised `decisions is not supported` for a
+            # namespace that now had a table — the second half of the same
+            # change, and the one a table-level test would have missed.
+            elif is_namespace(self.namespace, NameSpace.VECTOR_STORE_DECISIONS):
+                upsert_sql, values = self._upsert_decisions(item, current_time)
+            elif is_namespace(self.namespace, NameSpace.VECTOR_STORE_COMMUNITIES):
+                upsert_sql, values = self._upsert_communities(item, current_time)
             else:
                 raise ValueError(f"{self.namespace} is not supported")
 
@@ -5405,6 +5471,12 @@ NAMESPACE_TABLE_MAP = {
     NameSpace.VECTOR_STORE_CHUNKS: "WEAVE_VDB_CHUNKS",
     NameSpace.VECTOR_STORE_ENTITIES: "WEAVE_VDB_ENTITY",
     NameSpace.VECTOR_STORE_RELATIONSHIPS: "WEAVE_VDB_RELATION",
+    # The two governance vector stores (P9, D-039). Their absence here is what
+    # `namespace_to_table_name` raised `Unknown namespace: decisions` on, forty
+    # frames inside the engine, which is why the pair was refused at startup
+    # instead. The refusal was honest; this is what earns its removal.
+    NameSpace.VECTOR_STORE_DECISIONS: "WEAVE_VDB_DECISIONS",
+    NameSpace.VECTOR_STORE_COMMUNITIES: "WEAVE_VDB_COMMUNITIES",
     NameSpace.DOC_STATUS: "WEAVE_DOC_STATUS",
 }
 
@@ -5485,6 +5557,41 @@ TABLES = {
                     chunk_ids VARCHAR(255)[] NULL,
                     file_path TEXT NULL,
 	                CONSTRAINT WEAVE_VDB_RELATION_PK PRIMARY KEY (workspace, id)
+                    )"""
+    },
+    # `meta_fields={"src_id", "tgt_id"}` on `decisions_vdb`, and
+    # `{"community_id", "title", "size"}` on `communities_vdb` — the columns are
+    # those fields, not a guess: a meta field with no column is dropped on write
+    # and absent on read, which would make precedent search quietly answer less.
+    "WEAVE_VDB_DECISIONS": {
+        "ddl": """CREATE TABLE WEAVE_VDB_DECISIONS (
+                    id VARCHAR(255),
+                    workspace VARCHAR(255),
+                    src_id VARCHAR(512),
+                    tgt_id VARCHAR(512),
+                    content TEXT,
+                    content_vector VECTOR(dimension),
+                    create_time TIMESTAMP(0) DEFAULT CURRENT_TIMESTAMP,
+                    update_time TIMESTAMP(0) DEFAULT CURRENT_TIMESTAMP,
+                    chunk_ids VARCHAR(255)[] NULL,
+                    file_path TEXT NULL,
+	                CONSTRAINT WEAVE_VDB_DECISIONS_PK PRIMARY KEY (workspace, id)
+                    )"""
+    },
+    "WEAVE_VDB_COMMUNITIES": {
+        "ddl": """CREATE TABLE WEAVE_VDB_COMMUNITIES (
+                    id VARCHAR(255),
+                    workspace VARCHAR(255),
+                    community_id VARCHAR(512),
+                    title TEXT,
+                    size INTEGER,
+                    content TEXT,
+                    content_vector VECTOR(dimension),
+                    create_time TIMESTAMP(0) DEFAULT CURRENT_TIMESTAMP,
+                    update_time TIMESTAMP(0) DEFAULT CURRENT_TIMESTAMP,
+                    chunk_ids VARCHAR(255)[] NULL,
+                    file_path TEXT NULL,
+	                CONSTRAINT WEAVE_VDB_COMMUNITIES_PK PRIMARY KEY (workspace, id)
                     )"""
     },
     "WEAVE_LLM_CACHE": {
@@ -5740,6 +5847,55 @@ SQL_TEMPLATES = {
                       file_path=EXCLUDED.file_path,
                       update_time = EXCLUDED.update_time
                      """,
+    "upsert_decision": """INSERT INTO {table_name} (workspace, id, src_id, tgt_id,
+                      content, content_vector, create_time, update_time)
+                      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                      ON CONFLICT (workspace,id) DO UPDATE
+                      SET src_id=EXCLUDED.src_id,
+                      tgt_id=EXCLUDED.tgt_id,
+                      content=EXCLUDED.content,
+                      content_vector=EXCLUDED.content_vector,
+                      update_time=EXCLUDED.update_time
+                     """,
+    "upsert_community": """INSERT INTO {table_name} (workspace, id, community_id,
+                      title, size, content, content_vector, create_time, update_time)
+                      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                      ON CONFLICT (workspace,id) DO UPDATE
+                      SET community_id=EXCLUDED.community_id,
+                      title=EXCLUDED.title,
+                      size=EXCLUDED.size,
+                      content=EXCLUDED.content,
+                      content_vector=EXCLUDED.content_vector,
+                      update_time=EXCLUDED.update_time
+                     """,
+    # `PGVectorStorage.query` looks these up by **namespace**, not by table, so
+    # a missing entry here is a `KeyError` at first search rather than at
+    # startup — the third place this pair had to be added.
+    "decisions": """
+                 SELECT d.id,
+                        d.src_id,
+                        d.tgt_id,
+                        d.content,
+                        EXTRACT(EPOCH FROM d.create_time)::BIGINT AS created_at
+                 FROM {table_name} d
+                 WHERE d.workspace = $1
+                   AND d.content_vector <=> '[{embedding_string}]'::vector < $2
+                 ORDER BY d.content_vector <=> '[{embedding_string}]'::vector
+                 LIMIT $3;
+                 """,
+    "communities": """
+                   SELECT c.id,
+                          c.community_id,
+                          c.title,
+                          c.size,
+                          c.content,
+                          EXTRACT(EPOCH FROM c.create_time)::BIGINT AS created_at
+                   FROM {table_name} c
+                   WHERE c.workspace = $1
+                     AND c.content_vector <=> '[{embedding_string}]'::vector < $2
+                   ORDER BY c.content_vector <=> '[{embedding_string}]'::vector
+                   LIMIT $3;
+                   """,
     "relationships": """
                      SELECT r.source_id AS src_id,
                             r.target_id AS tgt_id,

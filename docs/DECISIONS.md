@@ -1196,3 +1196,44 @@ Status: `accepted` · `superseded by D-NN` · `reversed`.
   value rewards moving work into the catch-all.* Any future "X% conforms to the ontology" measure needs a
   companion that counts only what is **useful**, or the cheapest way to pass it is to make Weave answer
   less.
+
+---
+
+## D-053 — PostgreSQL runs quadruple mode; the D-039 refusal is deleted
+
+- **Date:** 2026-08-20 · **Approved by:** dsivov (pending) · **Origin:** P9, closing D-039
+- **Decision:** `PGVectorStorage` gains the `decisions` and `communities` vector stores — table map,
+  DDL, upsert builders, dispatch branches and query templates — and the startup refusal added by
+  D-039 is **deleted, not disabled**. `CONSTRAINTS.md` A4 is amended to **v8** first. A test asserts
+  the refusal cannot return.
+- **Earned by a round-trip on live PostgreSQL, not a fixture.** Against `weave` on port 5442
+  (`vector 0.8.5`), both stores: **upsert 3 rows · query by vector · targeted delete.** The
+  query is **discriminating** rather than n=1 — three semantically distinct rows per store, and
+  the probe must rank the right one **first**: `dec-1` ahead of `dec-2`/`dec-3`, `com-1` ahead of
+  `com-3`/`com-2`. Delete removed exactly the named row and left the other two. Meta fields
+  round-trip with their declared types (`size` as an integer, not text).
+  - **Why n=1 would have proved nothing.** One row in a table returns for any probe, so
+    *"query returned 1"* demonstrates that the SQL executes, not that the store ranks. The same
+    shape as `test_all_three_graph_adapters_import` reading as coverage (W30).
+- **Four places, not one — and the fourth is the interesting one.** Adding a vector namespace to
+  this adapter means `NAMESPACE_TABLE_MAP`, `PGVectorStorage.upsert`'s dispatch (which ends in
+  `raise ValueError(f"{self.namespace} is not supported")`), and `PGVectorStorage.query`'s
+  `SQL_TEMPLATES[self.namespace]` lookup. The fourth was **`PostgreSQLDB.check_tables`**, which
+  carried a **hardcoded set of the three vector tables to skip** — the tables it must not create,
+  because only `setup_table()` knows the embedding dimension. A new vector table was not on that
+  list, so startup ran the template verbatim and PostgreSQL rejected it:
+  `invalid input syntax for type integer: "dimension"`.
+  - **Fixed by deriving the set rather than extending it:** skip any table whose DDL contains the
+    `VECTOR(dimension)` placeholder. The placeholder *is* the evidence that a table cannot be
+    created without a dimension, so the check asks the DDL instead of remembering a list. A fifth
+    vector store will be handled correctly by code nobody edits.
+- **This is the pair lesson for the fourth time** (after `normalize_type`, W54, and the two example
+  blocks): *whenever this project has a pair of paths, the fix reaches one of them first.* Here it
+  was three-of-four — and the missing one was in a **different class** (`PostgreSQLDB`, not
+  `PGVectorStorage`), which is why tracing the namespace through the storage class did not find it.
+  It failed at connect time, before any test that constructs a store could run.
+- **Contract:** A4 amended to **v8**; the amendment row is recorded `dsivov (pending)` because this
+  session had no direct approval from dsivov — the plan chartered the change (P9, work plan line 723)
+  and the round-trip discharged its condition, but the sign-off column states what is true.
+- **Not claimed:** this decision covers the two vector stores. `deploy/compose.yml` raising a
+  governed workspace end to end is the M9 gate and is verified separately.
