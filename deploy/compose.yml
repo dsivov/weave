@@ -81,11 +81,21 @@ services:
       WEAVE_ENABLE_QUADRUPLE: "${WEAVE_ENABLE_QUADRUPLE:-true}"
       WEAVE_ENABLE_MCP: "${WEAVE_ENABLE_MCP:-true}"
 
-      # A7: one worker, because this file ships the in-process event bus. The
-      # PostgreSQL LISTEN/NOTIFY adapter — and with it multi-worker serving —
-      # lands in P3. Raising this now would silently break SSE fan-out: a client
-      # on worker 2 would never see an event published on worker 1, with no
-      # error and no log.
+      # **The variable the bus refusal tells you to set** (W58). It advised
+      # `export WEAVE_EVENT_BUS=postgres` and the bundle had no such variable, so
+      # the advice changed nothing for the operator being addressed — W20's
+      # mechanism, in a refusal rather than a description. Named here so the
+      # instruction is actionable.
+      WEAVE_EVENT_BUS: "${WEAVE_EVENT_BUS:-inprocess}"
+
+      # A7: one worker, because this file defaults to the in-process event bus.
+      # **The PostgreSQL LISTEN/NOTIFY adapter shipped in P3** — this comment used
+      # to say it was still to come, which stopped being true and kept being read
+      # (R6). What has not changed is the pairing: raising this line while the bus
+      # above is `inprocess` would silently break SSE fan-out — a client on worker
+      # 2 would never see an event published on worker 1, with no error and no
+      # log. **Raise them together or not at all**; that pairing is A7, and it is
+      # a tripwire, not a preference.
       WEAVE_WORKERS: "1"
     volumes:
       - weave-data:/data
@@ -111,7 +121,20 @@ services:
     restart: on-failure:3
 
   postgres:
-    image: pgvector/pgvector:pg16
+    # **Built, not pulled** — because no published image can run the production
+    # path (D-046, A4 v6). `PGGraphStorage` needs `age` *and* `vector` in one
+    # database: `pgvector/pgvector:pg16`, which this line used to name, has no
+    # `age` and dies at `create_graph`; `apache/age` has no `vector` and dies
+    # earlier still, on connect. See `deploy/postgres.Dockerfile` for which half
+    # we now maintain and why.
+    #
+    # The image built here provides both. That it *builds* proves nothing on its
+    # own — the previous image built too. The gate is a graph round-trip on a
+    # live server.
+    build:
+      context: ..
+      dockerfile: deploy/postgres.Dockerfile
+    image: weave-postgres:16
     environment:
       # The image's own variables. Not Weave's, so not prefixed.
       POSTGRES_USER: "${WEAVE_POSTGRES_USER:-weave}"
@@ -132,7 +155,29 @@ services:
     profiles: ["neo4j"]
     image: neo4j:5
     environment:
-      NEO4J_AUTH: "neo4j/${WEAVE_NEO4J_PASSWORD:?set WEAVE_NEO4J_PASSWORD}"
+      # **`:-` and not `:?`, and the difference is the whole of W56.**
+      #
+      # `profiles:` above keeps this service out of `up` unless it is asked for —
+      # but compose interpolates **every** service's environment at parse time,
+      # profile or not. With `:?` here, `docker compose up server postgres`
+      # failed before starting anything, naming a service the operator never
+      # asked for:
+      #
+      #   error while interpolating services.neo4j.environment.NEO4J_AUTH:
+      #   required variable WEAVE_NEO4J_PASSWORD is missing a value
+      #
+      # **A profile makes a service optional to run, not optional to configure.**
+      # So the PostgreSQL operator — the path A4 calls production — was blocked
+      # at the front door by a credential for the experimental backend they had
+      # deliberately not enabled.
+      #
+      # `:?` stays right for `WEAVE_TOKEN_SECRET` and `WEAVE_POSTGRES_PASSWORD`:
+      # those are things **this** deployment cannot run without, and failing
+      # loudly is the point. The rule the two cases share is *require what the
+      # deployment uses, not what the file mentions* — and a placeholder here is
+      # safe precisely because the service does not start without `--profile
+      # neo4j`, at which point anyone actually using it will set a real one.
+      NEO4J_AUTH: "neo4j/${WEAVE_NEO4J_PASSWORD:-neo4j-not-configured}"
     ports:
       - "0.0.0.0:7474:7474"
       - "0.0.0.0:7687:7687"

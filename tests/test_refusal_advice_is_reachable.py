@@ -17,8 +17,23 @@ reachable**, which is the same distinction as *builds* versus *runs* at M6, one
 layer in.
 
 So this checks the property rather than the two names: **every `WEAVE_*`
-variable the refusal mentions is overridable in the bundle.** If the message
+variable a refusal mentions is overridable in the bundle.** If the message
 grows a third suggestion, this covers it without anyone remembering to.
+
+**Widened by P9, because the instance it was written for is gone.** W20 was
+found on the D-039 quadruple refusal, and D-053 deleted that refusal — so a test
+scoped to it would have been deleted with it, taking the property along. The
+property was never about quadruple mode. It now sweeps **every** startup
+refusal `assert_startup_preconditions` can raise, which is what it should have
+done first: W20 is a claim about refusals, not about one of them.
+
+**And widening it immediately found the same bug again.** The event-bus refusal
+(A7, D-019) says *"export `WEAVE_EVENT_BUS=postgres`"* and the bundle has no
+such variable — advice that changes nothing for the operator being addressed,
+which is W20 word for word. It is not a live dead end *today* only because that
+refusal cannot fire in the bundle: it needs more than one worker, and
+`WEAVE_WORKERS` is pinned to 1. That premise is **asserted below** rather than
+assumed, so raising the worker count turns this from a note into a failure.
 
 The literals that remain are deliberate and are asserted as such — they describe
 the inside of the container, not a preference, and a test that demanded
@@ -32,8 +47,6 @@ import pathlib
 import re
 
 import pytest
-
-from weave_core.graph.storage import QuadrupleUnsupported, assert_quadruple_supported
 
 pytestmark = pytest.mark.offline
 
@@ -50,10 +63,42 @@ DELIBERATELY_FIXED = {
 }
 
 
+#: A refusal whose advice the bundle cannot follow, and the reason it is not a
+#: dead end. **The reason is a premise, not an excuse** — each entry names a
+#: check that must still hold, and the test below runs it.
+DECLARED_UNREACHABLE = {
+    # The message itself says "Do not put that in a deployment template", so a
+    # bundle that offered it would be contradicting the sentence that names it.
+    "WEAVE_ALLOW_INSECURE_JWT_SECRET": "the dev escape hatch, deliberately absent from the bundle",
+    # A7: this refusal fires only above one worker, and the bundle pins one.
+    "WEAVE_EVENT_BUS": "the bus refusal cannot fire while WEAVE_WORKERS is pinned to 1",
+}
+
+
+def _refusal_messages() -> list[str]:
+    """Every refusal `assert_startup_preconditions` can present to an operator.
+
+    Driven by raising each one for real rather than by quoting its text: a
+    message that changes its advice is followed automatically, and a check that
+    stops refusing shows up as an empty list in the premise test below.
+    """
+    from weave.server.auth import DEFAULT_TOKEN_SECRET, assert_signing_secret_is_safe
+    from weave.server.config import assert_bus_matches_deployment
+
+    messages: list[str] = []
+    for call, args, kwargs in (
+        (assert_signing_secret_is_safe, (DEFAULT_TOKEN_SECRET,), {"env": {}}),
+        (assert_bus_matches_deployment, ("inprocess", 4), {}),
+    ):
+        try:
+            call(*args, **kwargs)
+        except Exception as refusal:  # noqa: BLE001 - any refusal is in scope
+            messages.append(str(refusal))
+    return messages
+
+
 def _refusal_message() -> str:
-    with pytest.raises(QuadrupleUnsupported) as excinfo:
-        assert_quadruple_supported("PGVectorStorage", True)
-    return str(excinfo.value)
+    return "\n".join(_refusal_messages())
 
 
 def _overridable(name: str) -> bool:
@@ -67,6 +112,19 @@ def _mentioned_in(message: str) -> set[str]:
 
 
 # ── the property ─────────────────────────────────────────────────────────────
+
+
+def test_every_precondition_still_refuses():
+    """Guards the guard, first half.
+
+    `_refusal_messages` swallows a check that stopped raising, so without this
+    the sweep would quietly measure fewer and fewer refusals until it measured
+    none — passing the whole way down.
+    """
+    assert len(_refusal_messages()) == 2, (
+        "a startup precondition stopped refusing, or a new one is not listed "
+        "here — the sweep below only covers what this function raises"
+    )
 
 
 def test_the_refusal_names_at_least_one_variable():
@@ -87,7 +145,7 @@ def test_every_variable_the_refusal_suggests_is_overridable_in_the_bundle():
     """
     unreachable = [
         name for name in sorted(_mentioned_in(_refusal_message()))
-        if not _overridable(name)
+        if not _overridable(name) and name not in DECLARED_UNREACHABLE
     ]
     assert not unreachable, (
         "the refusal suggests variables the bundle hardcodes, so following its "
@@ -96,11 +154,26 @@ def test_every_variable_the_refusal_suggests_is_overridable_in_the_bundle():
     )
 
 
-def test_both_exits_the_message_offers_are_reachable():
-    """Named explicitly as well as swept, because these two are the ones an
-    operator actually meets and a regression in either is the whole bug back."""
-    assert _overridable("WEAVE_ENABLE_QUADRUPLE")
-    assert _overridable("WEAVE_VECTOR_STORAGE")
+def test_the_declared_exceptions_still_have_their_reason():
+    """**The premise behind each declared exception, checked.**
+
+    `WEAVE_EVENT_BUS` is exempt only because the refusal that suggests it cannot
+    fire in the bundle — it needs more than one worker, and the bundle pins one.
+    If `WEAVE_WORKERS` ever becomes overridable, that refusal becomes reachable
+    with advice the bundle still cannot take, and this must fail rather than
+    keep honouring an exemption whose reason has expired.
+    """
+    assert not _overridable("WEAVE_WORKERS"), (
+        "WEAVE_WORKERS became overridable, so the event-bus refusal can now fire "
+        "in the bundle — and WEAVE_EVENT_BUS is still not settable there. Either "
+        "add ${WEAVE_EVENT_BUS:-inprocess} to deploy/compose.yml or drop the "
+        "exemption from DECLARED_UNREACHABLE."
+    )
+    for name in DECLARED_UNREACHABLE:
+        assert name in _mentioned_in(_refusal_message()), (
+            f"{name} is declared unreachable but no refusal mentions it any more "
+            "— delete the entry rather than carrying a dead exemption"
+        )
 
 
 def test_the_storage_choice_is_overridable_as_a_set():

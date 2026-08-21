@@ -19,6 +19,7 @@ from fastapi.security import APIKeyHeader, OAuth2PasswordBearer
 from starlette.status import HTTP_403_FORBIDDEN
 from weave.server.auth import auth_handler
 from weave.server.config import global_args, get_env_value
+from weave.server.workspace_pool import WORKSPACE_HEADER
 
 logger = logging.getLogger("weave_core")
 
@@ -250,6 +251,32 @@ def get_combined_auth_dependency(api_key: Optional[str] = None):
                             logger.warning(f"Token auto-renew failed: {e}")
                 # ========== End of Token Auto-Renewal Logic ==========
 
+                # ── the tenant boundary (W34, R14, A4, A14) ──────────────
+                #
+                # **Every authenticated route, one check.** `User.may_access`
+                # has existed since P1 and `tests/test_membership.py` asserts it
+                # against the *store*; no HTTP path had ever consulted it, so an
+                # authenticated user read any workspace — including one that did
+                # not exist yet, which was then created for them — by changing a
+                # header. That is M2's Critical in the same shape: we fixed how
+                # the header *resolves* and never checked whether the principal
+                # was allowed to name it.
+                #
+                # Here rather than in the workspace middleware because the
+                # middleware runs before anything is authenticated; here rather
+                # than per route because a rule applied route by route is a rule
+                # a new route can be added without.
+                from weave.server.workspace_pool import _current_workspace
+
+                workspace = _current_workspace.get()
+                if not principal_may_access(principal_from_token(token_info), workspace):
+                    raise WorkspaceForbidden(
+                        status_code=HTTP_403_FORBIDDEN,
+                        detail=(f"not a member of workspace '{workspace}'. The "
+                                f"{WORKSPACE_HEADER} header selects among the "
+                                "workspaces you hold; it does not grant one."),
+                    )
+
                 # Accept guest token if no auth is configured
                 if not _auth_configured() and token_info.get("role") == "guest":
                     return
@@ -262,6 +289,9 @@ def get_combined_auth_dependency(api_key: Optional[str] = None):
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Invalid token. Please login again.",
                 )
+            except WorkspaceForbidden:
+                # Deliberate, and it must not be swallowed by the clause below.
+                raise
             except HTTPException as e:
                 # If already a 401 error, re-raise it
                 if e.status_code == status.HTTP_401_UNAUTHORIZED:
@@ -331,15 +361,35 @@ def get_principal(request: Request) -> Optional[dict]:
         info = auth_handler.validate_token(token)
     except Exception:
         return None
-    # `workspaces` travels in the token's metadata, put there at login from the
-    # stored record — so the grant is as server-derived as the role is, and a
-    # client cannot widen it by editing a header (W33).
+    return principal_from_token(info)
+
+
+def principal_from_token(info: dict) -> dict:
+    """The caller, as the validated token describes them.
+
+    `workspaces` travels in the token's metadata, put there at login from the
+    stored record — so the grant is as server-derived as the role is, and a
+    client cannot widen it by editing a header (W33). One shape, because the
+    auth dependency and `get_principal` must agree about who is asking.
+    """
     metadata = info.get("metadata") or {}
     return {
         "username": info.get("username"),
         "role": info.get("role"),
         "workspaces": metadata.get("workspaces"),
     }
+
+
+class WorkspaceForbidden(HTTPException):
+    """The principal is not a member of the workspace they addressed (W34).
+
+    A distinct type because the token-validation block it is raised inside ends
+    in `except HTTPException: … continue processing`, which re-raises 401s and
+    swallows everything else. A plain `HTTPException(403)` was therefore
+    discarded and the caller got the generic *"API Key required or login
+    authentication required"* — a refusal that names the wrong reason is worse
+    than a bare one, because it sends the reader to fix the wrong thing.
+    """
 
 
 def principal_may_access(principal: Optional[dict], workspace: Optional[str]) -> bool:

@@ -5,7 +5,7 @@ whole finding:
 
 ```
 line 18 : 📡 Server Configuration:          ← a banner announcing a configured server
-line 71 : QuadrupleUnsupported: PGVector…   ← the refusal, 53 lines later
+line 71 : InsecureSigningSecret: WEAVE_…    ← the refusal, 53 lines later
 RestartCount: 12                            ← in under a minute
 ```
 
@@ -28,6 +28,7 @@ from __future__ import annotations
 import inspect
 import pathlib
 import re
+import textwrap
 
 import pytest
 
@@ -76,8 +77,10 @@ def test_every_refusal_lives_in_the_one_precondition_function():
     from weave.server.app import assert_startup_preconditions
 
     source = inspect.getsource(assert_startup_preconditions)
+    # `assert_quadruple_supported` was here until D-053 deleted it. Its slot is
+    # not backfilled: the list is what the preconditions *are*, and a name kept
+    # for symmetry would assert a check nobody runs.
     for check in ("assert_signing_secret_is_safe",
-                  "assert_quadruple_supported",
                   "assert_bus_matches_deployment"):
         assert check in source, f"{check} is not among the startup preconditions"
 
@@ -174,7 +177,7 @@ def test_a_refusal_exits_with_the_message_and_no_traceback():
 
     `SystemExit` prints its argument and exits non-zero with no traceback. The
     exception classes are untouched, so callers that want to catch
-    `QuadrupleUnsupported` still can — only the presentation at the entry point
+    `InsecureSigningSecret` still can — only the presentation at the entry point
     changed.
     """
     from weave.server.app import refuse_readably
@@ -187,21 +190,93 @@ def test_a_refusal_exits_with_the_message_and_no_traceback():
     assert "Weave will not start" in source
 
 
-def test_the_refusal_still_carries_the_original_reason():
-    """The wrapper must not swallow what it wraps. A `SystemExit` saying only
-    "Weave will not start" would be worse than the traceback it replaced."""
+#: Each startup precondition, with a configuration that trips **only** it and a
+#: phrase its message must keep. Driven through `refuse_readably` for real,
+#: because the thing under test is what an operator sees.
+#:
+#: **This is a list of every refusal, and that is the point.** The previous
+#: version of this test drove one configuration — the quadruple refusal, deleted
+#: by D-053 — and concluded that refusals exit readably. They did not: the A7 bus
+#: mismatch is a `RuntimeError` that `refuse_readably` did not catch, so it
+#: reached operators as a traceback for its entire life. One example proved the
+#: property for the example.
+_GOOD_SECRET = "a-perfectly-fine-secret-that-is-long-enough-xxxx"
+
+REFUSALS = [
+    pytest.param(
+        {"token_secret": None, "event_bus": "inprocess", "workers": 1},
+        ("WEAVE_TOKEN_SECRET", "published default"),
+        id="signing-secret",
+    ),
+    pytest.param(
+        {"token_secret": _GOOD_SECRET, "event_bus": "inprocess", "workers": 4},
+        ("WEAVE_EVENT_BUS", "D-019"),
+        id="bus-mismatch",
+    ),
+]
+
+
+@pytest.mark.parametrize("config,expected", REFUSALS)
+def test_every_refusal_reaches_the_operator_as_a_sentence(config, expected, monkeypatch):
+    """**W19 as a property, not an example.**
+
+    A refusal type missing from `refuse_readably`'s tuple still refuses — the
+    server does not start either way — so nothing about the *outcome* changes.
+    Only the presentation degrades, from one sentence to eleven frames, which is
+    exactly the failure W19 was raised about. Driving each precondition through
+    the wrapper is the only way that shows up.
+    """
     import argparse
 
     from weave.server.app import refuse_readably
+    from weave.server.auth import DEFAULT_TOKEN_SECRET, INSECURE_OVERRIDE_VAR
 
-    args = argparse.Namespace(
-        token_secret="a-perfectly-fine-secret-that-is-long-enough-xxxx",
-        vector_storage="PGVectorStorage", use_quadruple=True,
-        event_bus="inprocess", workers=1,
-    )
+    # The signing-secret check reads the real environment, so a developer with
+    # the escape hatch exported would otherwise see this test skip its own
+    # subject and pass.
+    monkeypatch.delenv(INSECURE_OVERRIDE_VAR, raising=False)
+
+    settings = dict(config)
+    if settings["token_secret"] is None:
+        settings["token_secret"] = DEFAULT_TOKEN_SECRET
+
+    args = argparse.Namespace(vector_storage="PGVectorStorage", use_quadruple=True,
+                              **settings)
     with pytest.raises(SystemExit) as excinfo:
         refuse_readably(args)
 
     message = str(excinfo.value)
-    assert "decisions" in message and "communities" in message
-    assert "D-039" in message
+    assert "Weave will not start" in message
+    for phrase in expected:
+        assert phrase in message, (
+            f"the refusal no longer explains itself — {phrase!r} is gone from:\n{message}"
+        )
+
+
+def test_the_refusal_list_covers_every_precondition():
+    """Guards the list above.
+
+    A precondition added to `assert_startup_preconditions` without a row in
+    `REFUSALS` is a refusal nobody has ever seen presented — which is the state
+    the bus mismatch was in.
+    """
+    from weave.server.app import assert_startup_preconditions
+
+    # **Parsed, not grepped.** The first draft matched lines starting with
+    # `assert_` and ending with `(`, which counted the two-line call and missed
+    # the one-line one — a matcher that reported 1 precondition where there are
+    # 2, in a test whose entire job is counting them. This suite has now been
+    # bitten by line-matching eight times.
+    import ast
+
+    tree = ast.parse(textwrap.dedent(inspect.getsource(assert_startup_preconditions)))
+    checks = sorted({
+        node.func.id for node in ast.walk(tree)
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+        and node.func.id.startswith("assert_")
+    })
+    assert len(checks) == len(REFUSALS), (
+        f"{len(checks)} startup preconditions {checks} but {len(REFUSALS)} are driven "
+        "through refuse_readably — every refusal needs a row, or one of them "
+        "reaches operators as a traceback and no test says so"
+    )
