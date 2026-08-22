@@ -22,6 +22,8 @@ which is why it is a flag rather than a guess.
 from __future__ import annotations
 
 import argparse
+import pathlib
+import sys
 import json
 import os
 import shlex
@@ -61,7 +63,48 @@ def _split(value):
     return None if value is None else shlex.split(value)
 
 
+def _repo_name(repo: str) -> str:
+    """The name a locator's `repo` field will hold for this repository.
+
+    **Derived the same way `publish_artifact` derives it** — the repository
+    directory's own name — so the two agree by construction rather than by
+    coincidence. That they did *not* agree is W60: `publish_artifact` stamped
+    `bestbay_helper` while nothing of that name was registered, so every artifact
+    resolved to `unregistered` and A5's claim failed end to end.
+    """
+    text = (repo or "").strip().rstrip("/")
+    if not text:
+        return ""
+    # scp-style (`git@host:acme/thing.git`) and URL forms both end in the name.
+    tail = text.rsplit("/", 1)[-1].rsplit(":", 1)[-1]
+    return tail[:-4] if tail.endswith(".git") else tail
+
+
+def _looks_like_url(repo: str) -> bool:
+    return "://" in repo or repo.strip().startswith("git@")
+
+
 def _register(args: argparse.Namespace) -> int:
+    # **W61: a local path that is not there is not a state worth keeping.**
+    # Registering used to succeed for a path the server could not see — inside
+    # the bundle, for a host path that does not exist in the container — and the
+    # failure surfaced one command later, in `weave docs publish`, after the
+    # project record had already been written. A clone URL is a different case:
+    # it is resolved by a dev host elsewhere, so it is deliberately not checked.
+    # Only for values that are unambiguously a filesystem path. A bare token
+    # (`thing`) is a repository *name* and a relative one may be resolved from a
+    # dev host's own checkout, so neither is ours to reject — the case W61 is
+    # about is an absolute path that does not exist on this machine.
+    if args.repo and not _looks_like_url(args.repo) and args.repo.startswith(("/", "~")):
+        path = pathlib.Path(args.repo).expanduser()
+        if not path.is_dir():
+            print(f"no such directory: {path}\n"
+                  "  `--repo` is a clone URL or a path this machine can reach. If you\n"
+                  "  meant a path inside a container, it must be bind-mounted there\n"
+                  "  first — the bundled server mounts only its own data volume.",
+                  file=sys.stderr)
+            return 2
+
     service = _local.project_service(args)
     project = service.set(
         args.workspace,
@@ -74,12 +117,47 @@ def _register(args: argparse.Namespace) -> int:
         by=args.by or os.environ.get("USER", ""),
     )
 
+    # **W60: register the layout too, or nothing a locator names will resolve.**
+    # These are two records for two jobs — the project says what to build, the
+    # layout says where a repository named in a locator actually is — and an
+    # operator following the documented command only ever wrote the first.
+    name = _repo_name(args.repo)
+    layout_note = ""
+    if name:
+        is_url = _looks_like_url(args.repo)
+        local = pathlib.Path(args.repo).expanduser()
+        local_path = str(local.resolve()) if not is_url and local.is_dir() else ""
+        # A layout needs somewhere to look. A bare repository *name* with neither
+        # a URL nor a directory on this machine is a legitimate thing to register
+        # as a project — a dev host may resolve it from its own checkout — but it
+        # cannot be a layout, and saying so beats a warning nobody reads.
+        if is_url or local_path:
+            try:
+                _local.layout_registry(args).register(
+                    args.workspace, name,
+                    clone_url=args.repo if is_url else "",
+                    local_path=local_path,
+                    default_rev=args.base_branch or "main",
+                    description=args.description or "",
+                )
+                layout_note = name
+            except Exception as e:  # a bad name must not lose the project record
+                print(f"warning: the repository layout was not registered ({e}).\n"
+                      "  Artifacts published from it will report 'unregistered'\n"
+                      "  and their locators will not resolve.", file=sys.stderr)
+
     if args.json:
-        print(json.dumps(project.to_dict(), indent=2))
+        out = project.to_dict()
+        out["layout_registered_as"] = layout_note
+        print(json.dumps(out, indent=2))
         return 0
 
     print(f"workspace '{args.workspace}' is building:")
     _print_project(project)
+    if layout_note:
+        # Named, because it is the string every locator will carry and the one a
+        # reader has to recognise in `check_locators` output.
+        print(f"  locators say  {layout_note}")
     print("\nEvery dev host picks this up on its next heartbeat. Nothing is sent "
           "to them (A15).")
     return 0

@@ -157,6 +157,25 @@ def project_service(args: argparse.Namespace):
     return ProjectService(JsonWeaveProjectStore(team_dir(args)))
 
 
+def layout_registry(args: argparse.Namespace):
+    """The registry a locator resolves against (W60).
+
+    **Not the same thing as `project_service`, and that was the defect.** The
+    team project record says *what this workspace is building*; `ProjectLayout`
+    says *where a repository named in a locator actually is*. `weave project
+    register` wrote only the first, so `repo · path · rev` had nothing to
+    resolve through and every published artifact came back `unregistered`.
+
+    Built from the working directory, exactly as `create_app` builds it, so the
+    CLI and the server read one registry rather than two.
+    """
+    from weave.model.project_layout import (
+        JsonProjectLayoutStore, ProjectLayoutRegistry,
+    )
+
+    return ProjectLayoutRegistry(JsonProjectLayoutStore(working_dir(args)))
+
+
 def host_registry(args: argparse.Namespace):
     from weave.devhost.registry import DevHostRegistry, JsonDevHostStore
 

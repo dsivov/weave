@@ -10,6 +10,7 @@ from fastapi.openapi.docs import (
     get_swagger_ui_oauth2_redirect_html,
 )
 import asyncio
+import socket
 import os
 import logging
 import logging.config
@@ -2401,6 +2402,37 @@ def main():
                 "ssl_keyfile": global_args.ssl_keyfile,
             }
         )
+
+    # **A server that cannot serve must not stay up** (W63).
+    #
+    # `uvicorn.run` logs `[Errno 98] address already in use` and then returns
+    # normally, so this process exited 0 having never served a request — while
+    # whatever already held the port went on answering. The observed effect was
+    # not an error but a *wrong* answer: `/health` replied cheerfully from
+    # another installation's working directory, so users created by the CLI
+    # "did not exist" and it looked like a data problem. Four commands went into
+    # diagnosing a port collision.
+    #
+    # Checked before the bind rather than after, so the message can say what to
+    # do. The gap between this probe and uvicorn's own bind is a real race, and
+    # it is the acceptable kind: losing it puts us back to today's behaviour,
+    # never worse.
+    probe = socket.socket(socket.AF_INET6 if ":" in global_args.host else socket.AF_INET,
+                          socket.SOCK_STREAM)
+    try:
+        probe.bind((global_args.host, int(global_args.port)))
+    except OSError as e:
+        raise SystemExit(
+            f"cannot bind {global_args.host}:{global_args.port} — {e.strerror}.\n\n"
+            "  Something is already listening there. Weave will not start beside it:\n"
+            "  a second server on a taken port serves nothing while the first one\n"
+            "  keeps answering, and the health check then describes *its* working\n"
+            f"  directory rather than {global_args.working_dir}.\n\n"
+            "  Fix: stop the process holding the port, or start on another one\n"
+            f"       (weave up --port <other> --working-dir {global_args.working_dir})."
+        )
+    finally:
+        probe.close()
 
     print(
         f"Starting Uvicorn server in single-process mode on {global_args.host}:{global_args.port}"
