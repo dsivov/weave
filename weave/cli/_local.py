@@ -116,6 +116,11 @@ async def product_engine(args: argparse.Namespace):
 
         server_args = parse_args()
         server_args.working_dir = working_dir(args)
+        # **Compared before the overrides below, not after.** This function
+        # forces `use_quadruple`, so comparing afterwards would report a
+        # difference this code had just created — a guard that fires on its own
+        # behaviour teaches operators to ignore it (W62).
+        assert_matches_server(args, server_args)
         server_args.workers = 1
         server_args.use_quadruple = True
         # This process serves no requests; it needs the engine, not a signer.
@@ -155,6 +160,82 @@ def project_service(args: argparse.Namespace):
     from weave.team.project import JsonWeaveProjectStore, ProjectService
 
     return ProjectService(JsonWeaveProjectStore(team_dir(args)))
+
+
+#: The configuration a tool must share with the server to be looking at the same
+#: installation. Secrets are deliberately absent — this file sits in the working
+#: directory and is compared, never used to authenticate anything.
+RUNTIME_KEYS = (
+    "kv_storage", "vector_storage", "graph_storage", "doc_status_storage",
+    "use_quadruple", "embedding_binding", "embedding_model", "embedding_dim",
+)
+
+RUNTIME_FILENAME = "runtime.json"
+
+
+def write_runtime(working_dir_path: str, server_args) -> None:
+    """Record what this server is actually running on (W62).
+
+    **So a tool can tell it is looking at the same installation.** `weave docs
+    publish` and `scripts/check_locators.py` build their own engine from the
+    environment, and `weave init` writes only the signing secret and two flags —
+    so a shell missing the storage variables reads a *file-based* graph while the
+    server writes PostgreSQL, and answers confidently from the wrong place.
+    Measured: `check_locators` reported `resolved: 0 · dangling: 0` for a
+    deployment holding three artifacts.
+
+    Best-effort: a server that cannot write this file still serves. The file is
+    an aid to the CLI, not a precondition for the product.
+    """
+    import json
+
+    try:
+        data = {k: getattr(server_args, k, None) for k in RUNTIME_KEYS}
+        data["working_dir"] = str(working_dir_path)
+        path = os.path.join(str(working_dir_path), RUNTIME_FILENAME)
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(data, fh, indent=2, sort_keys=True, default=str)
+    except OSError:
+        pass
+
+
+def assert_matches_server(args: argparse.Namespace, server_args) -> None:
+    """Refuse when this tool's backend differs from the server's (W62).
+
+    **A clean bill from a different backend is worse than an error**, and this
+    project has now produced one three times. If no server has run here there is
+    nothing to compare and nothing to say — silence is correct then, because a
+    first run is not a mismatch.
+    """
+    import json
+
+    root = working_dir(args)
+    path = os.path.join(root, RUNTIME_FILENAME)
+    try:
+        with open(path, encoding="utf-8") as fh:
+            recorded = json.load(fh)
+    except (OSError, ValueError):
+        return
+
+    differs = [
+        (k, recorded.get(k), getattr(server_args, k, None))
+        for k in RUNTIME_KEYS
+        if str(recorded.get(k)) != str(getattr(server_args, k, None))
+    ]
+    if not differs:
+        return
+
+    lines = "\n".join(f"    {k}: server {mine!r} · here {theirs!r}"
+                      for k, mine, theirs in differs)
+    raise SystemExit(
+        f"this command is configured differently from the server that last ran in\n"
+        f"{root}, so it would read or write a different store:\n\n{lines}\n\n"
+        "  Weave's CLI builds its own engine — it is not a client of the running\n"
+        "  server — so it needs the same configuration in *this* shell. Source the\n"
+        "  same environment the server was started with and run it again.\n\n"
+        f"  (Recorded by the server in {RUNTIME_FILENAME}; delete that file if the\n"
+        "   deployment has genuinely changed backend.)"
+    )
 
 
 def layout_registry(args: argparse.Namespace):

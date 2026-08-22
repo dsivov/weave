@@ -201,7 +201,31 @@ async def _open_graph(args: argparse.Namespace):
     # normally sets up at boot. One worker: this is a single-process read.
     initialize_share_data(1)
 
+    # **Refuse a clean bill from the wrong backend** (W62).
+    #
+    # This picked `NetworkXStorage` whenever `WEAVE_GRAPH_STORAGE` was absent
+    # from *this* shell, so against a PostgreSQL deployment holding three
+    # artifacts it read an empty file-based graph and printed
+    # `resolved: 0 · dangling: 0` — a pass, from a store the server never
+    # writes. The working directory was right and the backend was not, which is
+    # W42 one layer up.
     storage_name = os.environ.get("WEAVE_GRAPH_STORAGE", "NetworkXStorage")
+    _recorded = os.path.join(args.working_dir, "runtime.json")
+    if os.path.exists(_recorded):
+        try:
+            with open(_recorded, encoding="utf-8") as fh:
+                _server_graph = json.load(fh).get("graph_storage")
+        except (OSError, ValueError):
+            _server_graph = None
+        if _server_graph and _server_graph != storage_name:
+            raise SystemExit(
+                f"the server that last ran in {args.working_dir} uses "
+                f"{_server_graph}, but this shell is configured for "
+                f"{storage_name}.\n\n"
+                "  Reading the wrong store would report a clean bill for a graph\n"
+                "  it never looked at. Export the same WEAVE_GRAPH_STORAGE (and the\n"
+                "  rest of the deployment's configuration) and run it again."
+            )
     module = __import__(
         STORAGES[storage_name], fromlist=[storage_name]
     )

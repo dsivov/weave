@@ -2387,6 +2387,14 @@ def main():
     # Create application instance directly instead of using factory function
     app = create_app(global_args)
 
+    # Record what this server runs on, so a CLI in another shell can tell it is
+    # looking at the same installation rather than answering from a different
+    # backend (W62). After create_app, so it reflects a configuration that
+    # actually built.
+    from weave.cli._local import write_runtime
+
+    write_runtime(str(global_args.working_dir), global_args)
+
     # Start Uvicorn in single process mode
     uvicorn_config = {
         "app": app,  # Pass application instance directly instead of string path
